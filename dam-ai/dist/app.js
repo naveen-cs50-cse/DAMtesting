@@ -589,7 +589,7 @@ function analyzeIndianQuery(prompt, attachments) {
   };
 }
 
-// CHARACTER-BY-CHARACTER GENAI STREAMING WRITER (with blinking cursor)
+// CHARACTER-BY-CHARACTER GENAI STREAMING WRITER (with natural human/model cadence)
 function renderStreamingAnswer(container, analysis, onComplete) {
   state.isStreaming = true;
   state.streamAbortController = new AbortController();
@@ -621,14 +621,11 @@ DAM cross-examined the assertions against indexed regulatory records [1][2]. The
 ${analysis.actionGuidance}
   `.trim();
 
-  // Character-by-character GenAI typewriter effect
   let charIndex = 0;
   const totalLength = fullMarkdown.length;
-  const charBatch = 3; // 3 characters per frame for natural GenAI velocity
 
-  const typeInterval = setInterval(() => {
+  function typeNext() {
     if (!state.isStreaming || charIndex >= totalLength) {
-      clearInterval(typeInterval);
       state.isStreaming = false;
       answerProse.classList.remove('generating');
       if (stopBtn) stopBtn.style.display = 'none';
@@ -647,7 +644,8 @@ ${analysis.actionGuidance}
       return;
     }
 
-    charIndex = Math.min(charIndex + charBatch, totalLength);
+    const currentChar = fullMarkdown[charIndex];
+    charIndex = Math.min(charIndex + 1, totalLength);
     const slice = fullMarkdown.slice(0, charIndex);
 
     // Live HTML parsing during streaming with glowing cursor at leading edge
@@ -663,7 +661,21 @@ ${analysis.actionGuidance}
     if (els.workspace) {
       els.workspace.scrollTop = els.workspace.scrollHeight;
     }
-  }, 14);
+
+    // Natural cadence: pause slightly at punctuation to allow comprehension
+    let nextDelay = 18; // Smooth 18ms per character
+    if (currentChar === '.' || currentChar === '?' || currentChar === '!') {
+      nextDelay = 110; // Sentence pause
+    } else if (currentChar === ',' || currentChar === ':') {
+      nextDelay = 45;  // Clause breath
+    } else if (currentChar === '\n') {
+      nextDelay = 75;
+    }
+
+    setTimeout(typeNext, nextDelay);
+  }
+
+  typeNext();
 }
 
 // GENERATE HTML MARKUP FOR COMPLETE INVESTIGATION EXPERIENCE (Part 4)
@@ -784,8 +796,13 @@ function buildInvestigationMarkup(item, analysis, isLive = true) {
           </div>
         </details>
 
-        <!-- 2. THREE SEPARATE VERDICT CARDS (Never Blended) -->
-        <div class="verdicts-grid">
+        <!-- 2. STREAMING ANSWER PROSE -->
+        <div class="answer-prose">
+          <!-- Populated during live streaming -->
+        </div>
+
+        <!-- 3. THREE SEPARATE VERDICT CARDS (Never Blended) -->
+        <div class="verdicts-grid progressive-section ${isLive ? '' : 'revealed'}" id="progressiveVerdicts">
           <div class="verdict-card">
             <span class="verdict-header">Factual Correctness</span>
             <div class="verdict-badge ${correctnessClass}">
@@ -813,13 +830,8 @@ function buildInvestigationMarkup(item, analysis, isLive = true) {
           </div>
         </div>
 
-        <!-- 3. STREAMING ANSWER PROSE -->
-        <div class="answer-prose">
-          <!-- Populated during live streaming -->
-        </div>
-
         <!-- 4. CLAIM-BY-CLAIM BREAKDOWN TABLE -->
-        <div class="claim-breakdown">
+        <div class="claim-breakdown progressive-section ${isLive ? '' : 'revealed'}" id="progressiveClaims">
           <h4>Claim-by-Claim Breakdown</h4>
           <div class="claims-table-wrapper">
             <table class="claims-table">
@@ -846,7 +858,7 @@ function buildInvestigationMarkup(item, analysis, isLive = true) {
         </div>
 
         <!-- 5. SOURCE CARDS -->
-        <div class="sources-section">
+        <div class="sources-section progressive-section ${isLive ? '' : 'revealed'}" id="progressiveSources">
           <h4>Indexed Primary Sources (${analysis.sources.length})</h4>
           <div class="sources-grid">
             ${analysis.sources.map((src, i) => `
@@ -863,7 +875,7 @@ function buildInvestigationMarkup(item, analysis, isLive = true) {
         </div>
 
         <!-- 6. WHAT COULD MAKE THIS WRONG? (Challenger Agent) -->
-        <details class="challenger-box" open>
+        <details class="challenger-box progressive-section ${isLive ? '' : 'revealed'}" id="progressiveChallenger" open>
           <summary class="challenger-summary">
             <svg viewBox="0 0 24 24" style="width:16px;height:16px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
             <span>What could make this assessment wrong? (Challenger Agent)</span>
@@ -906,67 +918,89 @@ function buildInvestigationMarkup(item, analysis, isLive = true) {
   `;
 }
 
-// ANIMATED PIPELINE STAGE RUNNER
+// ANIMATED PIPELINE STAGE RUNNER WITH PACING & PROGRESSIVE DISCLOSURE
 async function animatePipelineAndStream(container, analysis, onComplete) {
   const badge = container.querySelector('#timelineStatusBadge');
   const delay = ms => new Promise(r => setTimeout(r, ms));
 
-  const setStepState = (num, state, timeText) => {
-    const item = container.querySelector(`#stepItem${num}`);
-    const marker = container.querySelector(`#stepMarker${num}`);
-    const time = container.querySelector(`#stepTime${num}`);
+  // Ticks an active millisecond timer so user sees work happening
+  const runStepWithTimer = async (stepNum, targetMs, title) => {
+    const item = container.querySelector(`#stepItem${stepNum}`);
+    const marker = container.querySelector(`#stepMarker${stepNum}`);
+    const time = container.querySelector(`#stepTime${stepNum}`);
+
+    if (badge) badge.textContent = `Processing Step ${stepNum}/6: ${title}...`;
     if (item) {
-      item.classList.remove('pending', 'running', 'complete');
-      item.classList.add(state);
+      item.classList.remove('pending', 'complete');
+      item.classList.add('running');
     }
-    if (marker) {
-      marker.className = `step-marker ${state}`;
+    if (marker) marker.className = 'step-marker running';
+
+    const start = Date.now();
+    const timerInterval = setInterval(() => {
+      const elapsed = ((Date.now() - start) / 1000).toFixed(1) + 's';
+      if (time) time.textContent = elapsed;
+    }, 70);
+
+    await delay(targetMs);
+
+    clearInterval(timerInterval);
+    const finalSec = ((Date.now() - start) / 1000).toFixed(2) + 's';
+    if (time) time.textContent = finalSec;
+    if (item) {
+      item.classList.remove('running');
+      item.classList.add('complete');
     }
-    if (time && timeText) {
-      time.textContent = timeText;
-    }
+    if (marker) marker.className = 'step-marker complete';
   };
 
-  // Step 1: Reading input & metadata
-  if (badge) badge.textContent = 'Processing Step 1/6: Reading Input & Metadata...';
-  setStepState(1, 'running', 'running...');
-  await delay(160);
-  setStepState(1, 'complete', '0.12s');
+  // Step 1: Reading input & metadata (paced ~550ms)
+  await runStepWithTimer(1, 550, 'Reading Input & Entity Vectors');
 
-  // Step 2: Extracting verifiable claims
-  if (badge) badge.textContent = 'Processing Step 2/6: Extracting Verifiable Claims...';
-  setStepState(2, 'running', 'running...');
-  await delay(220);
-  setStepState(2, 'complete', '0.24s');
+  // Step 2: Extracting verifiable claims (paced ~700ms)
+  await runStepWithTimer(2, 700, 'Extracting Verifiable Claims');
 
-  // Step 3: Searching primary Indian registries
-  if (badge) badge.textContent = 'Processing Step 3/6: Searching Primary Indian Registries (RBI, PIB, TRAI)...';
-  setStepState(3, 'running', 'running...');
-  await delay(360);
-  setStepState(3, 'complete', '0.45s');
+  // Step 3: Searching primary Indian registries (paced ~950ms)
+  await runStepWithTimer(3, 950, 'Querying RBI, PIB & TRAI Registries');
 
-  // Step 4: Evidence cross-examination
-  if (badge) badge.textContent = 'Processing Step 4/6: Cross-Examining Regulatory Feeds...';
-  setStepState(4, 'running', 'running...');
-  await delay(220);
-  setStepState(4, 'complete', '0.28s');
+  // Step 4: Evidence cross-examination (paced ~750ms)
+  await runStepWithTimer(4, 750, 'Cross-Examining Regulatory Feeds');
 
-  // Step 5: Challenger agent audit
-  if (badge) badge.textContent = 'Processing Step 5/6: Autonomous Challenger Agent Audit...';
-  setStepState(5, 'running', 'running...');
-  await delay(180);
-  setStepState(5, 'complete', '0.19s');
+  // Step 5: Challenger agent audit (paced ~650ms)
+  await runStepWithTimer(5, 650, 'Autonomous Challenger Agent Audit');
 
   // Step 6: Writing verified briefing (begins character-by-character typewriter)
-  if (badge) badge.textContent = 'Processing Step 6/6: Synthesizing Verified Briefing...';
-  setStepState(6, 'running', 'streaming...');
+  const step6Item = container.querySelector('#stepItem6');
+  const step6Marker = container.querySelector('#stepMarker6');
+  const step6Time = container.querySelector('#stepTime6');
 
-  renderStreamingAnswer(container, analysis, () => {
-    setStepState(6, 'complete', '0.14s');
+  if (badge) badge.textContent = 'Step 6/6: Synthesizing Verified Briefing...';
+  if (step6Item) {
+    step6Item.classList.remove('pending');
+    step6Item.classList.add('running');
+  }
+  if (step6Marker) step6Marker.className = 'step-marker running';
+  if (step6Time) step6Time.textContent = 'writing...';
+
+  renderStreamingAnswer(container, analysis, async () => {
+    if (step6Item) {
+      step6Item.classList.remove('running');
+      step6Item.classList.add('complete');
+    }
+    if (step6Marker) step6Marker.className = 'step-marker complete';
+    if (step6Time) step6Time.textContent = '0.34s';
     if (badge) {
       badge.className = 'timeline-status-badge complete';
-      badge.textContent = 'Completed (6 steps in 1.42s)';
+      badge.textContent = 'Completed (6 steps verified in 3.96s)';
     }
+
+    // Staggered progressive reveal of verdicts and evidence
+    const progSections = container.querySelectorAll('.progressive-section');
+    for (let i = 0; i < progSections.length; i++) {
+      await delay(140);
+      progSections[i].classList.add('revealed');
+    }
+
     if (onComplete) onComplete();
   });
 }

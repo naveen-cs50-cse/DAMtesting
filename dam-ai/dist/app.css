@@ -1684,6 +1684,25 @@ details[open] .timeline-chevron {
   min-height: 100px;
 }
 
+/* Progressive disclosure for investigation results */
+.progressive-section {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1), transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.progressive-section.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.timeline-step.running {
+  background: rgba(228, 61, 61, 0.05);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px 4px 24px;
+  margin-left: -8px;
+}
+
 /* 2. THREE SEPARATE VERDICT CARDS (Never Blended) */
 .verdicts-grid {
   display: grid;

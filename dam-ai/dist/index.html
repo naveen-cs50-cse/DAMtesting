@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0a0a0b" />
+    <meta name="description" content="DAM AI — an evidence-first investigation workspace." />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23e43d3d'/%3E%3Cpath d='M17 18h19c9 0 15 5 15 14s-6 14-15 14H17V18zm12 9v10h7c3 0 5-2 5-5s-2-5-5-5h-7z' fill='white'/%3E%3C/svg%3E" />
+    <title>DAM AI — Investigation Workspace</title>
+    <link rel="stylesheet" href="./app.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-head">
+          <a class="brand" href="#" aria-label="DAM AI home">
+            <span class="brand-mark">D</span>
+            <span class="brand-copy"><strong>DAM</strong><small>AI workspace</small></span>
+          </a>
+          <button class="icon-button collapse-btn" id="collapseSidebar" aria-label="Collapse sidebar" title="Collapse sidebar">
+            <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>
+          </button>
+        </div>
+
+        <button class="new-investigation" id="newConversation">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          <span>New investigation</span>
+          <kbd>⌘ K</kbd>
+        </button>
+
+        <nav class="primary-nav" aria-label="Workspace navigation">
+          <button class="nav-item active" data-view="investigate">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4M11 8v6M8 11h6"/></svg>
+            <span>Investigate</span>
+          </button>
+          <button class="nav-item" data-view="evidence">
+            <svg viewBox="0 0 24 24"><path d="M6 3h12v18H6zM9 8h6M9 12h6M9 16h4"/></svg>
+            <span>Evidence library</span>
+          </button>
+          <button class="nav-item" data-view="reports">
+            <svg viewBox="0 0 24 24"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg>
+            <span>Reports</span>
+          </button>
+        </nav>
+
+        <div class="history-label"><span>Recent</span><button aria-label="Search history"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg></button></div>
+        <div class="history-list" id="historyList"></div>
+
+        <div class="sidebar-foot">
+          <button class="workspace-chip">
+            <span class="avatar">HK</span>
+            <span class="workspace-copy"><strong>Hitesh's workspace</strong><small>Private</small></span>
+            <svg viewBox="0 0 24 24"><path d="M8 10l4 4 4-4"/></svg>
+          </button>
+        </div>
+      </aside>
+
+      <main class="main-area">
+        <header class="topbar">
+          <div class="topbar-left">
+            <button class="icon-button mobile-menu" id="mobileMenu" aria-label="Open menu">
+              <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+            </button>
+            <div class="page-title"><span class="status-pulse"></span><strong id="conversationTitle">Investigation brief</strong></div>
+          </div>
+          <div class="topbar-actions">
+            <button class="quiet-button" id="downloadReport"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 20h14"/></svg><span>Report</span></button>
+            <button class="icon-button" aria-label="More options"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>
+          </div>
+        </header>
+
+        <section class="workspace" id="workspace">
+          <div class="conversation" id="conversation">
+            <div class="welcome" id="welcome">
+              <div class="eyebrow"><span></span>EVIDENCE-FIRST AI</div>
+              <h1>What should we<br><em>investigate?</em></h1>
+              <p>Ask a question, check a claim, or attach a suspicious message. DAM separates what is known from what still needs proof.</p>
+              <div class="starter-grid">
+                <button class="starter" data-prompt="Fact-check this claim: The government has extended the application deadline to October 31.">
+                  <span class="starter-icon red"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></span>
+                  <span><strong>Check a claim</strong><small>Verify dates, people and events</small></span>
+                </button>
+                <button class="starter" data-prompt="Assess this message for scam or phishing risk and tell me what I should do next.">
+                  <span class="starter-icon amber"><svg viewBox="0 0 24 24"><path d="M12 3 3 19h18L12 3zm0 6v4m0 3h.01"/></svg></span>
+                  <span><strong>Assess a message</strong><small>Inspect risk without overclaiming</small></span>
+                </button>
+                <button class="starter" data-prompt="Compare the key claims and evidence in these documents.">
+                  <span class="starter-icon blue"><svg viewBox="0 0 24 24"><path d="M7 4h10v16H7zM10 8h4m-4 4h4m-4 4h3"/></svg></span>
+                  <span><strong>Review documents</strong><small>Find agreements and conflicts</small></span>
+                </button>
+                <button class="starter" data-prompt="Research this topic and produce a concise, cited briefing.">
+                  <span class="starter-icon green"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg></span>
+                  <span><strong>Research a topic</strong><small>Build an evidence-led briefing</small></span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div class="composer-wrap">
+          <div class="attachment-tray" id="attachmentTray" hidden></div>
+          <form class="composer" id="composer">
+            <textarea id="promptInput" rows="1" placeholder="Ask DAM to investigate…" aria-label="Investigation request"></textarea>
+            <div class="composer-bottom">
+              <div class="composer-tools">
+                <label class="tool-button" for="fileInput" title="Attach screenshot or PDF">
+                  <svg viewBox="0 0 24 24"><path d="m12 5-6.5 6.5a4 4 0 0 0 5.7 5.7l7-7a2.7 2.7 0 0 0-3.8-3.8l-7 7a1.3 1.3 0 1 0 1.8 1.8l6.4-6.4"/></svg>
+                  <span>Attach</span>
+                </label>
+                <input id="fileInput" type="file" accept="image/png,image/jpeg,image/webp,application/pdf" multiple hidden />
+                <span class="scope-pill"><span class="live-dot"></span>Evidence mode</span>
+              </div>
+              <button class="send-button" id="sendButton" type="submit" aria-label="Send request" disabled>
+                <svg viewBox="0 0 24 24"><path d="M12 19V5m0 0-5 5m5-5 5 5"/></svg>
+              </button>
+            </div>
+          </form>
+          <p class="composer-note">DAM may make mistakes. Important decisions should be verified against original sources.</p>
+        </div>
+      </main>
+    </div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="./app.js"></script>
+  </body>
+</html>

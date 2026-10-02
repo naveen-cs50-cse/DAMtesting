@@ -147,6 +147,61 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // API Route: Live OpenAI Chat (SSE Stream)
+  if (urlPath === '/api/chat/stream' && req.method === 'POST') {
+    try {
+      const data = await readBody(req);
+      const openaiKey = data.apiKey || env.OPENAI_API_KEY;
+
+      if (!openaiKey) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'OPENAI_API_KEY not configured' }));
+        return;
+      }
+
+      const chatRes = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openaiKey}`,
+        },
+        body: JSON.stringify({
+          model: data.model || env.DAM_MODEL_PRIMARY || 'gpt-4o-mini',
+          messages: data.messages,
+          temperature: data.temperature ?? 0.2,
+          max_tokens: data.max_tokens || 1500,
+          stream: true,
+        }),
+      });
+
+      if (!chatRes.ok) {
+        const errText = await chatRes.text();
+        res.writeHead(chatRes.status, { 'Content-Type': 'application/json' });
+        res.end(errText);
+        return;
+      }
+
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      });
+
+      const reader = chatRes.body.getReader();
+      const decoder = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        res.write(decoder.decode(value, { stream: true }));
+      }
+      res.end();
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
   // Static File Serving
   let filePath = path.join(DIST_DIR, urlPath);
   if (filePath.endsWith(path.sep) || urlPath === '/' || urlPath.startsWith('/?')) {

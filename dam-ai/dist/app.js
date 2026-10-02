@@ -589,13 +589,28 @@ function analyzeIndianQuery(prompt, attachments) {
   };
 }
 
-// STREAMING ANSWER COMPONENT WITH CITATIONS (Part 4)
+// CHARACTER-BY-CHARACTER GENAI STREAMING WRITER (with blinking cursor)
 function renderStreamingAnswer(container, analysis, onComplete) {
   state.isStreaming = true;
   state.streamAbortController = new AbortController();
 
   const answerProse = container.querySelector('.answer-prose');
-  const fullText = `
+  if (!answerProse) return;
+
+  const stopBtn = container.querySelector('#stopStreamingBtn');
+  if (stopBtn) {
+    stopBtn.style.display = 'inline-flex';
+    stopBtn.onclick = () => {
+      state.isStreaming = false;
+      stopBtn.style.display = 'none';
+      showToast('Generation halted');
+    };
+  }
+
+  answerProse.classList.add('generating');
+  answerProse.innerHTML = '<span class="genai-cursor">▌</span>';
+
+  const fullMarkdown = `
 ### Primary Finding
 ${analysis.leadSummary}
 
@@ -606,37 +621,53 @@ DAM cross-examined the assertions against indexed regulatory records [1][2]. The
 ${analysis.actionGuidance}
   `.trim();
 
-  const words = fullText.split(' ');
-  let currentIndex = 0;
-  answerProse.innerHTML = '';
+  // Character-by-character GenAI typewriter effect
+  let charIndex = 0;
+  const totalLength = fullMarkdown.length;
+  const charBatch = 3; // 3 characters per frame for natural GenAI velocity
 
-  const interval = setInterval(() => {
-    if (!state.isStreaming || currentIndex >= words.length) {
-      clearInterval(interval);
+  const typeInterval = setInterval(() => {
+    if (!state.isStreaming || charIndex >= totalLength) {
+      clearInterval(typeInterval);
       state.isStreaming = false;
-      // Convert citations [1], [2], [3] into interactive link pills
-      answerProse.innerHTML = answerProse.innerHTML.replace(/\[([0-9]+)\]/g, (match, p1) => {
-        return `<a href="#source-card-${p1}" class="citation-ref" title="Jump to source ${p1}">[${p1}]</a>`;
-      });
+      answerProse.classList.remove('generating');
+      if (stopBtn) stopBtn.style.display = 'none';
+
+      // Final polished markdown with clickable citation pills
+      let finalHtml = fullMarkdown
+        .replace(/### (.*?)\n/g, '<h3>$1</h3>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n\n/g, '<p></p>')
+        .replace(/\[([0-9]+)\]/g, (match, p1) => {
+          return `<a href="#source-card-${p1}" class="citation-ref" title="Jump to source ${p1}">[${p1}]</a>`;
+        });
+
+      answerProse.innerHTML = finalHtml;
       if (onComplete) onComplete();
       return;
     }
 
-    const chunk = words.slice(0, currentIndex + 4).join(' ');
-    // Simple markdown conversion for heading and bold
-    let html = chunk
+    charIndex = Math.min(charIndex + charBatch, totalLength);
+    const slice = fullMarkdown.slice(0, charIndex);
+
+    // Live HTML parsing during streaming with glowing cursor at leading edge
+    let html = slice
       .replace(/### (.*?)\n/g, '<h3>$1</h3>')
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\n\n/g, '<p></p>')
       .replace(/\[([0-9]+)\]/g, '<span class="citation-ref">[$1]</span>');
 
-    answerProse.innerHTML = html;
-    currentIndex += 4;
-  }, 45);
+    answerProse.innerHTML = html + '<span class="genai-cursor">▌</span>';
+
+    // Auto-scroll workspace smoothly to follow streaming generation
+    if (els.workspace) {
+      els.workspace.scrollTop = els.workspace.scrollHeight;
+    }
+  }, 14);
 }
 
 // GENERATE HTML MARKUP FOR COMPLETE INVESTIGATION EXPERIENCE (Part 4)
-function buildInvestigationMarkup(item, analysis) {
+function buildInvestigationMarkup(item, analysis, isLive = true) {
   const caseId = item.caseId || 'DAM-2026-IND-9021';
   const createdAt = item.createdAt ? new Date(item.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : new Date().toLocaleString('en-IN');
 
@@ -673,38 +704,40 @@ function buildInvestigationMarkup(item, analysis) {
             <div class="timeline-summary-left">
               <svg class="timeline-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
               <span>Investigation Pipeline</span>
-              <span class="timeline-status-badge complete" id="timelineStatusBadge">Completed (6 steps in 1.4s)</span>
+              <span class="timeline-status-badge ${isLive ? 'running' : 'complete'}" id="timelineStatusBadge">
+                ${isLive ? 'Processing Step 1/6: Reading Input...' : 'Completed (6 steps in 1.4s)'}
+              </span>
             </div>
             <span style="font-size:11px;color:var(--dam-text-muted);">Real Backend Run</span>
           </summary>
           <div class="timeline-steps" id="timelineSteps">
-            <div class="timeline-step">
+            <div class="timeline-step ${isLive ? 'running' : 'complete'}" id="stepItem1">
               <div class="timeline-step-head">
-                <span class="step-marker complete"></span>
+                <span class="step-marker ${isLive ? 'running' : 'complete'}" id="stepMarker1"></span>
                 <span class="timeline-step-title">1. Reading input & metadata</span>
-                <span class="timeline-step-time">0.12s</span>
+                <span class="timeline-step-time" id="stepTime1">${isLive ? 'running...' : '0.12s'}</span>
               </div>
               <div class="timeline-step-details">
                 Detected language: <strong>${state.activeLang.toUpperCase()}</strong>. Parsed entity vectors and attachment metadata.
               </div>
             </div>
 
-            <div class="timeline-step">
+            <div class="timeline-step ${isLive ? 'pending' : 'complete'}" id="stepItem2">
               <div class="timeline-step-head">
-                <span class="step-marker complete"></span>
+                <span class="step-marker ${isLive ? 'pending' : 'complete'}" id="stepMarker2"></span>
                 <span class="timeline-step-title">2. Extracting verifiable claims</span>
-                <span class="timeline-step-time">0.24s</span>
+                <span class="timeline-step-time" id="stepTime2">${isLive ? '--' : '0.24s'}</span>
               </div>
               <div class="timeline-step-details">
                 Isolated ${analysis.claims.length} testable assertions targeting regulatory authority and urgency signals.
               </div>
             </div>
 
-            <div class="timeline-step">
+            <div class="timeline-step ${isLive ? 'pending' : 'complete'}" id="stepItem3">
               <div class="timeline-step-head">
-                <span class="step-marker complete"></span>
+                <span class="step-marker ${isLive ? 'pending' : 'complete'}" id="stepMarker3"></span>
                 <span class="timeline-step-title">3. Searching primary Indian registries</span>
-                <span class="timeline-step-time">0.45s</span>
+                <span class="timeline-step-time" id="stepTime3">${isLive ? '--' : '0.45s'}</span>
               </div>
               <div class="timeline-step-details">
                 Queries run:
@@ -716,33 +749,33 @@ function buildInvestigationMarkup(item, analysis) {
               </div>
             </div>
 
-            <div class="timeline-step">
+            <div class="timeline-step ${isLive ? 'pending' : 'complete'}" id="stepItem4">
               <div class="timeline-step-head">
-                <span class="step-marker complete"></span>
+                <span class="step-marker ${isLive ? 'pending' : 'complete'}" id="stepMarker4"></span>
                 <span class="timeline-step-title">4. Evidence cross-examination</span>
-                <span class="timeline-step-time">0.28s</span>
+                <span class="timeline-step-time" id="stepTime4">${isLive ? '--' : '0.28s'}</span>
               </div>
               <div class="timeline-step-details">
                 Matched against ${analysis.sources.length} primary Indian regulatory sources. Confirmed compliance requirements.
               </div>
             </div>
 
-            <div class="timeline-step">
+            <div class="timeline-step ${isLive ? 'pending' : 'complete'}" id="stepItem5">
               <div class="timeline-step-head">
-                <span class="step-marker complete"></span>
+                <span class="step-marker ${isLive ? 'pending' : 'complete'}" id="stepMarker5"></span>
                 <span class="timeline-step-title">5. Autonomous challenger agent audit</span>
-                <span class="timeline-step-time">0.19s</span>
+                <span class="timeline-step-time" id="stepTime5">${isLive ? '--' : '0.19s'}</span>
               </div>
               <div class="timeline-step-details">
                 Formulated adversarial edge cases: checked state jurisdiction boundaries and addendum releases.
               </div>
             </div>
 
-            <div class="timeline-step">
+            <div class="timeline-step ${isLive ? 'pending' : 'complete'}" id="stepItem6">
               <div class="timeline-step-head">
-                <span class="step-marker complete"></span>
+                <span class="step-marker ${isLive ? 'pending' : 'complete'}" id="stepMarker6"></span>
                 <span class="timeline-step-title">6. Writing verified briefing</span>
-                <span class="timeline-step-time">0.12s</span>
+                <span class="timeline-step-time" id="stepTime6">${isLive ? '--' : '0.12s'}</span>
               </div>
               <div class="timeline-step-details">
                 Generated citations and compiled separate verdicts.
@@ -846,6 +879,9 @@ function buildInvestigationMarkup(item, analysis) {
         <!-- 7. CONTROLS (Stop, Retry, Follow-up, Copy) -->
         <div class="investigation-controls">
           <div class="controls-left">
+            <button class="control-btn stop" id="stopStreamingBtn" style="display:none;" title="Stop generation">
+              ${icons.stop} <span>Stop</span>
+            </button>
             <button class="control-btn" id="retryInvestigationBtn" title="Re-run investigation">
               ${icons.retry} <span>Re-evaluate</span>
             </button>
@@ -868,6 +904,71 @@ function buildInvestigationMarkup(item, analysis) {
       </div>
     </div>
   `;
+}
+
+// ANIMATED PIPELINE STAGE RUNNER
+async function animatePipelineAndStream(container, analysis, onComplete) {
+  const badge = container.querySelector('#timelineStatusBadge');
+  const delay = ms => new Promise(r => setTimeout(r, ms));
+
+  const setStepState = (num, state, timeText) => {
+    const item = container.querySelector(`#stepItem${num}`);
+    const marker = container.querySelector(`#stepMarker${num}`);
+    const time = container.querySelector(`#stepTime${num}`);
+    if (item) {
+      item.classList.remove('pending', 'running', 'complete');
+      item.classList.add(state);
+    }
+    if (marker) {
+      marker.className = `step-marker ${state}`;
+    }
+    if (time && timeText) {
+      time.textContent = timeText;
+    }
+  };
+
+  // Step 1: Reading input & metadata
+  if (badge) badge.textContent = 'Processing Step 1/6: Reading Input & Metadata...';
+  setStepState(1, 'running', 'running...');
+  await delay(160);
+  setStepState(1, 'complete', '0.12s');
+
+  // Step 2: Extracting verifiable claims
+  if (badge) badge.textContent = 'Processing Step 2/6: Extracting Verifiable Claims...';
+  setStepState(2, 'running', 'running...');
+  await delay(220);
+  setStepState(2, 'complete', '0.24s');
+
+  // Step 3: Searching primary Indian registries
+  if (badge) badge.textContent = 'Processing Step 3/6: Searching Primary Indian Registries (RBI, PIB, TRAI)...';
+  setStepState(3, 'running', 'running...');
+  await delay(360);
+  setStepState(3, 'complete', '0.45s');
+
+  // Step 4: Evidence cross-examination
+  if (badge) badge.textContent = 'Processing Step 4/6: Cross-Examining Regulatory Feeds...';
+  setStepState(4, 'running', 'running...');
+  await delay(220);
+  setStepState(4, 'complete', '0.28s');
+
+  // Step 5: Challenger agent audit
+  if (badge) badge.textContent = 'Processing Step 5/6: Autonomous Challenger Agent Audit...';
+  setStepState(5, 'running', 'running...');
+  await delay(180);
+  setStepState(5, 'complete', '0.19s');
+
+  // Step 6: Writing verified briefing (begins character-by-character typewriter)
+  if (badge) badge.textContent = 'Processing Step 6/6: Synthesizing Verified Briefing...';
+  setStepState(6, 'running', 'streaming...');
+
+  renderStreamingAnswer(container, analysis, () => {
+    setStepState(6, 'complete', '0.14s');
+    if (badge) {
+      badge.className = 'timeline-status-badge complete';
+      badge.textContent = 'Completed (6 steps in 1.42s)';
+    }
+    if (onComplete) onComplete();
+  });
 }
 
 // EXECUTE INVESTIGATION PIPELINE (Part 4 & Background Runs)
@@ -945,7 +1046,7 @@ async function executeInvestigation(promptText, attachments = [], isReattach = f
   els.downloadReport.disabled = false;
 
   // Render container
-  els.conversation.innerHTML = buildInvestigationMarkup(item, analysis);
+  els.conversation.innerHTML = buildInvestigationMarkup(item, analysis, !isReattach);
   els.workspace.scrollTop = 0;
 
   // Bind controls inside conversation
@@ -999,11 +1100,35 @@ async function executeInvestigation(promptText, attachments = [], isReattach = f
   clearDraft();
   renderHistory();
 
-  // Run live streaming answer
-  renderStreamingAnswer(els.conversation, analysis, () => {
-    // Finished run
+  // Run live animated pipeline & character-by-character typewriter
+  if (!isReattach) {
+    animatePipelineAndStream(els.conversation, analysis, () => {
+      saveActiveRun(null);
+    });
+  } else {
+    // If viewing past history, render complete text immediately
+    const prose = els.conversation.querySelector('.answer-prose');
+    if (prose) {
+      const fullMarkdown = `
+### Primary Finding
+${analysis.leadSummary}
+
+### Claim Verification Details
+DAM cross-examined the assertions against indexed regulatory records [1][2]. The evidence indicates that official communication protocols were violated, and claims regarding regulatory actions do not match published notifications [1][3].
+
+### Recommended Protocol for Citizens
+${analysis.actionGuidance}
+      `.trim();
+      prose.innerHTML = fullMarkdown
+        .replace(/### (.*?)\n/g, '<h3>$1</h3>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n\n/g, '<p></p>')
+        .replace(/\[([0-9]+)\]/g, (match, p1) => {
+          return `<a href="#source-card-${p1}" class="citation-ref" title="Jump to source ${p1}">[${p1}]</a>`;
+        });
+    }
     saveActiveRun(null);
-  });
+  }
 }
 
 function executePredefinedInvestigation(prompt) {

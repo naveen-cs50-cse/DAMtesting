@@ -1634,8 +1634,54 @@ details[open] .timeline-chevron {
   padding-left: 16px;
 }
 
-.timeline-step-details li {
-  margin: 3px 0;
+.timeline-step.pending {
+  opacity: 0.45;
+}
+
+.timeline-step.running {
+  opacity: 1;
+}
+
+.timeline-step.running .timeline-step-title {
+  color: #ff6e6e;
+}
+
+.timeline-step.running .timeline-step-details {
+  border-left: 2px solid var(--dam-red);
+}
+
+.step-marker.pending {
+  border-color: #3b3b44;
+  background: var(--dam-bg-panel);
+}
+
+.step-marker.running {
+  border-color: var(--dam-red);
+  background: var(--dam-red-soft);
+  box-shadow: 0 0 0 4px var(--dam-red-soft);
+  animation: pulseMarker 1.2s infinite;
+}
+
+/* GENAI STREAMING CURSOR */
+.genai-cursor {
+  display: inline-block;
+  color: var(--dam-red);
+  font-weight: 900;
+  font-size: 1.15em;
+  line-height: 1;
+  margin-left: 2px;
+  vertical-align: baseline;
+  text-shadow: 0 0 8px rgba(228, 61, 61, 0.75);
+  animation: blinkCursor 0.75s infinite;
+}
+
+@keyframes blinkCursor {
+  0%, 100% { opacity: 1; transform: scaleY(1); }
+  50% { opacity: 0; transform: scaleY(0.7); }
+}
+
+.answer-prose.generating {
+  min-height: 100px;
 }
 
 /* 2. THREE SEPARATE VERDICT CARDS (Never Blended) */

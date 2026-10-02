@@ -871,10 +871,43 @@ function buildInvestigationMarkup(item, analysis) {
 }
 
 // EXECUTE INVESTIGATION PIPELINE (Part 4 & Background Runs)
-function executeInvestigation(promptText, attachments = [], isReattach = false, existingItem = null) {
+async function executeInvestigation(promptText, attachments = [], isReattach = false, existingItem = null) {
   const cleanPrompt = promptText.trim() || 'Verify attached message';
   const analysis = analyzeIndianQuery(cleanPrompt, attachments);
   const caseId = existingItem?.caseId || generateCaseId();
+
+  // Query live Indian registries via Tavily if available
+  try {
+    const searchRes = await fetch('/api/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `${cleanPrompt} India fact check OR RBI notification OR TRAI circular OR government notice`,
+        max_results: 3,
+      }),
+    });
+    if (searchRes.ok) {
+      const data = await searchRes.json();
+      if (data.results && data.results.length > 0) {
+        const liveSources = data.results.map(r => {
+          let domain = 'official';
+          try { domain = new URL(r.url).hostname.replace(/^www\./, ''); } catch(e) {}
+          const isGov = domain.endsWith('.gov.in') || domain.endsWith('.nic.in') || domain.includes('rbi.org.in');
+          const isFactCheck = domain.includes('boomlive') || domain.includes('altnews') || domain.includes('factcheck');
+          return {
+            domain: domain,
+            title: r.title || 'Official Indian Registry',
+            date: 'Live Registry',
+            type: isGov ? 'Government' : isFactCheck ? 'Fact-checker' : 'News',
+            url: r.url,
+          };
+        });
+        analysis.sources = [...liveSources, ...analysis.sources].slice(0, 6);
+      }
+    }
+  } catch (err) {
+    // Falls back to verified local Indian regulatory intelligence database
+  }
 
   let item = existingItem;
   if (!item) {
@@ -1122,13 +1155,27 @@ function closeMethodologyModal() {
 }
 
 // API KEYS & ENGINE SETTINGS MODAL
-function openApiKeysModal() {
+async function openApiKeysModal() {
   const saved = JSON.parse(localStorage.getItem('dam-api-keys') || '{}');
   if (saved.llmProvider) els.llmProviderSelect.value = saved.llmProvider;
   if (saved.llmApiKey) els.llmApiKeyInput.value = saved.llmApiKey;
   if (saved.searchProvider) els.searchProviderSelect.value = saved.searchProvider;
   if (saved.searchApiKey) els.searchApiKeyInput.value = saved.searchApiKey;
   if (saved.backendUrl) els.backendUrlInput.value = saved.backendUrl;
+
+  try {
+    const res = await fetch('/api/config');
+    if (res.ok) {
+      const cfg = await res.json();
+      if (cfg.hasOpenAI && !els.llmApiKeyInput.value) {
+        els.llmApiKeyInput.placeholder = `Active via .env (${cfg.maskedOpenAI})`;
+      }
+      if (cfg.hasTavily && !els.searchApiKeyInput.value) {
+        els.searchApiKeyInput.placeholder = `Active via .env (${cfg.maskedTavily})`;
+      }
+    }
+  } catch (e) {}
+
   els.apiKeysModal.hidden = false;
   els.llmApiKeyInput.focus();
 }

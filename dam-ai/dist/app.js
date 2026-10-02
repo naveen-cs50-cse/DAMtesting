@@ -366,10 +366,10 @@ function analyzeIndianQuery(prompt, attachments) {
       scamRisk: 'High',
       evidenceSufficiency: 'Sufficient',
       riskTriggers: [
-        'Urgency extortion (threatens power cut within hours)',
-        'Unregistered 10-digit mobile number as contact officer',
-        'Direct violation of State Electricity Regulatory Commission (SERC) notice rules',
-        'Requests remote-access app or immediate UPI payment'
+        'Urgency Threat',
+        'Personal 10-Digit Sender',
+        'Violates SERC 15-Day Rule',
+        'APK / Remote-Access Risk'
       ],
       claims: [
         {
@@ -434,9 +434,9 @@ function analyzeIndianQuery(prompt, attachments) {
       scamRisk: 'Medium',
       evidenceSufficiency: 'Sufficient',
       riskTriggers: [
-        'False urgency around currency validity',
-        'Fabricated circular attributing non-existent announcements to RBI Governor',
-        'Used to divert users to unverified exchange websites'
+        'Currency Panic Rumor',
+        'Fabricated Circular',
+        'Unverified Exchange Link'
       ],
       claims: [
         {
@@ -494,10 +494,10 @@ function analyzeIndianQuery(prompt, attachments) {
       scamRisk: 'High',
       evidenceSufficiency: 'Sufficient',
       riskTriggers: [
-        'Impersonation of TRAI, DoT, or Police/CBI officials',
-        'Digital arrest threat requiring victim to stay on Skype/WhatsApp video call',
-        'Demand for security deposit to prevent SIM disconnection',
-        'Robocalls claiming all SIM cards will be blocked within 2 hours'
+        'Authority Impersonation',
+        'Digital Arrest Threat',
+        'Deposit Extortion Demand',
+        '2-Hour Disconnect Robocall'
       ],
       claims: [
         {
@@ -553,8 +553,8 @@ function analyzeIndianQuery(prompt, attachments) {
     scamRisk: 'Low',
     evidenceSufficiency: 'Partial',
     riskTriggers: [
-      'Preliminary heuristic scan: No explicit high-risk phishing indicators detected',
-      'Awaiting primary Indian gazette or ministry confirmation'
+      'Heuristic Scan Clear',
+      'Pending Gazette Verification'
     ],
     claims: [
       {
@@ -631,7 +631,10 @@ ${analysis.actionGuidance}
       if (stopBtn) stopBtn.style.display = 'none';
 
       // Final polished markdown with clickable citation pills
-      let finalHtml = fullMarkdown
+      let cleaned = fullMarkdown
+        .replace(/\s+([.,;:!?])/g, '$1')
+        .replace(/\]\s+\[/g, '][');
+      let finalHtml = cleaned
         .replace(/### (.*?)\n/g, '<h3>$1</h3>')
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/\n\n/g, '<p></p>')
@@ -649,7 +652,10 @@ ${analysis.actionGuidance}
     const slice = fullMarkdown.slice(0, charIndex);
 
     // Live HTML parsing during streaming with glowing cursor at leading edge
-    let html = slice
+    let cleanSlice = slice
+      .replace(/\s+([.,;:!?])/g, '$1')
+      .replace(/\]\s+\[/g, '][');
+    let html = cleanSlice
       .replace(/### (.*?)\n/g, '<h3>$1</h3>')
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\n\n/g, '<p></p>')

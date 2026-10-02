@@ -3,122 +3,505 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0a0a0b" />
-    <meta name="description" content="DAM AI — an evidence-first investigation workspace." />
+    <meta name="theme-color" content="#09090b" />
+    <meta name="description" content="DAM AI — an evidence-first AI workspace that verifies claims, suspicious messages, and documents, focusing on Indian scam messages and government notifications." />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23e43d3d'/%3E%3Cpath d='M17 18h19c9 0 15 5 15 14s-6 14-15 14H17V18zm12 9v10h7c3 0 5-2 5-5s-2-5-5-5h-7z' fill='white'/%3E%3C/svg%3E" />
-    <title>DAM AI — Investigation Workspace</title>
+    <title>DAM AI — Evidence-First Investigation Workspace</title>
+    <link rel="stylesheet" href="./tokens.css" />
     <link rel="stylesheet" href="./app.css" />
   </head>
   <body>
-    <div class="app-shell">
-      <aside class="sidebar" id="sidebar">
+    <div class="app-shell" id="appShell">
+      <!-- SIDEBAR -->
+      <aside class="sidebar" id="sidebar" aria-label="Investigation Workspace Sidebar">
         <div class="sidebar-head">
-          <a class="brand" href="#" aria-label="DAM AI home">
-            <span class="brand-mark">D</span>
-            <span class="brand-copy"><strong>DAM</strong><small>AI workspace</small></span>
+          <a class="brand" href="#" id="brandLink" aria-label="DAM AI - Go to new investigation">
+            <span class="brand-mark" aria-hidden="true">D</span>
+            <span class="brand-copy">
+              <strong>DAM</strong>
+              <small>AI workspace</small>
+            </span>
           </a>
-          <button class="icon-button collapse-btn" id="collapseSidebar" aria-label="Collapse sidebar" title="Collapse sidebar">
-            <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>
+          <button class="icon-button collapse-btn" id="collapseSidebar" aria-label="Collapse sidebar" title="Toggle sidebar (Ctrl+B)">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
           </button>
         </div>
 
-        <button class="new-investigation" id="newConversation">
-          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+        <button class="new-investigation-btn" id="newConversation" title="Start a fresh investigation (Cmd/Ctrl+K)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
           <span>New investigation</span>
-          <kbd>⌘ K</kbd>
+          <kbd aria-label="Keyboard shortcut">⌘K</kbd>
         </button>
 
-        <nav class="primary-nav" aria-label="Workspace navigation">
-          <button class="nav-item active" data-view="investigate">
-            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4M11 8v6M8 11h6"/></svg>
+        <nav class="primary-nav" aria-label="Primary views">
+          <button class="nav-item active" data-view="investigate" id="navInvestigate">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4.5 4.5M11 8v6M8 11h6"/></svg>
             <span>Investigate</span>
           </button>
-          <button class="nav-item" data-view="evidence">
-            <svg viewBox="0 0 24 24"><path d="M6 3h12v18H6zM9 8h6M9 12h6M9 16h4"/></svg>
+          <button class="nav-item" data-view="evidence" id="navEvidence">
+            <!-- Distinct Evidence Library Icon (Stack / Library) -->
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4H10l2 2h7.5A2.5 2.5 0 0 1 22 8.5v9a2.5 2.5 0 0 1-2.5 2.5H6.5A2.5 2.5 0 0 1 4 17.5v-11zM2 10.5h20M4 14.5h20"/>
+            </svg>
             <span>Evidence library</span>
+            <span class="nav-badge" id="evidenceCountBadge">4</span>
           </button>
-          <button class="nav-item" data-view="reports">
-            <svg viewBox="0 0 24 24"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg>
+          <button class="nav-item" data-view="reports" id="navReports">
+            <!-- Distinct Reports Icon (File-Chart / Analytics) -->
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <path d="M8 17v-2m4 2v-5m4 5v-3"/>
+            </svg>
             <span>Reports</span>
           </button>
         </nav>
 
-        <div class="history-label"><span>Recent</span><button aria-label="Search history"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg></button></div>
-        <div class="history-list" id="historyList"></div>
+        <div class="history-section">
+          <div class="history-label">
+            <span>Recent</span>
+            <button class="search-history-btn" id="openCommandPaletteBtn" aria-label="Open command palette and search" title="Search investigations (Cmd/Ctrl+K)">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>
+            </button>
+          </div>
+          <div class="history-list" id="historyList" role="region" aria-label="Investigation History">
+            <!-- Populated dynamically: grouped by Today / Yesterday / Last 7 days with Pin / Rename / Delete -->
+          </div>
+        </div>
 
         <div class="sidebar-foot">
-          <button class="workspace-chip">
-            <span class="avatar">HK</span>
-            <span class="workspace-copy"><strong>Hitesh's workspace</strong><small>Private</small></span>
-            <svg viewBox="0 0 24 24"><path d="M8 10l4 4 4-4"/></svg>
+          <button class="workspace-chip" id="workspaceMenuTrigger" aria-haspopup="true" aria-expanded="false" title="Workspace options & settings">
+            <span class="avatar" aria-hidden="true">HK</span>
+            <span class="workspace-copy">
+              <strong>Hitesh's workspace</strong>
+              <small>India Regulatory & Scam Team</small>
+            </span>
+            <svg viewBox="0 0 24 24" class="chevron-up" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>
           </button>
+
+          <!-- Workspace Menu Popover -->
+          <div class="workspace-menu-popover" id="workspaceMenuPopover" hidden role="menu" aria-label="Workspace actions">
+            <div class="menu-header">
+              <span class="menu-user-email">hitesh@usedam.ai</span>
+              <span class="plan-tag">Pro Workspace</span>
+            </div>
+            <div class="menu-divider"></div>
+            <button class="menu-item" role="menuitem" id="menuSettings">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              <span>Verification Settings</span>
+            </button>
+            <button class="menu-item" role="menuitem" id="menuUsage">
+              <svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+              <div class="menu-item-text">
+                <span>Usage & API Quota</span>
+                <small>84 / 500 verifications used</small>
+              </div>
+            </button>
+            <button class="menu-item" role="menuitem" id="menuSwitchWorkspace">
+              <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+              <span>Switch Workspace</span>
+            </button>
+            <div class="menu-divider"></div>
+            <button class="menu-item danger" role="menuitem" id="menuSignOut">
+              <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+              <span>Sign out</span>
+            </button>
+          </div>
         </div>
       </aside>
 
-      <main class="main-area">
+      <!-- MAIN AREA -->
+      <main class="main-area" id="mainArea">
+        <!-- TOPBAR -->
         <header class="topbar">
           <div class="topbar-left">
-            <button class="icon-button mobile-menu" id="mobileMenu" aria-label="Open menu">
+            <button class="icon-button mobile-menu" id="mobileMenu" aria-label="Open sidebar menu">
               <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
             </button>
-            <div class="page-title"><span class="status-pulse"></span><strong id="conversationTitle">Investigation brief</strong></div>
+            <div class="page-title" id="pageTitleContainer">
+              <span class="status-pulse" id="statusPulse" aria-hidden="true"></span>
+              <strong id="conversationTitle">New investigation</strong>
+              <span class="case-id-badge" id="caseIdBadge" hidden>CASE #DAM-2026-9021</span>
+            </div>
           </div>
           <div class="topbar-actions">
-            <button class="quiet-button" id="downloadReport"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 20h14"/></svg><span>Report</span></button>
-            <button class="icon-button" aria-label="More options"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>
+            <!-- Share Investigation Button -->
+            <button class="quiet-button" id="shareInvestigationBtn" title="Share investigation link & summary" hidden>
+              <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+              <span>Share</span>
+            </button>
+            <!-- Report Button: Disabled until report available -->
+            <button class="quiet-button" id="downloadReport" title="Export investigation report" disabled>
+              <svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 20h14"/></svg>
+              <span>Report (PDF)</span>
+            </button>
+            <a class="quiet-button text-link" href="#how-dam-verifies" id="howItWorksBtn" title="How DAM verifies evidence">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <span>Methodology</span>
+            </a>
           </div>
         </header>
 
-        <section class="workspace" id="workspace">
-          <div class="conversation" id="conversation">
-            <div class="welcome" id="welcome">
-              <div class="eyebrow"><span></span>EVIDENCE-FIRST AI</div>
-              <h1>What should we<br><em>investigate?</em></h1>
-              <p>Ask a question, check a claim, or attach a suspicious message. DAM separates what is known from what still needs proof.</p>
-              <div class="starter-grid">
-                <button class="starter" data-prompt="Fact-check this claim: The government has extended the application deadline to October 31.">
-                  <span class="starter-icon red"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></span>
-                  <span><strong>Check a claim</strong><small>Verify dates, people and events</small></span>
-                </button>
-                <button class="starter" data-prompt="Assess this message for scam or phishing risk and tell me what I should do next.">
-                  <span class="starter-icon amber"><svg viewBox="0 0 24 24"><path d="M12 3 3 19h18L12 3zm0 6v4m0 3h.01"/></svg></span>
-                  <span><strong>Assess a message</strong><small>Inspect risk without overclaiming</small></span>
-                </button>
-                <button class="starter" data-prompt="Compare the key claims and evidence in these documents.">
-                  <span class="starter-icon blue"><svg viewBox="0 0 24 24"><path d="M7 4h10v16H7zM10 8h4m-4 4h4m-4 4h3"/></svg></span>
-                  <span><strong>Review documents</strong><small>Find agreements and conflicts</small></span>
-                </button>
-                <button class="starter" data-prompt="Research this topic and produce a concise, cited briefing.">
-                  <span class="starter-icon green"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg></span>
-                  <span><strong>Research a topic</strong><small>Build an evidence-led briefing</small></span>
-                </button>
-              </div>
+        <!-- WORKSPACE CONTENT CONTAINER -->
+        <section class="workspace" id="workspace" tabindex="-1">
+          <!-- Drop Overlay -->
+          <div class="drop-overlay" id="dropOverlay" hidden>
+            <div class="drop-modal">
+              <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+              <h3>Drop message, screenshot, or PDF here</h3>
+              <p>Supports PNG, JPG, WEBP and PDF up to 10 MB for evidence extraction</p>
             </div>
           </div>
-        </section>
 
-        <div class="composer-wrap">
-          <div class="attachment-tray" id="attachmentTray" hidden></div>
-          <form class="composer" id="composer">
-            <textarea id="promptInput" rows="1" placeholder="Ask DAM to investigate…" aria-label="Investigation request"></textarea>
-            <div class="composer-bottom">
-              <div class="composer-tools">
-                <label class="tool-button" for="fileInput" title="Attach screenshot or PDF">
-                  <svg viewBox="0 0 24 24"><path d="m12 5-6.5 6.5a4 4 0 0 0 5.7 5.7l7-7a2.7 2.7 0 0 0-3.8-3.8l-7 7a1.3 1.3 0 1 0 1.8 1.8l6.4-6.4"/></svg>
-                  <span>Attach</span>
-                </label>
-                <input id="fileInput" type="file" accept="image/png,image/jpeg,image/webp,application/pdf" multiple hidden />
-                <span class="scope-pill"><span class="live-dot"></span>Evidence mode</span>
+          <!-- LANDING STATE: Vertically balanced block containing headline, India trends, cards, and composer -->
+          <div class="landing-block" id="landingBlock">
+            <div class="welcome" id="welcome">
+              <div class="eyebrow">
+                <span class="eyebrow-line" aria-hidden="true"></span>
+                <span>EVIDENCE-FIRST AI • INDIA DESK</span>
               </div>
-              <button class="send-button" id="sendButton" type="submit" aria-label="Send request" disabled>
-                <svg viewBox="0 0 24 24"><path d="M12 19V5m0 0-5 5m5-5 5 5"/></svg>
-              </button>
+              <h1 class="landing-heading">
+                What should we<br>
+                <em>investigate?</em>
+              </h1>
+              <p class="landing-subtext">
+                Verify suspicious WhatsApp forwards, fake government circulars, APK files, and banking alerts. DAM separates primary source facts from unverified claims.
+              </p>
+
+              <!-- Indian Scam Trends Strip (Part 5) -->
+              <div class="scam-trends-strip" aria-label="Recent Indian scam trends">
+                <div class="trends-label">
+                  <span class="live-blink" aria-hidden="true"></span>
+                  <span>TRENDING THREATS (INDIA)</span>
+                </div>
+                <div class="trends-carousel" id="scamTrendsCarousel">
+                  <button class="trend-pill" data-prompt="Check this message: 'Dear consumer, your electricity power will be disconnected at 9:30 PM tonight by officer because your previous month bill was not updated. Immediately call 9821xxxxxx.'">
+                    <span class="trend-tag alert">DISCONNECTION SMS</span>
+                    <span class="trend-text">Electricity disconnection threat with 10-digit mobile number</span>
+                  </button>
+                  <button class="trend-pill" data-prompt="Verify this APK file message: 'Dear Customer, your SBI YONO account is suspended due to pending KYC. Download this SBI_Rewards.apk to update PAN.'">
+                    <span class="trend-tag warning">FAKE BANK APK</span>
+                    <span class="trend-text">SBI/HDFC KYC suspension notice delivering malware APK</span>
+                  </button>
+                  <button class="trend-pill" data-prompt="Fact-check this call/SMS: 'TRAI notice: Your mobile number will be blocked within 2 hours due to illegal advertising complaints. Press 9 for verification.'">
+                    <span class="trend-tag info">TRAI THREAT</span>
+                    <span class="trend-text">TRAI / DoT mobile number deactivation threat</span>
+                  </button>
+                  <button class="trend-pill" data-prompt="Verify government scheme message: 'PM Kisan 17th installment of ₹2000 released today. Check beneficiary name list and claim bonus ₹5000 at pmbihar-gov.in'">
+                    <span class="trend-tag alert">FAKE SCHEME</span>
+                    <span class="trend-text">PM Kisan fake subsidy link claiming ₹5,000 extra bonus</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Starter Investigation Cards with Keyboard Shortcuts 1-4 and Color Border Glows -->
+              <div class="starter-grid" role="group" aria-label="Investigation types">
+                <button class="starter starter-claim" data-key="1" data-mode="evidence" data-placeholder="Paste a claim, e.g. 'RBI has banned ₹500 notes' or 'TRAI blocking SIMs'" data-prompt="Fact-check this claim: RBI has announced demonetization or withdrawal of ₹500 banknotes from circulation.">
+                  <div class="starter-header">
+                    <span class="starter-icon red" aria-hidden="true">
+                      <svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg>
+                    </span>
+                    <span class="starter-badge">1</span>
+                  </div>
+                  <div class="starter-text">
+                    <strong>Check a claim</strong>
+                    <small>Verify dates, circulars, and official statements</small>
+                  </div>
+                </button>
+
+                <button class="starter starter-scam" data-key="2" data-mode="evidence" data-placeholder="Paste SMS, WhatsApp forward, or APK name (e.g. 'Electricity bill unpaid, call 98765...')" data-prompt="Assess this message for scam, impersonation, or phishing risk: 'Dear consumer, electricity supply will be disconnected tonight at 9:30 PM due to unpaid bill. Call electric officer immediately.'">
+                  <div class="starter-header">
+                    <span class="starter-icon amber" aria-hidden="true">
+                      <svg viewBox="0 0 24 24"><path d="M12 3 3 19h18L12 3zm0 6v4m0 3h.01"/></svg>
+                    </span>
+                    <span class="starter-badge">2</span>
+                  </div>
+                  <div class="starter-text">
+                    <strong>Assess a message</strong>
+                    <small>Detect phishing, fake sender IDs, and extortion alerts</small>
+                  </div>
+                </button>
+
+                <button class="starter starter-docs" data-key="3" data-mode="deep" data-placeholder="Paste or attach official PDF, gazette notice, or court order to compare..." data-prompt="Review this government notification or gazette order against official ministry portals to verify its authenticity.">
+                  <div class="starter-header">
+                    <span class="starter-icon blue" aria-hidden="true">
+                      <svg viewBox="0 0 24 24"><path d="M7 4h10v16H7zM10 8h4m-4 4h4m-4 4h3"/></svg>
+                    </span>
+                    <span class="starter-badge">3</span>
+                  </div>
+                  <div class="starter-text">
+                    <strong>Review documents</strong>
+                    <small>Cross-examine notifications against official gazettes</small>
+                  </div>
+                </button>
+
+                <button class="starter starter-research" data-key="4" data-mode="deep" data-placeholder="Enter topic for multi-source cited investigation..." data-prompt="Investigate recent CERT-In cyber security advisories regarding malicious Android banking trojans targeting Indian users.">
+                  <div class="starter-header">
+                    <span class="starter-icon green" aria-hidden="true">
+                      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>
+                    </span>
+                    <span class="starter-badge">4</span>
+                  </div>
+                  <div class="starter-text">
+                    <strong>Research a topic</strong>
+                    <small>Generate an evidence-backed intelligence briefing</small>
+                  </div>
+                </button>
+              </div>
+
+              <!-- Quick Clickable Examples for India (Part 5) -->
+              <div class="examples-section">
+                <span class="examples-heading">POPULAR VERIFICATION REQUESTS:</span>
+                <div class="examples-pills">
+                  <button class="example-chip" data-prompt="Is this KYC update SMS real? 'Dear Customer, your bank account will be blocked today. Click link to complete KYC immediately.'">
+                    Is this KYC update SMS real?
+                  </button>
+                  <button class="example-chip" data-prompt="Check this TRAI / RBI notice claiming all 5G SIM cards require mandatory re-verification or security deposit.">
+                    Check this TRAI / RBI notice
+                  </button>
+                  <button class="example-chip" data-prompt="Verify this electricity bill disconnection message threatening power cut tonight at 9:30 PM.">
+                    Verify electricity bill disconnection message
+                  </button>
+                  <button class="example-chip" data-prompt="Is this government scheme forward genuine offering free ₹50,000 under PM Kanya Ayush Yojana?">
+                    Is this government scheme forward genuine?
+                  </button>
+                </div>
+              </div>
             </div>
-          </form>
-          <p class="composer-note">DAM may make mistakes. Important decisions should be verified against original sources.</p>
-        </div>
+
+            <!-- COMPOSER (In landing mode, part of the balanced block) -->
+            <div class="composer-container" id="composerContainer">
+              <div class="attachment-tray" id="attachmentTray" hidden aria-label="Attached files"></div>
+
+              <!-- Input helper chips: Screenshot, PDF, URL, Clipboard -->
+              <div class="composer-quick-chips" id="composerQuickChips">
+                <label class="quick-chip" for="fileInputScreenshot" title="Upload screenshot of message or tweet">
+                  <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                  <span>Screenshot</span>
+                </label>
+                <input id="fileInputScreenshot" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden />
+
+                <label class="quick-chip" for="fileInputPdf" title="Upload official PDF or circular">
+                  <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                  <span>PDF Notice</span>
+                </label>
+                <input id="fileInputPdf" type="file" accept="application/pdf" multiple hidden />
+
+                <button class="quick-chip" id="addUrlChipBtn" type="button" title="Add web page or tweet URL to verify">
+                  <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                  <span>URL</span>
+                </button>
+
+                <button class="quick-chip" id="pasteClipboardBtn" type="button" title="Paste text or image directly from clipboard">
+                  <svg viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>
+                  <span>Paste from clipboard</span>
+                </button>
+              </div>
+
+              <!-- Main Input Form -->
+              <form class="composer" id="composer" aria-label="Investigation input">
+                <textarea 
+                  id="promptInput" 
+                  rows="2" 
+                  placeholder="Paste a claim, suspicious message, or question to investigate…" 
+                  aria-label="Investigation request text"></textarea>
+
+                <div class="composer-bottom">
+                  <div class="composer-tools">
+                    <label class="tool-button" for="fileInput" title="Attach file or screenshot (PNG, JPG, PDF up to 10MB)">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 5-6.5 6.5a4 4 0 0 0 5.7 5.7l7-7a2.7 2.7 0 0 0-3.8-3.8l-7 7a1.3 1.3 0 1 0 1.8 1.8l6.4-6.4"/></svg>
+                      <span>Attach</span>
+                    </label>
+                    <input id="fileInput" type="file" accept="image/png,image/jpeg,image/webp,application/pdf" multiple hidden />
+
+                    <!-- Evidence Mode Dropdown with Tooltips (Part 2) -->
+                    <div class="dropdown-wrapper" id="modeDropdownWrapper">
+                      <button type="button" class="mode-dropdown-trigger" id="modeDropdownTrigger" aria-haspopup="true" aria-expanded="false" title="Select investigation rigor mode">
+                        <span class="live-dot" aria-hidden="true"></span>
+                        <span id="selectedModeLabel">Evidence mode</span>
+                        <svg viewBox="0 0 24 24" class="dropdown-arrow"><path d="m6 9 6 6 6-6"/></svg>
+                      </button>
+                      <div class="mode-dropdown-menu" id="modeDropdownMenu" hidden role="menu">
+                        <button type="button" class="mode-option active" data-mode="evidence" role="menuitem">
+                          <div class="mode-option-title">
+                            <span class="mode-indicator red"></span>
+                            <strong>Evidence mode</strong>
+                            <span class="mode-badge">Recommended</span>
+                          </div>
+                          <p class="mode-option-desc">Strict, sourced only. Only makes statements backed by primary Indian gazettes, RBI, PIB, or verified fact-checks.</p>
+                        </button>
+                        <button type="button" class="mode-option" data-mode="quick" role="menuitem">
+                          <div class="mode-option-title">
+                            <span class="mode-indicator amber"></span>
+                            <strong>Quick check</strong>
+                          </div>
+                          <p class="mode-option-desc">Rapid heuristic scam & syntax screening. Faster triage for urgent scam forwards.</p>
+                        </button>
+                        <button type="button" class="mode-option" data-mode="deep" role="menuitem">
+                          <div class="mode-option-title">
+                            <span class="mode-indicator blue"></span>
+                            <strong>Deep investigation</strong>
+                          </div>
+                          <p class="mode-option-desc">Multi-source cross-referencing, challenger model verification, domain WHOIS check, and legal circular cross-matching.</p>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Regional Language Selector (Part 2) -->
+                    <div class="dropdown-wrapper" id="langDropdownWrapper">
+                      <button type="button" class="lang-dropdown-trigger" id="langDropdownTrigger" aria-haspopup="true" aria-expanded="false" title="Select language">
+                        <svg viewBox="0 0 24 24" class="lang-icon"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                        <span id="selectedLangLabel">Auto-detect</span>
+                        <svg viewBox="0 0 24 24" class="dropdown-arrow"><path d="m6 9 6 6 6-6"/></svg>
+                      </button>
+                      <div class="lang-dropdown-menu" id="langDropdownMenu" hidden role="menu">
+                        <button type="button" class="lang-option active" data-lang="auto" role="menuitem">
+                          <strong>Auto-detect</strong>
+                          <small>Recognizes Hinglish, English, Devanagari</small>
+                        </button>
+                        <button type="button" class="lang-option" data-lang="en" role="menuitem">
+                          <strong>English</strong>
+                          <small>Default investigation output</small>
+                        </button>
+                        <button type="button" class="lang-option" data-lang="hi" role="menuitem">
+                          <strong>हिन्दी (Hindi)</strong>
+                          <small>Devanagari verified output</small>
+                        </button>
+                        <button type="button" class="lang-option" data-lang="mr" role="menuitem">
+                          <strong>मराठी (Marathi)</strong>
+                          <small>Maharashtra official alerts</small>
+                        </button>
+                        <button type="button" class="lang-option" data-lang="ta" role="menuitem">
+                          <strong>தமிழ் (Tamil)</strong>
+                          <small>Tamil Nadu scam advisories</small>
+                        </button>
+                        <button type="button" class="lang-option" data-lang="bn" role="menuitem">
+                          <strong>বাংলা (Bengali)</strong>
+                          <small>Regional fact-checks</small>
+                        </button>
+                        <button type="button" class="lang-option" data-lang="te" role="menuitem">
+                          <strong>తెలుగు (Telugu)</strong>
+                          <small>AP & Telangana notices</small>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="composer-submit-group">
+                    <span class="draft-indicator" id="draftIndicator" title="Draft saved in browser">Saved</span>
+                    <button class="send-button" id="sendButton" type="submit" aria-label="Send investigation request" disabled title="Send (Enter)">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5m0 0-5 5m5-5 5 5"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </form>
+
+              <!-- Footer disclaimer with link to How DAM Verifies -->
+              <p class="composer-note">
+                DAM prioritizes primary Indian gazettes and regulatory feeds. 
+                <a href="#how-dam-verifies" id="disclaimerHowLink">How DAM verifies evidence & prevents overclaiming &rarr;</a>
+              </p>
+            </div>
+          </div>
+
+          <!-- INVESTIGATION CONVERSATION FEED (Displayed once investigation is active) -->
+          <div class="conversation" id="conversation" hidden>
+            <!-- Rendered by app.js: user query, live activity timeline, verdict cards, streaming response with citations, claim table, source cards, challenger box, follow-up composer -->
+          </div>
+        </section>
       </main>
     </div>
+
+    <!-- URL Input Modal -->
+    <div class="modal-backdrop" id="urlModal" hidden>
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <h3>Add Source URL or Link to Verify</h3>
+          <button type="button" class="icon-button modal-close" id="closeUrlModal" aria-label="Close modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-desc">Paste a tweet, news article, or suspicious URL to extract and cross-examine.</p>
+          <input type="url" id="urlInputText" class="modal-input" placeholder="https://example.com/notice or https://twitter.com/..." />
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="quiet-button" id="cancelUrlBtn">Cancel</button>
+          <button type="button" class="primary-btn" id="confirmUrlBtn">Attach URL</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Global Command Palette Modal (Cmd/Ctrl+K) -->
+    <div class="modal-backdrop" id="commandPaletteModal" hidden>
+      <div class="command-palette" role="dialog" aria-modal="true" aria-label="Command palette">
+        <div class="palette-search">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>
+          <input type="text" id="paletteSearchInput" placeholder="Type a command or search investigations, evidence, sources..." autocomplete="off" />
+          <kbd>ESC</kbd>
+        </div>
+        <div class="palette-results" id="paletteResults">
+          <!-- Populated dynamically: Quick actions, Recent investigations, Evidence documents -->
+        </div>
+      </div>
+    </div>
+
+    <!-- "How DAM Verifies" Methodology Modal -->
+    <div class="modal-backdrop" id="methodologyModal" hidden>
+      <div class="methodology-modal" role="dialog" aria-modal="true" aria-label="How DAM Verifies Evidence">
+        <div class="modal-header">
+          <div class="methodology-brand">
+            <span class="brand-mark">D</span>
+            <div>
+              <h3>How DAM Verifies Evidence</h3>
+              <small>India Regulatory & Scam Detection Protocol v2.4</small>
+            </div>
+          </div>
+          <button type="button" class="icon-button modal-close" id="closeMethodologyModal" aria-label="Close modal">&times;</button>
+        </div>
+        <div class="methodology-body">
+          <section class="methodology-section">
+            <h4>1. Primary Source Registry First</h4>
+            <p>DAM indexes official Indian registries including the <strong>Reserve Bank of India (rbi.org.in)</strong>, <strong>Press Information Bureau Fact Check (pib.gov.in)</strong>, <strong>Telecom Regulatory Authority of India (trai.gov.in)</strong>, and <strong>CERT-In (cert-in.org.in)</strong>. It never accepts second-hand rumors without primary confirmation.</p>
+          </section>
+          <section class="methodology-section">
+            <h4>2. Autonomous Challenger Agent</h4>
+            <p>Every finding is challenged by a dedicated red-team agent that actively seeks reasons why the verdict could be premature, outdated, or jurisdictionally restricted (e.g. state-specific disconnections vs central notifications).</p>
+          </section>
+          <section class="methodology-section">
+            <h4>3. Three Separate Verdicts — Never Blended</h4>
+            <p>DAM rejects single composite truth scores. We report:
+              <br>• <strong>Factual Correctness</strong> (Supported, Contradicted, Mixed, Unverified)
+              <br>• <strong>Scam Risk</strong> (Low, Medium, High + specific triggered signals)
+              <br>• <strong>Evidence Sufficiency</strong> (Sufficient, Partial, Insufficient)
+            </p>
+          </section>
+          <section class="methodology-section">
+            <h4>4. Insufficient Evidence is a First-Class Verdict</h4>
+            <p>When authoritative proof is not yet published by the relevant regulatory authority, DAM explicitly concludes <em>"Insufficient Evidence"</em> instead of guessing or hallucinating.</p>
+          </section>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="primary-btn" id="dismissMethodologyBtn">Understood</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rename Investigation Modal -->
+    <div class="modal-backdrop" id="renameModal" hidden>
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <h3>Rename Investigation</h3>
+          <button type="button" class="icon-button modal-close" id="closeRenameModal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <input type="text" id="renameInputText" class="modal-input" maxlength="80" />
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="quiet-button" id="cancelRenameBtn">Cancel</button>
+          <button type="button" class="primary-btn" id="confirmRenameBtn">Save Name</button>
+        </div>
+      </div>
+    </div>
+
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
     <script src="./app.js"></script>
   </body>

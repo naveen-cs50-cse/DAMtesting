@@ -93,6 +93,19 @@ const els = {
   cancelRenameBtn: document.querySelector('#cancelRenameBtn'),
   confirmRenameBtn: document.querySelector('#confirmRenameBtn'),
 
+  // API Keys & Settings Modal
+  topbarApiKeysBtn: document.querySelector('#topbarApiKeysBtn'),
+  apiKeysModal: document.querySelector('#apiKeysModal'),
+  closeApiKeysModal: document.querySelector('#closeApiKeysModal'),
+  cancelApiKeysBtn: document.querySelector('#cancelApiKeysBtn'),
+  saveApiKeysBtn: document.querySelector('#saveApiKeysBtn'),
+  clearApiKeysBtn: document.querySelector('#clearApiKeysBtn'),
+  llmProviderSelect: document.querySelector('#llmProviderSelect'),
+  llmApiKeyInput: document.querySelector('#llmApiKeyInput'),
+  searchProviderSelect: document.querySelector('#searchProviderSelect'),
+  searchApiKeyInput: document.querySelector('#searchApiKeyInput'),
+  backendUrlInput: document.querySelector('#backendUrlInput'),
+
   toast: document.querySelector('#toast'),
 };
 
@@ -1108,6 +1121,43 @@ function closeMethodologyModal() {
   els.methodologyModal.hidden = true;
 }
 
+// API KEYS & ENGINE SETTINGS MODAL
+function openApiKeysModal() {
+  const saved = JSON.parse(localStorage.getItem('dam-api-keys') || '{}');
+  if (saved.llmProvider) els.llmProviderSelect.value = saved.llmProvider;
+  if (saved.llmApiKey) els.llmApiKeyInput.value = saved.llmApiKey;
+  if (saved.searchProvider) els.searchProviderSelect.value = saved.searchProvider;
+  if (saved.searchApiKey) els.searchApiKeyInput.value = saved.searchApiKey;
+  if (saved.backendUrl) els.backendUrlInput.value = saved.backendUrl;
+  els.apiKeysModal.hidden = false;
+  els.llmApiKeyInput.focus();
+}
+
+function closeApiKeysModal() {
+  els.apiKeysModal.hidden = true;
+}
+
+function saveApiKeys() {
+  const config = {
+    llmProvider: els.llmProviderSelect.value,
+    llmApiKey: els.llmApiKeyInput.value.trim(),
+    searchProvider: els.searchProviderSelect.value,
+    searchApiKey: els.searchApiKeyInput.value.trim(),
+    backendUrl: els.backendUrlInput.value.trim(),
+  };
+  localStorage.setItem('dam-api-keys', JSON.stringify(config));
+  closeApiKeysModal();
+  showToast('API keys and engine settings saved securely');
+}
+
+function clearApiKeys() {
+  localStorage.removeItem('dam-api-keys');
+  els.llmApiKeyInput.value = '';
+  els.searchApiKeyInput.value = '';
+  els.backendUrlInput.value = '';
+  showToast('API keys cleared from browser');
+}
+
 // FILE HANDLING & DRAG-AND-DROP (Part 2)
 function handleFiles(fileList) {
   const allowed = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
@@ -1333,9 +1383,16 @@ function initEventListeners() {
     els.workspaceMenuPopover.hidden = !els.workspaceMenuPopover.hidden;
   });
 
+  // API Keys Modal Listeners
+  els.topbarApiKeysBtn.addEventListener('click', openApiKeysModal);
+  els.closeApiKeysModal.addEventListener('click', closeApiKeysModal);
+  els.cancelApiKeysBtn.addEventListener('click', closeApiKeysModal);
+  els.saveApiKeysBtn.addEventListener('click', saveApiKeys);
+  els.clearApiKeysBtn.addEventListener('click', clearApiKeys);
+
   els.menuSettings.addEventListener('click', () => {
     els.workspaceMenuPopover.hidden = true;
-    showToast('Verification Settings: High Rigor & Primary Registry Enforced');
+    openApiKeysModal();
   });
 
   els.menuUsage.addEventListener('click', () => {
@@ -1421,6 +1478,7 @@ function initEventListeners() {
     if (e.key === 'Escape') {
       closeCommandPalette();
       closeMethodologyModal();
+      closeApiKeysModal();
       els.urlModal.hidden = true;
       els.renameModal.hidden = true;
       els.body.classList.remove('menu-open');

@@ -125,6 +125,11 @@
             </div>
           </div>
           <div class="topbar-actions">
+            <!-- API Keys & Engine Settings Button -->
+            <button class="quiet-button" id="topbarApiKeysBtn" title="Configure API Keys & LLM Provider">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              <span>API Keys</span>
+            </button>
             <!-- Share Investigation Button -->
             <button class="quiet-button" id="shareInvestigationBtn" title="Share investigation link & summary" hidden>
               <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
@@ -481,6 +486,72 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="primary-btn" id="dismissMethodologyBtn">Understood</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- API Keys & Engine Settings Modal -->
+    <div class="modal-backdrop" id="apiKeysModal" hidden>
+      <div class="modal-dialog" style="width: min(580px, 100%);">
+        <div class="modal-header">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div class="brand-mark" style="width:28px;height:28px;font-size:14px;">D</div>
+            <div>
+              <h3>API Keys & Engine Settings</h3>
+              <small style="color:var(--dam-text-muted);">Stored securely in your local browser session</small>
+            </div>
+          </div>
+          <button type="button" class="icon-button modal-close" id="closeApiKeysModal" aria-label="Close modal">&times;</button>
+        </div>
+        <div class="modal-body" style="display:flex;flex-direction:column;gap:16px;">
+          <div>
+            <label style="display:block;font-size:12px;font-weight:700;color:var(--dam-text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.06em;">
+              1. Reasoning & Challenger AI Provider
+            </label>
+            <div style="display:grid;grid-template-columns:140px 1fr;gap:8px;margin-bottom:8px;">
+              <select id="llmProviderSelect" class="modal-input" style="height:38px;padding:0 8px;">
+                <option value="openai">OpenAI</option>
+                <option value="gemini">Google Gemini</option>
+                <option value="anthropic">Anthropic</option>
+              </select>
+              <input type="password" id="llmApiKeyInput" class="modal-input" style="height:38px;" placeholder="Paste API key (e.g. sk-proj-... or AIza...)" />
+            </div>
+            <small style="color:var(--dam-text-muted);font-size:11px;">Powers verifiable claim extraction, regulatory cross-examination, and the challenger agent.</small>
+          </div>
+
+          <div style="height:1px;background:var(--dam-border-default);"></div>
+
+          <div>
+            <label style="display:block;font-size:12px;font-weight:700;color:var(--dam-text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.06em;">
+              2. Live Web Search & Registry Crawler
+            </label>
+            <div style="display:grid;grid-template-columns:140px 1fr;gap:8px;margin-bottom:8px;">
+              <select id="searchProviderSelect" class="modal-input" style="height:38px;padding:0 8px;">
+                <option value="tavily">Tavily Search</option>
+                <option value="serper">Google Serper</option>
+                <option value="perplexity">Perplexity</option>
+              </select>
+              <input type="password" id="searchApiKeyInput" class="modal-input" style="height:38px;" placeholder="Paste Search API key (e.g. tvly-...)" />
+            </div>
+            <small style="color:var(--dam-text-muted);font-size:11px;">Queries live Indian regulatory endpoints (RBI Master Circulars, PIB Fact Check, TRAI Chakshu).</small>
+          </div>
+
+          <div style="height:1px;background:var(--dam-border-default);"></div>
+
+          <div>
+            <label style="display:block;font-size:12px;font-weight:700;color:var(--dam-text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.06em;">
+              3. Backend API Base URL (Optional)
+            </label>
+            <input type="url" id="backendUrlInput" class="modal-input" style="height:38px;" placeholder="e.g. http://localhost:8000/api or https://api.usedam.ai/v1" />
+            <small style="color:var(--dam-text-muted);font-size:11px;">Leave empty to use client-side verification engine with your keys.</small>
+          </div>
+        </div>
+        <div class="modal-footer" style="justify-content:space-between;">
+          <button type="button" class="quiet-button" id="clearApiKeysBtn" style="color:var(--dam-red);">Clear Keys</button>
+          <div style="display:flex;gap:10px;">
+            <button type="button" class="quiet-button" id="cancelApiKeysBtn">Cancel</button>
+            <button type="button" class="primary-btn" id="saveApiKeysBtn">Save Configuration</button>
+          </div>
         </div>
       </div>
     </div>

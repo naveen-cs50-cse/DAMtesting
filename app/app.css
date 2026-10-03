@@ -235,12 +235,70 @@ svg {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 18px;
+  padding: 10px 14px 6px;
   color: var(--dam-text-muted);
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
+}
+
+.sidebar-search-box {
+  margin: 0 10px 8px;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.sidebar-search-input {
+  width: 100%;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--dam-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0 24px 0 28px;
+  font-size: 12px;
+  color: var(--dam-text-primary);
+  outline: none;
+  transition: all var(--transition-fast);
+  box-sizing: border-box;
+}
+
+.sidebar-search-input:focus {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(228, 61, 61, 0.4);
+  box-shadow: 0 0 0 1px rgba(228, 61, 61, 0.15);
+}
+
+.sidebar-search-input::placeholder {
+  color: var(--dam-text-muted);
+}
+
+.sidebar-search-icon {
+  position: absolute;
+  left: 8px;
+  color: var(--dam-text-muted);
+  pointer-events: none;
+}
+
+.sidebar-search-clear {
+  position: absolute;
+  right: 6px;
+  color: var(--dam-text-muted);
+  background: transparent;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+}
+
+.sidebar-search-clear:hover {
+  color: var(--dam-text-primary);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .search-history-btn {
@@ -324,7 +382,8 @@ svg {
   display: flex;
   align-items: center;
   border-radius: var(--radius-sm);
-  group: true;
+  margin-bottom: 2px;
+  width: 100%;
 }
 
 .history-item {
@@ -333,6 +392,7 @@ svg {
   align-items: center;
   gap: 8px;
   padding: 8px 10px;
+  padding-right: 50px;
   border-radius: var(--radius-sm);
   color: var(--dam-text-secondary);
   font-size: 13px;
@@ -341,25 +401,40 @@ svg {
   white-space: nowrap;
   text-overflow: ellipsis;
   transition: all var(--transition-fast);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  box-sizing: border-box;
 }
 
-.history-item-wrap:hover .history-item,
-.history-item-wrap.current .history-item {
+.history-item-icon {
+  width: 13px;
+  height: 13px;
+  color: var(--dam-text-muted);
+  flex-shrink: 0;
+  opacity: 0.6;
+  transition: opacity var(--transition-fast), color var(--transition-fast);
+}
+
+.history-item-wrap:hover .history-item {
   background: var(--dam-bg-panel-hover);
+  color: var(--dam-text-primary);
+}
+
+.history-item-wrap:hover .history-item-icon {
+  opacity: 1;
   color: var(--dam-text-primary);
 }
 
 .history-item-wrap.current .history-item {
   background: var(--dam-bg-panel-active);
   font-weight: 600;
+  color: #fff;
 }
 
-.history-pin-icon {
-  width: 13px;
-  height: 13px;
-  color: var(--dam-amber);
-  fill: var(--dam-amber);
-  flex-shrink: 0;
+.history-item-wrap.current .history-item-icon {
+  opacity: 1;
+  color: var(--dam-red);
 }
 
 .history-title-text {
@@ -374,11 +449,18 @@ svg {
   right: 6px;
   display: none;
   align-items: center;
-  gap: 2px;
+  flex-direction: row;
+  gap: 3px;
   background: var(--dam-bg-panel-hover);
-  padding: 2px;
+  padding: 2px 4px;
   border-radius: var(--radius-xs);
-  box-shadow: -6px 0 10px var(--dam-bg-panel-hover);
+  box-shadow: -8px 0 12px var(--dam-bg-panel-hover);
+  z-index: 2;
+}
+
+.history-item-wrap.current .history-actions {
+  background: var(--dam-bg-panel-active);
+  box-shadow: -8px 0 12px var(--dam-bg-panel-active);
 }
 
 .history-item-wrap:hover .history-actions {
@@ -386,21 +468,26 @@ svg {
 }
 
 .history-action-btn {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   display: grid;
   place-items: center;
   border-radius: var(--radius-xs);
   color: var(--dam-text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
 }
 
 .history-action-btn:hover {
   color: var(--dam-text-primary);
-  background: var(--dam-bg-panel-active);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .history-action-btn.delete:hover {
-  color: var(--dam-red);
+  color: #ff6e6e;
+  background: rgba(228, 61, 61, 0.2);
 }
 
 /* Sidebar Footer & Workspace Menu */

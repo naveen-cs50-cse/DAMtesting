@@ -378,9 +378,6 @@ const AssistantTurnView: React.FC<{
             )}
           </div>
           <div className="controls-right">
-            <button className="control-btn" onClick={() => window.print()} title="Print or Export PDF">
-              <FileIcon className="w-3.5 h-3.5" /> <span>Export PDF</span>
-            </button>
             <button
               className="control-btn"
               onClick={() => {

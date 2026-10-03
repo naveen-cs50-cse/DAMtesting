@@ -85,14 +85,6 @@ export const Topbar: React.FC<TopbarProps> = ({
           </button>
         )}
 
-        <button
-          className="quiet-button"
-          onClick={() => window.print()}
-          title="Print or Export PDF Report"
-        >
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 20h14"/></svg>
-          <span>Report (PDF)</span>
-        </button>
 
         <button
           className="quiet-button text-link"

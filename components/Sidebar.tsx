@@ -14,6 +14,8 @@ interface SidebarProps {
   onTogglePinConversation: (id: string) => void;
   evidenceCount: number;
   onOpenEvidence: () => void;
+  onOpenApiKeys?: () => void;
+  onOpenMethodology?: () => void;
 }
 
 function formatRelativeTime(dateInput?: string | number | Date): string {
@@ -43,9 +45,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onTogglePinConversation,
   evidenceCount,
   onOpenEvidence,
+  onOpenApiKeys,
+  onOpenMethodology,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = React.useRef<HTMLDivElement>(null);
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
+
+  // Close profile menu on outside click or Escape key
+  React.useEffect(() => {
+    if (!menuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(e.target as Node) &&
+        triggerRef.current &&
+        !triggerRef.current.contains(e.target as Node)
+      ) {
+        setMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [menuOpen]);
 
   const filtered = conversations.filter(c => 
     !searchQuery || c.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -161,7 +191,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <aside className="sidebar" id="sidebar" aria-label="Investigation Workspace Sidebar">
       <div className="sidebar-head">
-        <a className="brand" href="/" onClick={e => { e.preventDefault(); onNewConversation(); }}>
+        <a 
+          className="brand" 
+          href="/" 
+          onClick={e => { 
+            e.preventDefault(); 
+            if (typeof document !== 'undefined' && document.body.classList.contains('sidebar-collapsed')) {
+              document.body.classList.remove('sidebar-collapsed');
+            } else {
+              onNewConversation();
+            }
+          }}
+          title={typeof document !== 'undefined' && document.body.classList.contains('sidebar-collapsed') ? "Click to expand sidebar" : "New investigation"}
+        >
           <span className="brand-mark" aria-hidden="true">D</span>
           <span className="brand-copy">
             <strong>DAM</strong>
@@ -267,10 +309,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       <div className="sidebar-foot">
         <button
-          className="workspace-chip"
+          ref={triggerRef}
+          className={`workspace-chip ${menuOpen ? 'menu-active' : ''}`}
           onClick={() => setMenuOpen(!menuOpen)}
           aria-haspopup="true"
           aria-expanded={menuOpen}
+          title="Hitesh's workspace (Pro)"
         >
           <span className="avatar">HK</span>
           <span className="workspace-copy">
@@ -281,23 +325,72 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </button>
 
         {menuOpen && (
-          <div className="workspace-menu-popover" role="menu">
+          <div className="workspace-menu-popover" ref={menuRef} role="menu">
             <div className="menu-header">
-              <span className="menu-user-email">hitesh@usedam.ai</span>
-              <span className="plan-tag">Pro Workspace</span>
+              <div className="menu-user-row">
+                <div className="menu-user-details">
+                  <span className="menu-user-name">Hitesh Kumar</span>
+                  <span className="menu-user-email">hitesh@usedam.ai</span>
+                </div>
+                <span className="plan-tag">Pro</span>
+              </div>
             </div>
+
+            <div className="menu-quota-box">
+              <div className="menu-quota-label">
+                <span>Monthly Quota</span>
+                <strong>84 / 500 used</strong>
+              </div>
+              <div className="menu-quota-bar">
+                <div className="menu-quota-fill" style={{ width: '16.8%' }} />
+              </div>
+            </div>
+
             <div className="menu-divider" />
-            <button className="menu-item" onClick={() => setMenuOpen(false)}>
+
+            <button
+              className="menu-item"
+              onClick={() => {
+                setMenuOpen(false);
+                onOpenMethodology?.();
+              }}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
               <span>Verification Settings</span>
             </button>
-            <button className="menu-item" onClick={() => setMenuOpen(false)}>
-              <div className="menu-item-text">
-                <span>Usage &amp; API Quota</span>
-                <small>84 / 500 verifications used</small>
-              </div>
+
+            <button
+              className="menu-item"
+              onClick={() => {
+                setMenuOpen(false);
+                onOpenApiKeys?.();
+              }}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              <span>API Keys &amp; Integrations</span>
             </button>
+
+            <button
+              className="menu-item"
+              onClick={() => {
+                document.body.classList.toggle('sidebar-collapsed');
+                setMenuOpen(false);
+              }}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+              <span>Toggle Sidebar</span>
+              <kbd>Ctrl+B</kbd>
+            </button>
+
             <div className="menu-divider" />
-            <button className="menu-item danger" onClick={() => setMenuOpen(false)}>
+
+            <button
+              className="menu-item danger"
+              onClick={() => {
+                setMenuOpen(false);
+              }}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
               <span>Sign out</span>
             </button>
           </div>

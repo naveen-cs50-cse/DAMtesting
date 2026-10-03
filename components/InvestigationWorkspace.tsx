@@ -403,6 +403,8 @@ export const InvestigationWorkspace: React.FC = () => {
         evidenceCount={caseSources.length > 0 ? caseSources.length : globalSources.length}
         onOpenEvidence={() => setEvidencePanelOpen(true)}
         onTogglePinConversation={handleTogglePin}
+        onOpenApiKeys={() => setApiKeysModalOpen(true)}
+        onOpenMethodology={() => setMethodologyModalOpen(true)}
       />
 
       <main className="main-area" id="mainArea">

@@ -344,6 +344,7 @@ export const ConversationFeed: React.FC<ConversationFeedProps> = ({
 
         return null;
       })}
+      <div id="conversationBottomAnchor" style={{ height: 1, minHeight: 1, pointerEvents: 'none' }} />
     </div>
   );
 };

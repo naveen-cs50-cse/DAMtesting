@@ -689,7 +689,6 @@ svg {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  scroll-behavior: smooth;
   display: flex;
   flex-direction: column;
   align-items: center;

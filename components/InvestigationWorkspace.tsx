@@ -36,31 +36,77 @@ export const InvestigationWorkspace: React.FC = () => {
   const abortControllerRef = useRef<AbortController | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
+  const userScrolledUpRef = useRef(false);
+  const isAutoScrollingRef = useRef(false);
 
   const handleScroll = () => {
     if (!scrollAreaRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = scrollAreaRef.current;
     const distFromBottom = scrollHeight - scrollTop - clientHeight;
-    setIsScrolledUp(distFromBottom > 100);
+    // When within 60px of the bottom, user is at bottom and wants to follow stream
+    if (distFromBottom < 60) {
+      userScrolledUpRef.current = false;
+      setIsScrolledUp(false);
+    } else if (distFromBottom > 120 && !isAutoScrollingRef.current) {
+      // User explicitly scrolled up to view prior messages
+      userScrolledUpRef.current = true;
+      setIsScrolledUp(true);
+    }
   };
 
-  const scrollToBottom = () => {
-    if (scrollAreaRef.current) {
+  const scrollToBottom = (smooth = true) => {
+    userScrolledUpRef.current = false;
+    setIsScrolledUp(false);
+    if (!scrollAreaRef.current) return;
+    isAutoScrollingRef.current = true;
+    if (smooth) {
       scrollAreaRef.current.scrollTo({
         top: scrollAreaRef.current.scrollHeight,
         behavior: 'smooth',
       });
+    } else {
+      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+    }
+    setTimeout(() => {
+      isAutoScrollingRef.current = false;
+    }, 350);
+  };
+
+  const forceScrollToBottom = () => {
+    userScrolledUpRef.current = false;
+    setIsScrolledUp(false);
+    if (scrollAreaRef.current) {
+      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+    }
+  };
+
+  const autoScrollIfPinned = () => {
+    if (!userScrolledUpRef.current && scrollAreaRef.current) {
+      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
     }
   };
 
   const activeConversation = conversations.find(c => c.id === activeId) || null;
 
-  // Auto-scroll to bottom as investigation streams or turns update
+  // Auto-scroll to bottom as investigation streams or turns update, as long as user hasn't scrolled up
   useEffect(() => {
-    if (!isScrolledUp && scrollAreaRef.current) {
+    if (!userScrolledUpRef.current && scrollAreaRef.current) {
       scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
     }
-  }, [activeConversation?.turns, isStreaming, isScrolledUp]);
+  });
+
+  // When activeId changes, scroll down to the active conversation
+  useEffect(() => {
+    if (activeId && scrollAreaRef.current) {
+      userScrolledUpRef.current = false;
+      setIsScrolledUp(false);
+      requestAnimationFrame(() => {
+        if (scrollAreaRef.current) {
+          scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+        }
+      });
+    }
+  }, [activeId]);
 
   // Load conversations on mount
   useEffect(() => {
@@ -177,6 +223,14 @@ export const InvestigationWorkspace: React.FC = () => {
     localStorage.removeItem('dam-draft');
     setIsStreaming(true);
 
+    // Reset scroll state so user sees their new question and following response
+    userScrolledUpRef.current = false;
+    setIsScrolledUp(false);
+    forceScrollToBottom();
+    requestAnimationFrame(forceScrollToBottom);
+    setTimeout(forceScrollToBottom, 60);
+    setTimeout(forceScrollToBottom, 180);
+
     abortControllerRef.current = new AbortController();
 
     try {
@@ -236,15 +290,24 @@ export const InvestigationWorkspace: React.FC = () => {
             const existing = assistantTurn.stages.find(s => s.id === parsed.id);
             if (existing) Object.assign(existing, parsed);
             else assistantTurn.stages.push(parsed);
+            targetConv.turns = [...targetConv.turns];
             saveConversations([...updatedConversations]);
+            autoScrollIfPinned();
           } else if (eventType === 'token') {
             assistantTurn.fullText += parsed.text || '';
+            targetConv.turns = [...targetConv.turns];
             saveConversations([...updatedConversations]);
+            autoScrollIfPinned();
           } else if (eventType === 'meta') {
             assistantTurn.meta = parsed;
+            targetConv.turns = [...targetConv.turns];
             saveConversations([...updatedConversations]);
+            autoScrollIfPinned();
           } else if (eventType === 'done') {
             assistantTurn.isLive = false;
+            targetConv.turns = [...targetConv.turns];
+            saveConversations([...updatedConversations]);
+            autoScrollIfPinned();
           }
         }
       }
@@ -256,8 +319,10 @@ export const InvestigationWorkspace: React.FC = () => {
       }
     } finally {
       assistantTurn.isLive = false;
-      setIsStreaming(false);
+      targetConv.turns = [...targetConv.turns];
       saveConversations([...updatedConversations]);
+      autoScrollIfPinned();
+      setIsStreaming(false);
     }
   };
 
@@ -352,7 +417,7 @@ export const InvestigationWorkspace: React.FC = () => {
               <button
                 type="button"
                 className="scroll-to-bottom-floating-btn"
-                onClick={scrollToBottom}
+                onClick={() => scrollToBottom(true)}
                 title="Scroll to latest message"
                 aria-label="Scroll to bottom"
               >

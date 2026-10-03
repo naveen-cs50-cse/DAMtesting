@@ -22,8 +22,7 @@ export const LandingBlock: React.FC<LandingBlockProps> = ({ onSelectPrompt }) =>
           </span>
         </div>
         <h1 className="landing-heading">
-          What should we<br />
-          <em>investigate?</em>
+          What should we investigate?
         </h1>
         <p className="landing-subtext">
           Verify suspicious WhatsApp forwards, fake government circulars, APK files, and banking alerts. DAM separates primary source facts from unverified claims.

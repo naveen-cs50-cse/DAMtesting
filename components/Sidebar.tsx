@@ -11,6 +11,7 @@ interface SidebarProps {
   onNewConversation: () => void;
   onRenameConversation: (conv: Conversation) => void;
   onDeleteConversation: (id: string) => void;
+  onTogglePinConversation: (id: string) => void;
   evidenceCount: number;
   onOpenEvidence: () => void;
 }
@@ -39,6 +40,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onNewConversation,
   onRenameConversation,
   onDeleteConversation,
+  onTogglePinConversation,
   evidenceCount,
   onOpenEvidence,
 }) => {
@@ -48,6 +50,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const filtered = conversations.filter(c => 
     !searchQuery || c.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const pinned = filtered.filter(c => c.isPinned);
+  const unpinned = filtered.filter(c => !c.isPinned);
 
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -61,7 +66,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     older: [],
   };
 
-  filtered.forEach(c => {
+  unpinned.forEach(c => {
     const time = new Date(c.createdAt || Date.now()).getTime();
     if (time >= today) groups.today.push(c);
     else if (time >= yesterday) groups.yesterday.push(c);
@@ -69,11 +74,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
     else groups.older.push(c);
   });
 
-  const renderGroup = (label: string, items: Conversation[]) => {
+  const renderGroup = (label: string, items: Conversation[], isPinnedGroup: boolean = false) => {
     if (!items.length) return null;
     return (
-      <div className="history-group">
-        <div className="history-group-title">{label}</div>
+      <div className={`history-group ${isPinnedGroup ? 'pinned-history-group' : ''}`}>
+        <div className="history-group-title">
+          {isPinnedGroup && (
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="var(--dam-amber)" stroke="none" className="mr-1">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+          )}
+          <span>{label}</span>
+        </div>
         {items.map(item => (
           <div
             key={item.id}
@@ -89,13 +101,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
               </svg>
               <div className="history-text-col">
-                <span className="history-title-text">{item.title}</span>
-                {item.createdAt && (
-                  <span className="history-time-hint">{formatRelativeTime(item.createdAt)}</span>
-                )}
+                <span className="history-title-text">
+                  {item.title}
+                </span>
+                <div className="history-meta-subline">
+                  {item.isPinned && <span className="history-pin-star" title="Pinned case">★</span>}
+                  {item.createdAt && (
+                    <span className="history-time-hint">{formatRelativeTime(item.createdAt)}</span>
+                  )}
+                </div>
               </div>
             </button>
             <div className="history-actions" role="toolbar" aria-label="Conversation actions">
+              <button
+                type="button"
+                className={`history-action-btn pin-btn ${item.isPinned ? 'pinned active' : ''}`}
+                title={item.isPinned ? 'Unpin case' : 'Pin case to top'}
+                aria-label={item.isPinned ? 'Unpin' : 'Pin'}
+                onClick={e => {
+                  e.stopPropagation();
+                  onTogglePinConversation(item.id);
+                }}
+              >
+                <svg viewBox="0 0 24 24" width="12" height="12" fill={item.isPinned ? 'var(--dam-amber)' : 'none'} stroke={item.isPinned ? 'var(--dam-amber)' : 'currentColor'} strokeWidth="2">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+              </button>
               <button
                 type="button"
                 className="history-action-btn"
@@ -159,12 +190,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4.5 4.5M11 8v6M8 11h6"/></svg>
           <span>Investigate</span>
         </button>
-        <button className="nav-item" onClick={onOpenEvidence}>
+        <button className="nav-item" onClick={onOpenEvidence} title="Open Evidence Explorer (Alt+E)">
           <EvidenceIcon className="w-4 h-4" />
           <span>Evidence library</span>
           {evidenceCount > 0 && <span className="nav-badge">{evidenceCount}</span>}
         </button>
-        <button className="nav-item" onClick={() => window.print()}>
+        <button className="nav-item" onClick={() => window.print()} title="Print or Export PDF Report">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M8 17v-2m4 2v-5m4 5v-3"/></svg>
           <span>Reports</span>
         </button>
@@ -204,8 +235,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="history-list" role="region" aria-label="Investigation History">
           {conversations.length === 0 ? (
             <div className="history-empty">
-              <div className="history-empty-icon"><ShieldIcon /></div>
-              <p>No recent investigations recorded on this workstation.</p>
+              <div className="history-empty-radar">
+                <span className="radar-ring" />
+                <div className="history-empty-icon"><ShieldIcon /></div>
+              </div>
+              <p>No recent investigations on this workstation.</p>
+              <button
+                type="button"
+                className="history-empty-start-btn"
+                onClick={onNewConversation}
+              >
+                <span>Start verification</span>
+                <kbd>⌘K</kbd>
+              </button>
             </div>
           ) : filtered.length === 0 ? (
             <div className="history-empty">
@@ -213,6 +255,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           ) : (
             <>
+              {renderGroup('Pinned Cases', pinned, true)}
               {renderGroup('Today', groups.today)}
               {renderGroup('Yesterday', groups.yesterday)}
               {renderGroup('Previous 7 Days', groups.last7)}

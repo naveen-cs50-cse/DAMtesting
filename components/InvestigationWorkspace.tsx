@@ -11,6 +11,7 @@ import { ApiKeysModal } from './modals/ApiKeysModal';
 import { MethodologyModal } from './modals/MethodologyModal';
 import { UrlModal } from './modals/UrlModal';
 import { RenameModal } from './modals/RenameModal';
+import { ShareModal } from './modals/ShareModal';
 import { Attachment, Conversation, IndexedSource, ChatTurn, ActivityStage, InvestigationMeta } from '@/lib/investigation/types';
 import { generateSmartTitle } from '@/lib/investigation/naming';
 
@@ -29,6 +30,7 @@ export const InvestigationWorkspace: React.FC = () => {
   const [apiKeysModalOpen, setApiKeysModalOpen] = useState(false);
   const [methodologyModalOpen, setMethodologyModalOpen] = useState(false);
   const [urlModalOpen, setUrlModalOpen] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
   const [renamingConversation, setRenamingConversation] = useState<Conversation | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
@@ -135,19 +137,48 @@ export const InvestigationWorkspace: React.FC = () => {
     setTimeout(() => setToastMsg(null), 3000);
   };
 
-  // Aggregate all sources for active conversation
-  const allSources: IndexedSource[] = [];
+  // Aggregate sources for active conversation
+  const caseSources: IndexedSource[] = [];
   if (activeConversation) {
     activeConversation.turns.forEach(t => {
       if (t.role === 'assistant' && t.meta?.sources) {
         t.meta.sources.forEach(src => {
-          if (!allSources.some(existing => existing.id === src.id)) {
-            allSources.push(src);
+          if (!caseSources.some(existing => existing.id === src.id)) {
+            caseSources.push(src);
           }
         });
       }
     });
   }
+
+  // Aggregate all sources across ALL conversations stored on this workstation
+  const globalSources: IndexedSource[] = React.useMemo(() => {
+    const seen = new Set<string>();
+    const list: IndexedSource[] = [];
+    conversations.forEach(c => {
+      c.turns.forEach(t => {
+        if (t.role === 'assistant' && t.meta?.sources) {
+          t.meta.sources.forEach(src => {
+            const key = src.url || src.title;
+            if (!seen.has(key)) {
+              seen.add(key);
+              list.push(src);
+            }
+          });
+        }
+      });
+    });
+    return list;
+  }, [conversations]);
+
+  const handleTogglePin = (id: string) => {
+    const updated = conversations.map(c => 
+      c.id === id ? { ...c, isPinned: !c.isPinned } : c
+    );
+    saveConversations(updated);
+    const target = updated.find(c => c.id === id);
+    showToast(target?.isPinned ? 'Investigation pinned to top' : 'Investigation unpinned');
+  };
 
   // Keyboard navigation
   useEffect(() => {
@@ -369,8 +400,9 @@ export const InvestigationWorkspace: React.FC = () => {
           if (activeId === id) setActiveId(null);
           showToast('Investigation deleted');
         }}
-        evidenceCount={allSources.length}
+        evidenceCount={caseSources.length > 0 ? caseSources.length : globalSources.length}
         onOpenEvidence={() => setEvidencePanelOpen(true)}
+        onTogglePinConversation={handleTogglePin}
       />
 
       <main className="main-area" id="mainArea">
@@ -381,8 +413,9 @@ export const InvestigationWorkspace: React.FC = () => {
           onOpenApiKeys={() => setApiKeysModalOpen(true)}
           onOpenMethodology={() => setMethodologyModalOpen(true)}
           onToggleEvidence={() => setEvidencePanelOpen(prev => !prev)}
-          evidenceCount={allSources.length}
+          evidenceCount={caseSources.length > 0 ? caseSources.length : globalSources.length}
           onMobileMenuToggle={() => setMobileMenuOpen(prev => !prev)}
+          onOpenShare={() => setShareModalOpen(true)}
         />
 
         <section className="workspace-fixed-layout" id="workspace">
@@ -460,8 +493,16 @@ export const InvestigationWorkspace: React.FC = () => {
       <EvidencePanel
         isOpen={evidencePanelOpen}
         onClose={() => setEvidencePanelOpen(false)}
-        sources={allSources}
+        sources={caseSources}
+        allSources={globalSources}
         highlightIndex={highlightCitation}
+      />
+
+      {/* Share Briefing Modal (Phase 4) */}
+      <ShareModal
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        conversation={activeConversation}
       />
 
       {/* Modals */}

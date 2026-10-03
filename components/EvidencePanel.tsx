@@ -2,12 +2,13 @@
 
 import React, { useState } from 'react';
 import { IndexedSource } from '@/lib/investigation/types';
-import { EvidenceIcon, ExternalIcon } from './icons';
+import { CopyIcon, EvidenceIcon, ExternalIcon } from './icons';
 
 interface EvidencePanelProps {
   isOpen: boolean;
   onClose: () => void;
   sources: IndexedSource[];
+  allSources?: IndexedSource[];
   highlightIndex?: number | null;
 }
 
@@ -15,28 +16,45 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
   isOpen,
   onClose,
   sources,
+  allSources = [],
   highlightIndex,
 }) => {
   const [filterQuery, setFilterQuery] = useState('');
+  const [activeTab, setActiveTab] = useState<'case' | 'all'>('case');
+  const [stanceFilter, setStanceFilter] = useState<'all' | 'supports' | 'contradicts' | 'context'>('all');
+  const [copiedId, setCopiedId] = useState<number | null>(null);
 
   if (!isOpen) return null;
 
-  const filtered = sources.filter(s => {
+  const dataset = activeTab === 'all' && allSources.length > 0 ? allSources : sources;
+
+  const filtered = dataset.filter(s => {
+    if (stanceFilter !== 'all' && s.stance !== stanceFilter) return false;
     if (!filterQuery) return true;
     const q = filterQuery.toLowerCase();
-    return s.title.toLowerCase().includes(q) ||
-           s.domain.toLowerCase().includes(q) ||
-           s.passage.toLowerCase().includes(q);
+    return (
+      s.title.toLowerCase().includes(q) ||
+      s.domain.toLowerCase().includes(q) ||
+      s.passage.toLowerCase().includes(q) ||
+      s.type.toLowerCase().includes(q)
+    );
   });
 
+  const handleCopyPassage = (src: IndexedSource) => {
+    const text = `"[${src.id}] ${src.passage}" — ${src.title} (${src.domain}, ${src.date})\n${src.url}`;
+    navigator.clipboard.writeText(text);
+    setCopiedId(src.id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
   return (
-    <aside className={`evidence-panel ${isOpen ? 'open' : ''}`} aria-label="Evidence & Primary Sources Panel">
+    <aside className={`evidence-panel ${isOpen ? 'open' : ''}`} aria-label="Evidence Explorer & Repository">
       <div className="evidence-panel-head">
         <div className="evidence-panel-title">
           <EvidenceIcon className="evidence-panel-icon" />
           <div>
-            <strong>Evidence &amp; Sources</strong>
-            <small>{sources.length} indexed primary records</small>
+            <strong>Evidence Explorer</strong>
+            <small>{dataset.length} indexed primary records</small>
           </div>
         </div>
         <button
@@ -49,25 +67,102 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
         </button>
       </div>
 
+      {/* Scope Switcher Tabs (Phase 4) */}
+      <div className="evidence-scope-tabs" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'case'}
+          className={`evidence-scope-btn ${activeTab === 'case' ? 'active' : ''}`}
+          onClick={() => setActiveTab('case')}
+        >
+          <span>Active Case ({sources.length})</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'all'}
+          className={`evidence-scope-btn ${activeTab === 'all' ? 'active' : ''}`}
+          onClick={() => setActiveTab('all')}
+        >
+          <span>All Cases ({allSources.length})</span>
+        </button>
+      </div>
+
+      {/* Filter and Stance Controls */}
       <div className="evidence-panel-filter">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>
         <input
           type="text"
-          placeholder="Filter sources by title, domain, or claim..."
+          placeholder="Search by keyword, circular, or domain..."
           value={filterQuery}
           onChange={e => setFilterQuery(e.target.value)}
         />
+        {filterQuery && (
+          <button
+            type="button"
+            className="sidebar-search-clear"
+            onClick={() => setFilterQuery('')}
+            title="Clear filter"
+          >
+            &times;
+          </button>
+        )}
+      </div>
+
+      <div className="evidence-stance-filters">
+        <button
+          type="button"
+          className={`stance-filter-chip ${stanceFilter === 'all' ? 'active' : ''}`}
+          onClick={() => setStanceFilter('all')}
+        >
+          All
+        </button>
+        <button
+          type="button"
+          className={`stance-filter-chip supports ${stanceFilter === 'supports' ? 'active' : ''}`}
+          onClick={() => setStanceFilter('supports')}
+        >
+          Supports
+        </button>
+        <button
+          type="button"
+          className={`stance-filter-chip contradicts ${stanceFilter === 'contradicts' ? 'active' : ''}`}
+          onClick={() => setStanceFilter('contradicts')}
+        >
+          Contradicts
+        </button>
+        <button
+          type="button"
+          className={`stance-filter-chip context ${stanceFilter === 'context' ? 'active' : ''}`}
+          onClick={() => setStanceFilter('context')}
+        >
+          Context
+        </button>
       </div>
 
       <div className="evidence-panel-body">
         {filtered.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '40px 10px', color: 'var(--dam-text-muted)' }}>
-            <p>No sources matching &quot;{filterQuery}&quot;</p>
+          <div className="evidence-empty-view">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted">
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.35-4.35" />
+            </svg>
+            <p>No primary evidence matching filters</p>
+            {filterQuery && (
+              <button
+                type="button"
+                className="secondary-button compact"
+                onClick={() => { setFilterQuery(''); setStanceFilter('all'); }}
+              >
+                Reset filters
+              </button>
+            )}
           </div>
         ) : (
           filtered.map(src => (
             <div
-              key={src.id}
+              key={`${src.id}-${src.url}`}
               className={`evidence-card ${src.id === highlightIndex ? 'highlight-target' : ''}`}
               id={`evidence-card-${src.id}`}
               data-index={src.id}
@@ -85,9 +180,30 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
               <div className="evidence-passage">
                 &ldquo;{src.passage}&rdquo;
               </div>
-              <div style={{ fontSize: 11, color: 'var(--dam-text-muted)', display: 'flex', justifyContent: 'space-between' }}>
-                <span>Published {src.date}</span>
-                <span>{src.type}</span>
+              <div className="evidence-card-foot">
+                <div className="evidence-card-meta">
+                  <span>Published {src.date}</span>
+                  <span>&bull;</span>
+                  <span>{src.type}</span>
+                </div>
+                <button
+                  type="button"
+                  className={`evidence-copy-btn ${copiedId === src.id ? 'copied' : ''}`}
+                  title="Copy citation & passage"
+                  onClick={() => handleCopyPassage(src)}
+                >
+                  {copiedId === src.id ? (
+                    <>
+                      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                      <span>Copied</span>
+                    </>
+                  ) : (
+                    <>
+                      <CopyIcon className="w-3 h-3" />
+                      <span>Cite</span>
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           ))

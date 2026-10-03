@@ -12,6 +12,7 @@ interface TopbarProps {
   onToggleEvidence: () => void;
   evidenceCount: number;
   onMobileMenuToggle: () => void;
+  onOpenShare?: () => void;
 }
 
 export const Topbar: React.FC<TopbarProps> = ({
@@ -23,6 +24,7 @@ export const Topbar: React.FC<TopbarProps> = ({
   onToggleEvidence,
   evidenceCount,
   onMobileMenuToggle,
+  onOpenShare,
 }) => {
   return (
     <header className="topbar">
@@ -68,6 +70,20 @@ export const Topbar: React.FC<TopbarProps> = ({
           <span>Evidence</span>
           {evidenceCount > 0 && <span className="nav-badge">{evidenceCount}</span>}
         </button>
+
+        {onOpenShare && (
+          <button
+            className="quiet-button"
+            onClick={onOpenShare}
+            title="Share or Export Investigation Briefing"
+          >
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+            </svg>
+            <span>Share</span>
+          </button>
+        )}
 
         <button
           className="quiet-button"

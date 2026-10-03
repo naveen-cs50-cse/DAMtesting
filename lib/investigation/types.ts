@@ -72,4 +72,5 @@ export interface Conversation {
   caseId: string;
   createdAt: string;
   turns: ChatTurn[];
+  isPinned?: boolean;
 }

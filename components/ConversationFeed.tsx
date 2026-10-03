@@ -84,23 +84,36 @@ export const ConversationFeed: React.FC<ConversationFeedProps> = ({
       {turns.map(turn => {
         if (turn.role === 'user') {
           return (
-            <div key={turn.id} className="chat-turn">
+            <div key={turn.id} className="chat-turn user-row">
               <div className="user-turn">
-                <div className="user-turn-header">
-                  <span className="user-avatar-small">U</span>
-                  <span className="user-turn-title">User Query</span>
-                </div>
-                <div className="user-turn-text">{turn.content}</div>
                 {turn.attachments && turn.attachments.length > 0 && (
                   <div className="user-turn-attachments">
                     {turn.attachments.map((att, idx) => (
                       <span key={idx} className="attachment-pill">
-                        {att.type === 'application/pdf' ? <FileIcon className="w-3 h-3 text-blue-400" /> : <ImageIcon className="w-3 h-3 text-amber-400" />}
+                        {att.type === 'application/pdf' ? (
+                          <FileIcon className="w-3.5 h-3.5 text-blue-400" />
+                        ) : att.isUrl ? (
+                          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" className="text-green-400"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                        ) : (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={att.preview} alt={att.name} className="user-attachment-thumb" />
+                        )}
                         <span>{att.name}</span>
                       </span>
                     ))}
                   </div>
                 )}
+                <div className="user-turn-text">{turn.content}</div>
+              </div>
+              <div className="user-turn-actions">
+                <button
+                  type="button"
+                  className="user-turn-copy-btn"
+                  title="Copy prompt"
+                  onClick={() => onCopyBriefing(turn.content || '')}
+                >
+                  <CopyIcon className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
           );

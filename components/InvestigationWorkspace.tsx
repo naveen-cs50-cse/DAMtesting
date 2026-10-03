@@ -32,7 +32,33 @@ export const InvestigationWorkspace: React.FC = () => {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
-  const workspaceRef = useRef<HTMLElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const [isScrolledUp, setIsScrolledUp] = useState(false);
+
+  const handleScroll = () => {
+    if (!scrollAreaRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollAreaRef.current;
+    const distFromBottom = scrollHeight - scrollTop - clientHeight;
+    setIsScrolledUp(distFromBottom > 100);
+  };
+
+  const scrollToBottom = () => {
+    if (scrollAreaRef.current) {
+      scrollAreaRef.current.scrollTo({
+        top: scrollAreaRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
+    }
+  };
+
+  const activeConversation = conversations.find(c => c.id === activeId) || null;
+
+  // Auto-scroll to bottom as investigation streams or turns update
+  useEffect(() => {
+    if (!isScrolledUp && scrollAreaRef.current) {
+      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+    }
+  }, [activeConversation?.turns, isStreaming, isScrolledUp]);
 
   // Load conversations on mount
   useEffect(() => {
@@ -59,8 +85,6 @@ export const InvestigationWorkspace: React.FC = () => {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(null), 3000);
   };
-
-  const activeConversation = conversations.find(c => c.id === activeId) || null;
 
   // Aggregate all sources for active conversation
   const allSources: IndexedSource[] = [];
@@ -276,43 +300,72 @@ export const InvestigationWorkspace: React.FC = () => {
           evidenceCount={allSources.length}
         />
 
-        <section className="workspace" id="workspace" ref={workspaceRef}>
-          {!activeConversation ? (
-            <LandingBlock onSelectPrompt={p => { setInput(p); handleSendInvestigation(p); }} />
-          ) : (
-            <ConversationFeed
-              turns={activeConversation.turns}
-              isStreaming={isStreaming}
-              onCitationClick={handleCitationClick}
-              onOpenEvidence={() => setEvidencePanelOpen(true)}
-              onCopyBriefing={text => {
-                navigator.clipboard.writeText(text);
-                showToast('Briefing copied to clipboard');
-              }}
-              onRetry={() => {
-                const lastUser = [...activeConversation.turns].reverse().find(t => t.role === 'user');
-                if (lastUser?.content) handleSendInvestigation(lastUser.content);
-              }}
-              onStop={handleStop}
-            />
-          )}
+        <section className="workspace-fixed-layout" id="workspace">
+          {/* Scrollable conversation / landing viewport */}
+          <div
+            className="workspace-scroll-area"
+            id="workspaceScrollArea"
+            ref={scrollAreaRef}
+            onScroll={handleScroll}
+          >
+            <div className="workspace-content-inner">
+              {!activeConversation ? (
+                <LandingBlock onSelectPrompt={p => { setInput(p); handleSendInvestigation(p); }} />
+              ) : (
+                <ConversationFeed
+                  turns={activeConversation.turns}
+                  isStreaming={isStreaming}
+                  onCitationClick={handleCitationClick}
+                  onOpenEvidence={() => setEvidencePanelOpen(true)}
+                  onCopyBriefing={text => {
+                    navigator.clipboard.writeText(text);
+                    showToast('Briefing copied to clipboard');
+                  }}
+                  onRetry={() => {
+                    const lastUser = [...activeConversation.turns].reverse().find(t => t.role === 'user');
+                    if (lastUser?.content) handleSendInvestigation(lastUser.content);
+                  }}
+                  onStop={handleStop}
+                />
+              )}
+            </div>
+          </div>
 
-          {/* Persistent Composer (Centered on empty landing, docked on conversation) */}
-          <Composer
-            input={input}
-            setInput={setInput}
-            attachments={attachments}
-            onAddAttachment={att => setAttachments(prev => [...prev, att])}
-            onRemoveAttachment={idx => setAttachments(prev => prev.filter((_, i) => i !== idx))}
-            activeMode={activeMode}
-            setActiveMode={setActiveMode}
-            activeLang={activeLang}
-            setActiveLang={setActiveLang}
-            isStreaming={isStreaming}
-            onSend={() => handleSendInvestigation()}
-            onStop={handleStop}
-            onOpenUrlModal={() => setUrlModalOpen(true)}
-          />
+          {/* Fixed bottom docked composer bar */}
+          <div className="composer-dock-container" id="composerDockContainer">
+            {/* Scroll-to-bottom floating button (matches ChatGPT) */}
+            {isScrolledUp && (
+              <button
+                type="button"
+                className="scroll-to-bottom-floating-btn"
+                onClick={scrollToBottom}
+                title="Scroll to latest message"
+                aria-label="Scroll to bottom"
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M12 5v14m-6-6 6 6 6-6" />
+                </svg>
+              </button>
+            )}
+
+            <div className="composer-dock-inner">
+              <Composer
+                input={input}
+                setInput={setInput}
+                attachments={attachments}
+                onAddAttachment={att => setAttachments(prev => [...prev, att])}
+                onRemoveAttachment={idx => setAttachments(prev => prev.filter((_, i) => i !== idx))}
+                activeMode={activeMode}
+                setActiveMode={setActiveMode}
+                activeLang={activeLang}
+                setActiveLang={setActiveLang}
+                isStreaming={isStreaming}
+                onSend={() => handleSendInvestigation()}
+                onStop={handleStop}
+                onOpenUrlModal={() => setUrlModalOpen(true)}
+              />
+            </div>
+          </div>
         </section>
       </main>
 

@@ -46,6 +46,61 @@ function getFollowUpChips(turn: ChatTurn): string[] {
   ];
 }
 
+const UserTurnItem: React.FC<{
+  turn: ChatTurn;
+  onCopyPrompt: (text: string) => void;
+}> = ({ turn, onCopyPrompt }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    onCopyPrompt(turn.content || '');
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="chat-turn user-row">
+      <div className="user-turn">
+        {turn.attachments && turn.attachments.length > 0 && (
+          <div className="user-turn-attachments">
+            {turn.attachments.map((att, idx) => (
+              <span key={idx} className="attachment-pill">
+                {att.type === 'application/pdf' ? (
+                  <FileIcon className="w-3.5 h-3.5 text-blue-400" />
+                ) : att.isUrl ? (
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" className="text-green-400"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={att.preview} alt={att.name} className="user-attachment-thumb" />
+                )}
+                <span>{att.name}</span>
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="user-turn-text">{turn.content}</div>
+      </div>
+      <div className="user-turn-actions">
+        <button
+          type="button"
+          className={`user-turn-copy-btn ${copied ? 'copied' : ''}`}
+          title={copied ? 'Copied to clipboard!' : 'Copy prompt'}
+          onClick={handleCopy}
+          aria-label={copied ? 'Copied prompt' : 'Copy prompt'}
+        >
+          {copied ? (
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: 'var(--dam-green)' }}>
+              <path d="M20 6L9 17l-5-5" />
+            </svg>
+          ) : (
+            <CopyIcon className="w-3.5 h-3.5" />
+          )}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const AssistantTurnView: React.FC<{
   turn: ChatTurn;
   isStreaming: boolean;
@@ -73,7 +128,14 @@ const AssistantTurnView: React.FC<{
 
   // Collapsible audit trail: open while streaming, collapsed by default when complete
   const [userExpandedAudit, setUserExpandedAudit] = useState(false);
+  const [copied, setCopied] = useState(false);
   const isAuditOpen = isLive ? true : userExpandedAudit;
+
+  const handleCopy = () => {
+    onCopyBriefing(turn.fullText || '');
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <div className="chat-turn">
@@ -81,7 +143,7 @@ const AssistantTurnView: React.FC<{
         {/* 1. TOP-LEVEL VERDICT CARDS (Inverted Result Hierarchy — instant executive clarity) */}
         {meta?.verdicts && (
           <div className="verdicts-grid revealed">
-            <div className="verdict-card">
+            <div className="verdict-card verdict-card-correctness">
               <span className="verdict-header">Factual Correctness</span>
               <div className={`verdict-badge verdict-${meta.verdicts.factualCorrectness.toLowerCase()}`}>
                 <span>{meta.verdicts.factualCorrectness}</span>
@@ -89,7 +151,7 @@ const AssistantTurnView: React.FC<{
               <p className="verdict-notes">Based on published Indian gazettes, RBI, PIB, and official portals.</p>
             </div>
 
-            <div className="verdict-card">
+            <div className="verdict-card verdict-card-risk">
               <span className="verdict-header">Scam Risk</span>
               <div className={`verdict-badge risk-${meta.verdicts.scamRisk.toLowerCase()}`}>
                 <span>{meta.verdicts.scamRisk} Risk</span>
@@ -101,7 +163,7 @@ const AssistantTurnView: React.FC<{
               </div>
             </div>
 
-            <div className="verdict-card">
+            <div className="verdict-card verdict-card-sufficiency">
               <span className="verdict-header">Evidence Sufficiency</span>
               <div className={`verdict-badge suff-${meta.verdicts.evidenceSufficiency.toLowerCase()}`}>
                 <span>{meta.verdicts.evidenceSufficiency}</span>
@@ -256,7 +318,7 @@ const AssistantTurnView: React.FC<{
           </details>
         )}
 
-        {/* 7. Contextual Follow-up Inquiries (Phase 2 enhancement) */}
+        {/* 7. Contextual Follow-up Inquiries */}
         {!isLive && (
           <div className="followup-suggestions-section" aria-label="Suggested follow-up inquiries">
             <div className="followup-suggestions-label">
@@ -282,7 +344,7 @@ const AssistantTurnView: React.FC<{
           </div>
         )}
 
-        {/* 8. Action Controls Bar */}
+        {/* 8. Action Controls Bar with animated checkmark feedback */}
         <div className="investigation-controls">
           <div className="controls-left">
             {isLive ? (
@@ -292,11 +354,22 @@ const AssistantTurnView: React.FC<{
             ) : (
               <>
                 <button
-                  className="control-btn"
-                  onClick={() => onCopyBriefing(turn.fullText || '')}
-                  title="Copy briefing"
+                  className={`control-btn ${copied ? 'copied' : ''}`}
+                  onClick={handleCopy}
+                  title={copied ? 'Copied briefing to clipboard!' : 'Copy briefing'}
                 >
-                  <CopyIcon className="w-3.5 h-3.5" /> <span>Copy Briefing</span>
+                  {copied ? (
+                    <>
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: 'var(--dam-green)' }}>
+                        <path d="M20 6L9 17l-5-5" />
+                      </svg>
+                      <span style={{ color: 'var(--dam-green)', fontWeight: 650 }}>Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <CopyIcon className="w-3.5 h-3.5" /> <span>Copy Briefing</span>
+                    </>
+                  )}
                 </button>
                 <button className="control-btn" onClick={onRetry} title="Re-evaluate investigation">
                   <RetryIcon className="w-3.5 h-3.5" /> <span>Re-evaluate</span>
@@ -401,38 +474,11 @@ export const ConversationFeed: React.FC<ConversationFeedProps> = ({
       {turns.map(turn => {
         if (turn.role === 'user') {
           return (
-            <div key={turn.id} className="chat-turn user-row">
-              <div className="user-turn">
-                {turn.attachments && turn.attachments.length > 0 && (
-                  <div className="user-turn-attachments">
-                    {turn.attachments.map((att, idx) => (
-                      <span key={idx} className="attachment-pill">
-                        {att.type === 'application/pdf' ? (
-                          <FileIcon className="w-3.5 h-3.5 text-blue-400" />
-                        ) : att.isUrl ? (
-                          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" className="text-green-400"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                        ) : (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={att.preview} alt={att.name} className="user-attachment-thumb" />
-                        )}
-                        <span>{att.name}</span>
-                      </span>
-                    ))}
-                  </div>
-                )}
-                <div className="user-turn-text">{turn.content}</div>
-              </div>
-              <div className="user-turn-actions">
-                <button
-                  type="button"
-                  className="user-turn-copy-btn"
-                  title="Copy prompt"
-                  onClick={() => onCopyBriefing(turn.content || '')}
-                >
-                  <CopyIcon className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
+            <UserTurnItem
+              key={turn.id}
+              turn={turn}
+              onCopyPrompt={onCopyBriefing}
+            />
           );
         }
 

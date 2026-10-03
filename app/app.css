@@ -999,6 +999,7 @@ svg {
   height: 2px;
   background: var(--dam-red);
   border-radius: var(--radius-full);
+  box-shadow: 0 0 8px var(--dam-red);
 }
 
 .landing-heading {
@@ -1006,7 +1007,7 @@ svg {
   font-family: var(--font-serif);
   font-size: clamp(34px, 4.4vw, 50px);
   font-weight: 500;
-  line-height: 1.05;
+  line-height: 1.06;
   letter-spacing: -0.035em;
   color: var(--dam-text-primary);
   text-align: left;
@@ -1015,7 +1016,9 @@ svg {
 .landing-heading em {
   font-style: italic;
   font-weight: 400;
-  color: #b8b8c2;
+  background: linear-gradient(135deg, #ffffff 30%, #c9c9d4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .landing-subtext {
@@ -1147,7 +1150,12 @@ svg {
   background: rgba(18, 18, 22, 0.85);
   text-align: left;
   box-sizing: border-box;
-  transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.06), 0 2px 10px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease;
+}
+
+.starter:active {
+  transform: scale(0.985);
 }
 
 .starter-header {
@@ -2153,13 +2161,46 @@ details[open] .timeline-chevron {
 }
 
 .verdict-card {
-  background: var(--dam-bg-panel);
-  border: 1px solid var(--dam-border-default);
+  position: relative;
+  background: linear-gradient(180deg, rgba(22, 22, 28, 0.95) 0%, rgba(15, 15, 19, 0.95) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-md);
   padding: 14px 16px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.09), 0 4px 20px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.verdict-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.15);
+  opacity: 0.7;
+}
+
+.verdict-card-correctness::before {
+  background: linear-gradient(90deg, var(--dam-green) 0%, transparent 80%);
+}
+
+.verdict-card-risk::before {
+  background: linear-gradient(90deg, var(--dam-red) 0%, transparent 80%);
+}
+
+.verdict-card-sufficiency::before {
+  background: linear-gradient(90deg, var(--dam-blue) 0%, transparent 80%);
+}
+
+.verdict-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.14), 0 10px 28px rgba(0, 0, 0, 0.45);
 }
 
 .verdict-header {
@@ -2344,8 +2385,9 @@ details[open] .timeline-chevron {
 }
 
 .source-card {
-  background: var(--dam-bg-panel);
-  border: 1px solid var(--dam-border-default);
+  position: relative;
+  background: linear-gradient(180deg, rgba(20, 20, 25, 0.9) 0%, rgba(14, 14, 18, 0.9) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-md);
   padding: 12px 14px;
   display: flex;
@@ -2353,13 +2395,15 @@ details[open] .timeline-chevron {
   gap: 6px;
   text-decoration: none;
   color: inherit;
-  transition: all var(--transition-fast);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.07), 0 2px 10px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease;
 }
 
 .source-card:hover {
-  border-color: var(--dam-border-hover);
-  background: var(--dam-bg-panel-hover);
-  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.2);
+  background: linear-gradient(180deg, rgba(26, 26, 33, 0.95) 0%, rgba(18, 18, 24, 0.95) 100%);
+  transform: translateY(-2px);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.12), 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 
 .source-card-head {
@@ -2465,13 +2509,26 @@ details[open] .timeline-chevron {
   color: var(--dam-text-secondary);
   font-size: 12.5px;
   font-weight: 550;
-  transition: all var(--transition-fast);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.05);
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .control-btn:hover {
   background: var(--dam-bg-panel-hover);
   border-color: var(--dam-border-hover);
   color: var(--dam-text-primary);
+  transform: translateY(-1px);
+}
+
+.control-btn:active {
+  transform: scale(0.98);
+}
+
+.control-btn.copied {
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.35);
+  color: var(--dam-green);
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.15);
 }
 
 .control-btn svg {
@@ -3098,12 +3155,17 @@ body.sidebar-collapsed .workspace-chip {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.12s ease;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .user-turn-copy-btn:hover {
   color: var(--dam-text-primary);
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.user-turn-copy-btn.copied {
+  color: var(--dam-green);
+  background: rgba(34, 197, 94, 0.14);
 }
 
 .attachment-pill {

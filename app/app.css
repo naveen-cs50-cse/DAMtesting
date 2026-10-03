@@ -150,55 +150,72 @@ svg {
 }
 
 .new-investigation-btn {
-  margin: 14px 14px 8px;
-  height: 42px;
+  margin: 12px 12px 6px;
+  height: 40px;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 14px;
+  padding: 0 12px;
   border: 1px solid var(--dam-border-default);
-  border-radius: var(--radius-md);
-  background: var(--dam-bg-panel);
-  color: var(--dam-text-primary);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.035);
+  color: #ffffff;
   font-weight: 600;
-  font-size: var(--text-sm);
+  font-size: 13px;
   transition: all var(--transition-fast);
   white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .new-investigation-btn:hover {
-  border-color: var(--dam-border-hover);
-  background: var(--dam-bg-panel-hover);
+  border-color: rgba(240, 58, 58, 0.4);
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35), 0 0 12px rgba(240, 58, 58, 0.12);
   transform: translateY(-1px);
+}
+
+.new-investigation-btn svg {
+  width: 15px;
+  height: 15px;
+  color: var(--dam-red);
+  flex-shrink: 0;
 }
 
 .new-investigation-btn kbd {
   margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  padding: 0 6px;
   color: var(--dam-text-muted);
-  background: var(--dam-bg-root);
+  background: rgba(0, 0, 0, 0.45);
   border: 1px solid var(--dam-border-default);
-  border-radius: var(--radius-xs);
-  padding: 2px 5px;
+  border-radius: 4px;
   font-size: 10.5px;
+  font-weight: 600;
   font-family: var(--font-mono);
+  line-height: 1;
 }
 
 .primary-nav {
-  padding: 8px 12px;
+  padding: 4px 12px 8px;
   display: grid;
-  gap: 3px;
+  gap: 2px;
+  border-bottom: 1px solid var(--dam-border-subtle);
+  margin-bottom: 6px;
 }
 
 .nav-item {
   width: 100%;
-  min-height: 40px;
+  min-height: 36px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 0 12px;
+  gap: 10px;
+  padding: 0 10px;
   border-radius: var(--radius-sm);
   color: var(--dam-text-secondary);
-  font-size: var(--text-sm);
+  font-size: 12.5px;
   font-weight: 550;
   text-align: left;
   transition: all var(--transition-fast);
@@ -207,13 +224,18 @@ svg {
 
 .nav-item:hover {
   color: var(--dam-text-primary);
-  background: var(--dam-bg-panel-hover);
+  background: rgba(255, 255, 255, 0.05);
 }
 
-.nav-item.active {
+.nav-item svg {
+  width: 15px;
+  height: 15px;
+  color: var(--dam-text-muted);
+  transition: color var(--transition-fast);
+}
+
+.nav-item:hover svg {
   color: var(--dam-text-primary);
-  background: var(--dam-red-soft);
-  font-weight: 600;
 }
 
 .nav-item.active svg {

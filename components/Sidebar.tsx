@@ -232,10 +232,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </button>
 
       <nav className="primary-nav" aria-label="Primary views">
-        <button className="nav-item active" onClick={onNewConversation}>
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4.5 4.5M11 8v6M8 11h6"/></svg>
-          <span>Investigate</span>
-        </button>
         <button className="nav-item" onClick={onOpenEvidence} title="Open Evidence Explorer (Alt+E)">
           <EvidenceIcon className="w-4 h-4" />
           <span>Evidence library</span>

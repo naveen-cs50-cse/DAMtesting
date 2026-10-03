@@ -24,6 +24,16 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
   const [stanceFilter, setStanceFilter] = useState<'all' | 'supports' | 'contradicts' | 'context'>('all');
   const [copiedId, setCopiedId] = useState<number | null>(null);
 
+  // Close on Escape key
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const dataset = activeTab === 'all' && allSources.length > 0 ? allSources : sources;
@@ -48,7 +58,13 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
   };
 
   return (
-    <aside className={`evidence-panel ${isOpen ? 'open' : ''}`} aria-label="Evidence Explorer & Repository">
+    <>
+      <div 
+        className="evidence-panel-backdrop show"
+        aria-hidden="true" 
+        onClick={onClose} 
+      />
+      <aside className="evidence-panel open" aria-label="Evidence Explorer & Repository">
       <div className="evidence-panel-head">
         <div className="evidence-panel-title">
           <EvidenceIcon className="evidence-panel-icon" />
@@ -210,5 +226,6 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
         )}
       </div>
     </aside>
-  );
+  </>
+);
 };

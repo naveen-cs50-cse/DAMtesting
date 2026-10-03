@@ -237,10 +237,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </button>
 
       <nav className="primary-nav" aria-label="Primary views">
-        <button className="nav-item" onClick={onOpenEvidence} title="Open Evidence Explorer (Alt+E)">
-          <EvidenceIcon className="w-4 h-4" />
+        <button className="nav-item nav-item-evidence" onClick={onOpenEvidence} title="Open Evidence Explorer (Alt+E)">
+          <EvidenceIcon className="w-4 h-4 evidence-folder-icon" />
           <span>Evidence library</span>
-          {evidenceCount > 0 && <span className="nav-badge">{evidenceCount}</span>}
+          {evidenceCount > 0 && <span className="nav-badge evidence-count-badge">{evidenceCount}</span>}
         </button>
         <button className="nav-item" onClick={() => window.print()} title="Print or Export PDF Report">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M8 17v-2m4 2v-5m4 5v-3"/></svg>

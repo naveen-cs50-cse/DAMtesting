@@ -50,8 +50,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isMac, setIsMac] = useState(false);
   const menuRef = React.useRef<HTMLDivElement>(null);
   const triggerRef = React.useRef<HTMLButtonElement>(null);
+
+  React.useEffect(() => {
+    setIsMac(typeof navigator !== 'undefined' && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform || navigator.userAgent));
+  }, []);
 
   // Close profile menu on outside click or Escape key
   React.useEffect(() => {
@@ -225,10 +230,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </button>
       </div>
 
-      <button className="new-investigation-btn" onClick={onNewConversation} title="Start a fresh investigation (Cmd/Ctrl+K)">
+      <button className="new-investigation-btn" onClick={onNewConversation} title={`Start a fresh investigation (${isMac ? 'Cmd+K' : 'Ctrl+K'})`}>
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14"/></svg>
         <span>New investigation</span>
-        <kbd aria-label="Keyboard shortcut">⌘K</kbd>
+        <kbd aria-label="Keyboard shortcut">{isMac ? '⌘K' : 'Ctrl K'}</kbd>
       </button>
 
       <nav className="primary-nav" aria-label="Primary views">
@@ -288,7 +293,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onClick={onNewConversation}
               >
                 <span>Start verification</span>
-                <kbd>⌘K</kbd>
+                <kbd>{isMac ? '⌘K' : 'Ctrl K'}</kbd>
               </button>
             </div>
           ) : filtered.length === 0 ? (
@@ -379,7 +384,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
               <span>Toggle Sidebar</span>
-              <kbd>Ctrl+B</kbd>
+              <kbd>{isMac ? '⌘B' : 'Ctrl B'}</kbd>
             </button>
 
             <div className="menu-divider" />

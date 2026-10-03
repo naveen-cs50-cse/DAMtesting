@@ -188,14 +188,23 @@ svg {
   justify-content: center;
   height: 20px;
   padding: 0 6px;
-  color: var(--dam-text-muted);
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid var(--dam-border-default);
+  color: #a1a1aa;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 4px;
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 600;
-  font-family: var(--font-mono);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+  letter-spacing: 0.03em;
   line-height: 1;
+  -webkit-font-smoothing: antialiased;
+  transition: all var(--transition-fast);
+}
+
+.new-investigation-btn:hover kbd {
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.09);
 }
 
 .primary-nav {
@@ -431,11 +440,15 @@ svg {
 }
 
 .history-empty-start-btn kbd {
-  font-size: 10px;
+  font-size: 10.5px;
+  font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
   background: rgba(255, 255, 255, 0.06);
-  padding: 1px 4px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 1px 5px;
   border-radius: 3px;
   color: var(--dam-text-muted);
+  -webkit-font-smoothing: antialiased;
 }
 
 /* History Groupings & Pinned Cases (Phase 4) */

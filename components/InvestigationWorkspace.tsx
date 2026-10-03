@@ -31,6 +31,8 @@ export const InvestigationWorkspace: React.FC = () => {
   const [renamingConversation, setRenamingConversation] = useState<Conversation | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   const abortControllerRef = useRef<AbortController | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
@@ -109,6 +111,7 @@ export const InvestigationWorkspace: React.FC = () => {
         setMethodologyModalOpen(false);
         setUrlModalOpen(false);
         setRenamingConversation(null);
+        setMobileMenuOpen(false);
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
         e.preventDefault();
@@ -271,8 +274,18 @@ export const InvestigationWorkspace: React.FC = () => {
     setTimeout(() => setHighlightCitation(null), 3000);
   };
 
+  const closeMobileMenu = () => setMobileMenuOpen(false);
+
   return (
-    <div className="app-shell" id="appShell">
+    <div className={`app-shell${mobileMenuOpen ? ' menu-open' : ''}`} id="appShell">
+      {/* Mobile backdrop: tapping outside sidebar closes it */}
+      {mobileMenuOpen && (
+        <div
+          className="mobile-sidebar-backdrop"
+          aria-hidden="true"
+          onClick={closeMobileMenu}
+        />
+      )}
       <Sidebar
         conversations={conversations}
         activeId={activeId}
@@ -298,6 +311,7 @@ export const InvestigationWorkspace: React.FC = () => {
           onOpenMethodology={() => setMethodologyModalOpen(true)}
           onToggleEvidence={() => setEvidencePanelOpen(prev => !prev)}
           evidenceCount={allSources.length}
+          onMobileMenuToggle={() => setMobileMenuOpen(prev => !prev)}
         />
 
         <section className="workspace-fixed-layout" id="workspace">

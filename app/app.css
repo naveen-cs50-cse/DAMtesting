@@ -3142,34 +3142,103 @@ body.sidebar-collapsed .workspace-chip {
   color: var(--dam-red);
 }
 
-/* RESPONSIVE & MOBILE DRAWERS */
+/* ============================================================
+   RESPONSIVE & MOBILE — UseDAM
+   Breakpoints:
+     sm  ≤ 640px  (phones)
+     md  ≤ 860px  (tablets / small laptops)
+   ============================================================ */
+
+/* ---- TABLET / SMALL LAPTOP (≤ 860px) ---- */
 @media (max-width: 860px) {
+
+  /* App shell: single-column, sidebar becomes overlay */
   .app-shell {
     grid-template-columns: 1fr;
   }
 
+  /* Sidebar becomes slide-in overlay drawer */
   .sidebar {
     position: fixed;
     top: 0;
     bottom: 0;
     left: 0;
-    width: min(84vw, 320px);
-    transform: translateX(-105%);
-    box-shadow: 20px 0 60px rgba(0, 0, 0, 0.6);
+    width: min(82vw, 300px);
+    transform: translateX(-110%);
+    z-index: 200;
+    box-shadow: 20px 0 60px rgba(0, 0, 0, 0.65);
+    transition: transform var(--transition-base);
   }
 
   body.menu-open .sidebar {
     transform: translateX(0);
   }
 
+  /* Backdrop overlay when sidebar open */
+  body.menu-open::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 190;
+    backdrop-filter: blur(2px);
+  }
+
+  /* Show hamburger menu button */
   .mobile-menu {
     display: grid;
   }
 
-  .starter-grid {
-    grid-template-columns: 1fr;
+  /* Topbar adapts */
+  .topbar {
+    padding: 0 16px;
   }
 
+  /* Hide verbose topbar action labels on tablet */
+  .quiet-button span {
+    display: none;
+  }
+
+  .quiet-button {
+    padding: 0 10px;
+    gap: 0;
+  }
+
+  /* Main area fills full viewport */
+  .main-area {
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* Content columns narrow */
+  .workspace-content-inner {
+    padding: 20px 16px 12px;
+    max-width: 100%;
+  }
+
+  .composer-dock-container {
+    padding: 6px 16px 12px;
+  }
+
+  .composer-dock-inner {
+    max-width: 100%;
+  }
+
+  /* Landing: full-width, tighter */
+  .landing-block {
+    gap: 12px;
+  }
+
+  .landing-heading {
+    font-size: clamp(28px, 6vw, 42px);
+  }
+
+  /* Cards: 2-column on tablet, 1-column on phone handled below */
+  .starter-grid {
+    gap: 8px;
+  }
+
+  /* Verdict / source grids to single column */
   .verdicts-grid {
     grid-template-columns: 1fr;
   }
@@ -3178,44 +3247,332 @@ body.sidebar-collapsed .workspace-chip {
     grid-template-columns: 1fr;
   }
 
-  .landing-block {
-    width: calc(100% - 24px);
-    padding: 20px 0 16px;
-  }
-
+  /* Conversation width matches viewport */
   .conversation {
-    width: calc(100% - 20px);
-    padding: 20px 0 80px;
+    width: 100%;
+    padding: 16px 0 80px;
   }
 
-  .composer-quick-chips {
-    overflow-x: auto;
-    padding-bottom: 4px;
-  }
-}
-
-@media (max-width: 480px) {
-  .topbar {
-    padding: 0 12px;
+  /* Composer pill padding tighter */
+  .chatgpt-composer-pill {
+    padding: 10px 12px 9px 14px;
+    border-radius: 22px;
   }
 
-  .landing-heading {
-    font-size: 34px;
-  }
-
-  .quiet-button span {
+  /* Mode and language selectors: hide text, keep icon feel */
+  .composer-model-pill span:first-child {
     display: none;
   }
 
-  .message-assistant {
-    grid-template-columns: 28px 1fr;
-    gap: 10px;
+  .composer-lang-pill span:first-child {
+    display: none;
   }
 
-  .assistant-avatar {
-    width: 28px;
-    height: 28px;
+  .composer-model-pill,
+  .composer-lang-pill {
+    padding: 0 8px;
+    width: 34px;
+    justify-content: center;
+  }
+
+  /* Evidence panel full-width on mobile */
+  .evidence-panel {
+    width: min(100vw, 380px);
+  }
+}
+
+/* ---- PHONE (≤ 640px) ---- */
+@media (max-width: 640px) {
+
+  /* Topbar very compact */
+  .topbar {
+    padding: 0 12px;
+    height: 52px;
+  }
+
+  .main-area {
+    grid-template-rows: 52px 1fr;
+  }
+
+  .page-title strong {
+    font-size: 13px;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* API Keys, Report, Methodology hidden on phone */
+  .quiet-button:not([title="Toggle Evidence Explorer (Alt+E)"]):not([title="Configure API Keys & LLM Provider"]) {
+    display: none;
+  }
+
+  /* Landing: tight padding */
+  .workspace-content-inner {
+    padding: 16px 14px 10px;
+  }
+
+  .composer-dock-container {
+    padding: 4px 12px 10px;
+  }
+
+  /* Hero heading scale for phones */
+  .landing-heading {
+    font-size: clamp(24px, 7vw, 32px);
+    line-height: 1.08;
+  }
+
+  .landing-subtext {
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+
+  .eyebrow {
+    font-size: 10px;
+  }
+
+  /* Cards: 1 column on phones */
+  .starter-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .starter {
+    min-height: 60px;
+    padding: 10px 12px;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .starter-header {
+    margin-bottom: 0;
+    width: auto;
+    flex-shrink: 0;
+  }
+
+  .starter-badge {
+    display: none;
+  }
+
+  .starter-text {
+    gap: 1px;
+  }
+
+  .starter-text strong {
+    font-size: 13px;
+  }
+
+  .starter-text small {
+    font-size: 11.5px;
+  }
+
+  /* Scam trends strip: smaller text */
+  .scam-trends-strip {
+    padding: 7px 10px;
+    gap: 8px;
+    border-radius: 10px;
+  }
+
+  .trends-label {
+    font-size: 10px;
+    letter-spacing: 0.05em;
+  }
+
+  .trend-pill {
+    font-size: 11.5px;
+    padding: 5px 8px;
+  }
+
+  /* Example chips scroll horizontally */
+  .examples-pills {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .examples-pills::-webkit-scrollbar {
+    display: none;
+  }
+
+  .example-chip {
+    flex-shrink: 0;
+    white-space: nowrap;
+    font-size: 11px;
+    padding: 5px 10px;
+  }
+
+  /* Composer pill: smaller on phones */
+  .chatgpt-composer-pill {
+    border-radius: 18px;
+    padding: 9px 10px 8px 13px;
+    gap: 6px;
+  }
+
+  .composer-textarea-row textarea {
     font-size: 14px;
+    min-height: 24px;
+  }
+
+  .composer-textarea-row textarea::placeholder {
+    font-size: 14px;
+  }
+
+  .composer-toolbar-row {
+    margin-top: 2px;
+  }
+
+  .composer-plus-btn,
+  .composer-icon-action-btn {
+    width: 30px;
+    height: 30px;
+  }
+
+  .composer-circle-submit-btn {
+    width: 30px;
+    height: 30px;
+  }
+
+  /* Hide mode and language selectors entirely */
+  .composer-model-pill,
+  .composer-lang-pill {
+    display: none;
+  }
+
+  /* Disclaimer subtext hidden on very small screens */
+  .composer-disclaimer-subtext {
+    display: none;
+  }
+
+  /* Conversation feed tighter */
+  .conversation {
+    padding: 12px 0 70px;
+  }
+
+  .user-turn {
+    max-width: 92%;
+    padding: 10px 14px;
+    border-radius: 16px;
+  }
+
+  .user-turn-text {
+    font-size: 14px;
+  }
+
+  /* Activity stages compact */
+  .activity-stage-item {
+    padding: 8px 12px;
+  }
+
+  .stage-label {
+    font-size: 12px;
+  }
+
+  /* Verdict cards single column */
+  .verdicts-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .verdict-card {
+    padding: 14px 16px;
+  }
+
+  /* Claims table scroll on small screens */
+  .claims-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Source cards 1 column */
+  .sources-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  /* Challenger box */
+  .challenger-box {
+    padding: 12px;
+  }
+
+  /* Investigation controls: wrap on mobile */
+  .investigation-controls {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .controls-left,
+  .controls-right {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .control-btn {
+    font-size: 11.5px;
+    padding: 0 9px;
+    height: 30px;
+  }
+
+  /* Scroll-to-bottom button position */
+  .scroll-to-bottom-floating-btn {
+    width: 30px;
+    height: 30px;
+    top: -40px;
+  }
+
+  /* Topbar actions: only icons on phone */
+  .topbar-actions {
+    gap: 4px;
+  }
+
+  .quiet-button {
+    padding: 0 8px;
+    height: 32px;
+  }
+
+  /* Evidence panel full-screen on phone */
+  .evidence-panel {
+    width: 100vw;
+    right: 0;
+    border-radius: 0;
+  }
+
+  /* Modal compact on phone */
+  .modal-panel {
+    margin: 12px;
+    padding: 20px 18px;
+    border-radius: 16px;
+    max-height: calc(100vh - 24px);
+    overflow-y: auto;
+  }
+}
+
+/* ---- VERY SMALL (≤ 380px) — iPhone SE / compact phones ---- */
+@media (max-width: 380px) {
+  .landing-heading {
+    font-size: 22px;
+  }
+
+  .landing-subtext {
+    font-size: 13px;
+  }
+
+  .scam-trends-strip {
+    display: none; /* remove strip to save space on tiny screens */
+  }
+
+  .starter-grid {
+    gap: 6px;
+  }
+
+  .starter {
+    min-height: 54px;
+  }
+
+  .workspace-content-inner {
+    padding: 12px 12px 8px;
   }
 }
 
@@ -3237,7 +3594,7 @@ body.sidebar-collapsed .workspace-chip {
     overflow: visible !important;
   }
 
-  .sidebar, .topbar, .composer-container, .followup-composer, .investigation-controls, .icon-button, .search-history-btn {
+  .sidebar, .topbar, .composer-dock-container, .followup-composer, .investigation-controls, .icon-button, .search-history-btn {
     display: none !important;
   }
 
@@ -3251,9 +3608,19 @@ body.sidebar-collapsed .workspace-chip {
     height: auto !important;
   }
 
-  .workspace {
+  .workspace, .workspace-fixed-layout {
     overflow: visible !important;
     height: auto !important;
+  }
+
+  .workspace-scroll-area {
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  .workspace-content-inner {
+    padding: 0 !important;
+    max-width: 100% !important;
   }
 
   .conversation {

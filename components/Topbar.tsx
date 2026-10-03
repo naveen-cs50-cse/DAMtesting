@@ -11,6 +11,7 @@ interface TopbarProps {
   onOpenMethodology: () => void;
   onToggleEvidence: () => void;
   evidenceCount: number;
+  onMobileMenuToggle: () => void;
 }
 
 export const Topbar: React.FC<TopbarProps> = ({
@@ -21,6 +22,7 @@ export const Topbar: React.FC<TopbarProps> = ({
   onOpenMethodology,
   onToggleEvidence,
   evidenceCount,
+  onMobileMenuToggle,
 }) => {
   return (
     <header className="topbar">
@@ -29,7 +31,7 @@ export const Topbar: React.FC<TopbarProps> = ({
           className="icon-button mobile-menu"
           id="mobileMenu"
           aria-label="Open sidebar menu"
-          onClick={() => document.body.classList.toggle('menu-open')}
+          onClick={onMobileMenuToggle}
         >
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
         </button>

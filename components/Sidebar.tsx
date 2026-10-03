@@ -15,6 +15,23 @@ interface SidebarProps {
   onOpenEvidence: () => void;
 }
 
+function formatRelativeTime(dateInput?: string | number | Date): string {
+  if (!dateInput) return '';
+  const date = new Date(dateInput);
+  const diffMs = Date.now() - date.getTime();
+  if (diffMs < 0 || isNaN(diffMs)) return '';
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return 'just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDays = Math.floor(diffHr / 24);
+  if (diffDays === 1) return 'yesterday';
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
 export const Sidebar: React.FC<SidebarProps> = ({
   conversations,
   activeId,
@@ -71,7 +88,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" className="history-item-icon" aria-hidden="true">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
               </svg>
-              <span className="history-title-text">{item.title}</span>
+              <div className="history-text-col">
+                <span className="history-title-text">{item.title}</span>
+                {item.createdAt && (
+                  <span className="history-time-hint">{formatRelativeTime(item.createdAt)}</span>
+                )}
+              </div>
             </button>
             <div className="history-actions" role="toolbar" aria-label="Conversation actions">
               <button

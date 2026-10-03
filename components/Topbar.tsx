@@ -38,7 +38,14 @@ export const Topbar: React.FC<TopbarProps> = ({
         <div className="page-title">
           <span className={`status-pulse ${isLive ? 'live' : ''}`} aria-hidden="true" />
           <strong>{title}</strong>
-          {caseId && <span className="case-id-badge">CASE #{caseId}</span>}
+          {caseId && (
+            <>
+              <span className="case-id-badge">CASE #{caseId}</span>
+              <span className="case-id-mini" title={`Case #${caseId}`} aria-label={`Case ${caseId}`}>
+                #{caseId.split('-').pop() || caseId}
+              </span>
+            </>
+          )}
         </div>
       </div>
 

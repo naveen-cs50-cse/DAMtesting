@@ -437,11 +437,39 @@ svg {
   color: var(--dam-red);
 }
 
+.history-text-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  gap: 1px;
+}
+
 .history-title-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  flex: 1;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.history-time-hint {
+  font-size: 10.5px;
+  color: var(--dam-text-muted);
+  line-height: 1.2;
+  font-family: var(--font-mono, monospace);
+  opacity: 0.65;
+  transition: opacity var(--transition-fast), color var(--transition-fast);
+}
+
+.history-item-wrap:hover .history-time-hint {
+  opacity: 0.95;
+  color: var(--dam-text-secondary);
+}
+
+.history-item-wrap.current .history-time-hint {
+  opacity: 0.9;
+  color: rgba(255, 255, 255, 0.65);
 }
 
 .history-actions {
@@ -716,10 +744,41 @@ svg {
   padding: 2px 7px;
   border-radius: var(--radius-xs);
   color: var(--dam-text-muted);
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .case-id-badge[hidden] {
   display: none;
+}
+
+/* Minimal case ID pill for small screens — red dot + short ID */
+.case-id-mini {
+  display: none;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--dam-red);
+  background: var(--dam-red-soft);
+  border: 1px solid color-mix(in srgb, var(--dam-red) 25%, transparent);
+  padding: 2px 8px 2px 6px;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.case-id-mini::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--dam-red);
+  flex-shrink: 0;
+  animation: blinkPulse 1.8s infinite;
 }
 
 .quiet-button {
@@ -821,29 +880,32 @@ svg {
 /* FLOATING SCROLL TO BOTTOM BUTTON */
 .scroll-to-bottom-floating-btn {
   position: absolute;
-  top: -46px;
+  top: -52px;
   left: 50%;
   transform: translateX(-50%);
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: #232328;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(35, 35, 42, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   color: var(--dam-text-primary);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   pointer-events: auto;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
-  transition: all 0.15s ease;
-  z-index: 45;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6), 0 1px 4px rgba(0,0,0,0.4);
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  z-index: 50;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .scroll-to-bottom-floating-btn:hover {
-  background: #2f2f36;
-  border-color: rgba(255, 255, 255, 0.25);
+  background: rgba(48, 48, 58, 0.98);
+  border-color: rgba(255, 255, 255, 0.28);
   transform: translateX(-50%) translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.7);
 }
 
 /* DROP OVERLAY */
@@ -1012,9 +1074,9 @@ svg {
   gap: 8px;
   overflow-x: auto;
   scrollbar-width: none;
-  -webkit-mask-image: linear-gradient(to right, black calc(100% - 36px), transparent 100%);
-  mask-image: linear-gradient(to right, black calc(100% - 36px), transparent 100%);
-  padding-right: 28px;
+  /* No mask — prevents .trend-tag badges from being clipped at the right edge */
+  padding-right: 8px;
+  padding-bottom: 2px; /* prevents box-shadow clipping on hover */
 }
 
 .trends-carousel::-webkit-scrollbar {
@@ -1049,6 +1111,8 @@ svg {
   padding: 2px 6px;
   border-radius: var(--radius-xs);
   letter-spacing: 0.04em;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .trend-tag.alert { background: var(--dam-red-soft); color: var(--dam-red); }
@@ -3388,6 +3452,15 @@ body.sidebar-collapsed .workspace-chip {
     white-space: nowrap;
   }
 
+  /* On phone, swap long case badge for compact glowing mini pill */
+  .case-id-badge {
+    display: none !important;
+  }
+
+  .case-id-mini {
+    display: inline-flex !important;
+  }
+
   /* API Keys, Report, Methodology hidden on phone */
   .quiet-button:not([title="Toggle Evidence Explorer (Alt+E)"]):not([title="Configure API Keys & LLM Provider"]) {
     display: none;
@@ -3601,11 +3674,13 @@ body.sidebar-collapsed .workspace-chip {
     height: 30px;
   }
 
-  /* Scroll-to-bottom button position */
+  /* Scroll-to-bottom button position: elevated z-index and tap area */
   .scroll-to-bottom-floating-btn {
-    width: 30px;
-    height: 30px;
-    top: -40px;
+    width: 32px;
+    height: 32px;
+    top: -44px;
+    z-index: 55;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
   }
 
   /* Topbar actions: only icons on phone */

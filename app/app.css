@@ -3614,14 +3614,20 @@ body.sidebar-collapsed .workspace-menu-popover {
 
 .evidence-panel-body {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 
 .evidence-card {
+  flex-shrink: 0;
+  min-height: min-content;
+  width: 100%;
+  box-sizing: border-box;
   background: var(--dam-bg-panel);
   border: 1px solid var(--dam-border-default);
   border-radius: var(--radius-md);

@@ -1,22 +1,23 @@
 /**
- * DAM AI — Investigation Workspace
- * Evidence-first intelligence engine specializing in Indian scam detection & regulatory verification.
+ * UseDAM — Conversational Evidence-First AI Workspace
+ * Combining ChatGPT-style multi-turn dialogue with Genspark-style visible research activity.
  */
 
 // STATE MANAGEMENT
 const state = {
   conversations: JSON.parse(localStorage.getItem('dam-conversations') || '[]'),
-  current: null,
+  current: null, // active conversation ID
   attachments: [], // Array of { name, type, size, url, preview, isUrl }
   activeMode: 'evidence', // 'evidence' | 'quick' | 'deep'
   activeLang: 'auto',     // 'auto' | 'en' | 'hi' | 'mr' | 'ta' | 'bn' | 'te'
-  activeRun: JSON.parse(localStorage.getItem('dam-active-run') || 'null'),
   isStreaming: false,
   streamAbortController: null,
-  editingItem: null,
+  evidencePanelOpen: false,
+  evidenceFilter: '',
+  historySearchQuery: '',
 };
 
-// DOM ELEMENT SELECTORS
+// DOM SELECTORS
 const els = {
   body: document.body,
   appShell: document.querySelector('#appShell'),
@@ -28,6 +29,7 @@ const els = {
   navInvestigate: document.querySelector('#navInvestigate'),
   navEvidence: document.querySelector('#navEvidence'),
   navReports: document.querySelector('#navReports'),
+  evidenceCountBadge: document.querySelector('#evidenceCountBadge'),
   historyList: document.querySelector('#historyList'),
   openCommandPaletteBtn: document.querySelector('#openCommandPaletteBtn'),
   workspaceMenuTrigger: document.querySelector('#workspaceMenuTrigger'),
@@ -45,12 +47,22 @@ const els = {
   downloadReport: document.querySelector('#downloadReport'),
   howItWorksBtn: document.querySelector('#howItWorksBtn'),
   disclaimerHowLink: document.querySelector('#disclaimerHowLink'),
+  toggleEvidencePanelBtn: document.querySelector('#toggleEvidencePanelBtn'),
+  topbarEvidenceBadge: document.querySelector('#topbarEvidenceBadge'),
 
   // Workspace
   workspace: document.querySelector('#workspace'),
   dropOverlay: document.querySelector('#dropOverlay'),
   landingBlock: document.querySelector('#landingBlock'),
   conversation: document.querySelector('#conversation'),
+  jumpToLatestBtn: document.querySelector('#jumpToLatestBtn'),
+
+  // Contextual Evidence Panel
+  evidencePanel: document.querySelector('#evidencePanel'),
+  closeEvidencePanelBtn: document.querySelector('#closeEvidencePanelBtn'),
+  evidenceSearchInput: document.querySelector('#evidenceSearchInput'),
+  evidencePanelBody: document.querySelector('#evidencePanelBody'),
+  evidencePanelSubtitle: document.querySelector('#evidencePanelSubtitle'),
 
   // Composer
   composerContainer: document.querySelector('#composerContainer'),
@@ -93,7 +105,7 @@ const els = {
   cancelRenameBtn: document.querySelector('#cancelRenameBtn'),
   confirmRenameBtn: document.querySelector('#confirmRenameBtn'),
 
-  // API Keys & Settings Modal
+  // API Keys Modal
   topbarApiKeysBtn: document.querySelector('#topbarApiKeysBtn'),
   apiKeysModal: document.querySelector('#apiKeysModal'),
   closeApiKeysModal: document.querySelector('#closeApiKeysModal'),
@@ -123,6 +135,8 @@ const icons = {
   retry: '<svg viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5M7 8a7 7 0 0 1 11 1l2 3M4 12l2 3a7 7 0 0 0 11 1"/></svg>',
   stop: '<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>',
   emptyShield: '<svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+  spinner: '<svg viewBox="0 0 24 24" class="spin"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="32" stroke-linecap="round"/></svg>',
+  evidence: '<svg viewBox="0 0 24 24"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4H10l2 2h7.5A2.5 2.5 0 0 1 22 8.5v9a2.5 2.5 0 0 1-2.5 2.5H6.5A2.5 2.5 0 0 1 4 17.5v-11zM2 10.5h20M4 14.5h20"/></svg>',
 };
 
 // UTILITY FUNCTIONS
@@ -136,70 +150,25 @@ function escapeHtml(value = '') {
   }[char]));
 }
 
-function showToast(message) {
-  els.toast.textContent = message;
+function showToast(message, undoAction = null) {
+  els.toast.innerHTML = undoAction 
+    ? `<span>${escapeHtml(message)}</span><button class="toast-undo-btn" id="toastUndoBtn">Undo</button>`
+    : escapeHtml(message);
   els.toast.classList.add('show');
-  clearTimeout(showToast.timer);
-  showToast.timer = setTimeout(() => els.toast.classList.remove('show'), 2600);
-}
+  
+  if (undoAction) {
+    const btn = document.querySelector('#toastUndoBtn');
+    if (btn) btn.onclick = () => { undoAction(); els.toast.classList.remove('show'); };
+  }
 
-function generateCaseId() {
-  const rand = Math.floor(1000 + Math.random() * 9000);
-  return `DAM-2026-IND-${rand}`;
+  clearTimeout(showToast.timer);
+  showToast.timer = setTimeout(() => els.toast.classList.remove('show'), undoAction ? 4500 : 2600);
 }
 
 function saveConversations() {
-  localStorage.setItem('dam-conversations', JSON.stringify(state.conversations.slice(0, 30)));
+  localStorage.setItem('dam-conversations', JSON.stringify(state.conversations.slice(0, 50)));
 }
 
-function saveActiveRun(runData) {
-  state.activeRun = runData;
-  if (runData) {
-    localStorage.setItem('dam-active-run', JSON.stringify(runData));
-  } else {
-    localStorage.removeItem('dam-active-run');
-  }
-}
-
-// PERSIST UNSET DRAFT (Part 2)
-function saveDraft() {
-  const draft = {
-    text: els.input.value,
-    mode: state.activeMode,
-    lang: state.activeLang,
-  };
-  localStorage.setItem('dam-draft', JSON.stringify(draft));
-  if (els.input.value.trim().length > 0) {
-    els.draftIndicator.classList.add('visible');
-  } else {
-    els.draftIndicator.classList.remove('visible');
-  }
-}
-
-function restoreDraft() {
-  try {
-    const raw = localStorage.getItem('dam-draft');
-    if (!raw) return;
-    const draft = JSON.parse(raw);
-    if (draft.text) {
-      els.input.value = draft.text;
-      resizeInput();
-      updateSendState();
-      els.draftIndicator.classList.add('visible');
-    }
-    if (draft.mode) setEvidenceMode(draft.mode);
-    if (draft.lang) setLanguage(draft.lang);
-  } catch (e) {
-    console.error('Failed to restore draft', e);
-  }
-}
-
-function clearDraft() {
-  localStorage.removeItem('dam-draft');
-  els.draftIndicator.classList.remove('visible');
-}
-
-// TITLE GENERATION
 function titleFromPrompt(prompt) {
   const clean = prompt
     .replace(/^(fact-check|verify|assess|check this|is this)\s*(claim|message|notice|sms)?:?\s*/i, '')
@@ -207,22 +176,679 @@ function titleFromPrompt(prompt) {
   return clean.slice(0, 52) || 'India Regulatory Investigation';
 }
 
-// GROUPING HISTORY (Part 3: Today, Yesterday, Last 7 days, Older)
+function renderMarkdownText(md = '', isStreaming = false) {
+  let cleaned = md
+    .replace(/\s+([.,;:!?])/g, '$1')
+    .replace(/\]\s+\[/g, '][');
+
+  let html = cleaned
+    .replace(/### (.*?)\n/g, '<h3>$1</h3>')
+    .replace(/## (.*?)\n/g, '<h2>$1</h2>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/\n\n/g, '<p></p>')
+    .replace(/\[([0-9]+)\]/g, (match, p1) => {
+      return `<a href="#evidence-card-${p1}" class="citation-ref" data-citation="${p1}" title="Jump to source ${p1}">[${p1}]</a>`;
+    });
+
+  if (isStreaming) {
+    html += '<span class="genai-cursor">▌</span>';
+  }
+  return html;
+}
+
+// CONVERSATION VIEW LOGIC
+function switchView(toConversation = false) {
+  if (toConversation) {
+    els.landingBlock.hidden = true;
+    els.conversation.hidden = false;
+    els.shareInvestigationBtn.hidden = false;
+    els.downloadReport.disabled = false;
+  } else {
+    els.landingBlock.hidden = false;
+    els.conversation.hidden = true;
+    els.title.textContent = 'New investigation';
+    els.caseIdBadge.hidden = true;
+    els.shareInvestigationBtn.hidden = true;
+    els.downloadReport.disabled = true;
+    state.current = null;
+  }
+}
+
+function getActiveConversation() {
+  if (!state.current) return null;
+  return state.conversations.find(c => c.id === state.current) || null;
+}
+
+function renderConversationFeed() {
+  const conv = getActiveConversation();
+  if (!conv) {
+    switchView(false);
+    return;
+  }
+
+  switchView(true);
+  els.title.textContent = conv.title;
+  els.caseIdBadge.textContent = `CASE #${conv.caseId || 'DAM-2026'}`;
+  els.caseIdBadge.hidden = false;
+
+  // Count total indexed sources
+  let allSources = [];
+  (conv.turns || []).forEach(t => {
+    if (t.role === 'assistant' && t.meta?.sources) {
+      allSources = [...allSources, ...t.meta.sources];
+    }
+  });
+  updateEvidenceSources(allSources);
+
+  // Render turns
+  els.conversation.innerHTML = (conv.turns || []).map((turn, turnIdx) => {
+    if (turn.role === 'user') {
+      return `
+        <div class="chat-turn" id="turn-${turn.id}">
+          <div class="user-turn">
+            <div class="user-turn-header">
+              <span class="user-avatar-small">U</span>
+              <span class="user-turn-title">User Query</span>
+            </div>
+            <div class="user-turn-text">${escapeHtml(turn.content)}</div>
+            ${turn.attachments && turn.attachments.length ? `
+              <div class="user-turn-attachments">
+                ${turn.attachments.map(att => `
+                  <span class="attachment-pill">
+                    ${att.type === 'application/pdf' ? icons.file : icons.image}
+                    <span>${escapeHtml(att.name)}</span>
+                  </span>
+                `).join('')}
+              </div>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    if (turn.role === 'assistant') {
+      const meta = turn.meta || {};
+      const stages = turn.stages || [];
+      const isLive = turn.isLive && state.isStreaming;
+
+      return `
+        <div class="chat-turn" id="turn-${turn.id}">
+          <div class="assistant-turn">
+            <!-- 1. GENSPARK-STYLE VISIBLE RESEARCH ACTIVITY ACCORDION -->
+            <details class="investigation-activity" id="activity-${turn.id}" ${isLive ? 'open' : ''}>
+              <summary class="activity-summary-bar">
+                <div class="activity-summary-left">
+                  <span class="activity-pulse-dot ${isLive ? 'running' : ''}" aria-hidden="true"></span>
+                  <span class="activity-summary-title">
+                    ${isLive ? 'Live Investigation in Progress...' : 'Investigation Audit Trail & Primary Registries'}
+                  </span>
+                </div>
+                <div class="activity-summary-meta">
+                  <span>${stages.length ? stages.length + ' stages' : '5 stages'} &bull; ${meta.sources?.length || 0} sources</span>
+                </div>
+              </summary>
+              <div class="activity-stages-list" id="activityStages-${turn.id}">
+                ${renderActivityStages(stages, isLive)}
+              </div>
+            </details>
+
+            <!-- 2. STREAMING PROSE BRIEFING -->
+            <div class="answer-prose ${isLive ? 'generating' : ''}" id="prose-${turn.id}">
+              ${renderMarkdownText(turn.fullText || '', isLive)}
+            </div>
+
+            <!-- 3. VERDICTS (Revealed when meta ready) -->
+            ${meta.verdicts ? `
+              <div class="verdicts-grid revealed" id="verdicts-${turn.id}">
+                <div class="verdict-card">
+                  <span class="verdict-header">Factual Correctness</span>
+                  <div class="verdict-badge verdict-${(meta.verdicts.factualCorrectness || '').toLowerCase()}">
+                    <span>${escapeHtml(meta.verdicts.factualCorrectness || 'Unverified')}</span>
+                  </div>
+                  <p class="verdict-notes">Cross-referenced against primary Indian gazettes and circulars.</p>
+                </div>
+
+                <div class="verdict-card">
+                  <span class="verdict-header">Scam Risk</span>
+                  <div class="verdict-badge risk-${(meta.verdicts.scamRisk || 'medium').toLowerCase()}">
+                    <span>${escapeHtml(meta.verdicts.scamRisk || 'Medium')} Risk</span>
+                  </div>
+                  <div class="verdict-triggers">
+                    ${(meta.verdicts.riskTriggers || []).map(t => `<span class="trigger-tag">${escapeHtml(t)}</span>`).join('')}
+                  </div>
+                </div>
+
+                <div class="verdict-card">
+                  <span class="verdict-header">Evidence Sufficiency</span>
+                  <div class="verdict-badge suff-${(meta.verdicts.evidenceSufficiency || 'sufficient').toLowerCase()}">
+                    <span>${escapeHtml(meta.verdicts.evidenceSufficiency || 'Sufficient')}</span>
+                  </div>
+                  <p class="verdict-notes">Zero-hallucination standard. Honest disclosure when unconfirmed.</p>
+                </div>
+              </div>
+            ` : ''}
+
+            <!-- 4. CLAIM BREAKDOWN TABLE -->
+            ${meta.claims && meta.claims.length ? `
+              <div class="claim-breakdown revealed">
+                <h4>Claim-by-Claim Breakdown</h4>
+                <div class="claims-table-wrapper">
+                  <table class="claims-table">
+                    <thead>
+                      <tr>
+                        <th style="width:30%;">Claim Assertion</th>
+                        <th style="width:18%;">Verdict</th>
+                        <th style="width:26%;">Supporting Evidence</th>
+                        <th style="width:26%;">Contradicting Evidence</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${meta.claims.map(c => `
+                        <tr>
+                          <td><strong>${escapeHtml(c.claim)}</strong></td>
+                          <td><span class="verdict-badge verdict-${(c.label || '').toLowerCase()}">${escapeHtml(c.label)}</span></td>
+                          <td>${escapeHtml(c.supporting)}</td>
+                          <td>${escapeHtml(c.contradicting)}</td>
+                        </tr>
+                      `).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ` : ''}
+
+            <!-- 5. PRIMARY SOURCES STRIP & OPEN EVIDENCE PANEL LINK -->
+            ${meta.sources && meta.sources.length ? `
+              <div class="sources-section revealed">
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                  <h4>Indexed Primary Sources (${meta.sources.length})</h4>
+                  <button type="button" class="quiet-button text-link open-evidence-btn" data-turn="${turn.id}">
+                    ${icons.evidence} <span>Open Evidence Explorer &rarr;</span>
+                  </button>
+                </div>
+                <div class="sources-grid">
+                  ${meta.sources.map((src, i) => `
+                    <div class="source-card" data-index="${src.id || i + 1}">
+                      <div class="source-card-head">
+                        <span class="source-domain">[${src.id || i + 1}] ${escapeHtml(src.domain)}</span>
+                        <span class="source-badge ${(src.type || 'news').toLowerCase().replace(/[^a-z]/g, '')}">${escapeHtml(src.type || 'Registry')}</span>
+                      </div>
+                      <a href="${escapeHtml(src.url)}" target="_blank" rel="noopener noreferrer" class="source-title">
+                        ${escapeHtml(src.title)}
+                      </a>
+                      <div class="source-date">Published ${escapeHtml(src.date || 'Recent')} &bull; Direct Link ${icons.external}</div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+
+            <!-- 6. CHALLENGER AGENT (What could make this wrong?) -->
+            ${meta.challengerAudit && meta.challengerAudit.length ? `
+              <details class="challenger-box revealed" open>
+                <summary class="challenger-summary">
+                  <svg viewBox="0 0 24 24" style="width:16px;height:16px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                  <span>What could make this assessment wrong? (Challenger Agent)</span>
+                </summary>
+                <div class="challenger-content">
+                  <p>To avoid unearned certainty, our adversarial verifier checked the following counter-hypotheses:</p>
+                  <ul>
+                    ${meta.challengerAudit.map(pt => `<li>${escapeHtml(pt)}</li>`).join('')}
+                  </ul>
+                </div>
+              </details>
+            ` : ''}
+
+            <!-- 7. TURN ACTION CONTROLS -->
+            <div class="investigation-controls">
+              <div class="controls-left">
+                ${isLive ? `
+                  <button class="control-btn stop stop-turn-btn" title="Stop generation">
+                    ${icons.stop} <span>Stop</span>
+                  </button>
+                ` : `
+                  <button class="control-btn copy-turn-btn" data-turn="${turn.id}" title="Copy briefing">
+                    ${icons.copy} <span>Copy Briefing</span>
+                  </button>
+                  <button class="control-btn retry-turn-btn" data-turn="${turn.id}" title="Re-evaluate investigation">
+                    ${icons.retry} <span>Re-evaluate</span>
+                  </button>
+                `}
+              </div>
+              <div class="controls-right">
+                <button class="control-btn export-pdf-btn" data-turn="${turn.id}" title="Export as PDF Document">
+                  ${icons.file} <span>Export PDF</span>
+                </button>
+                <button class="control-btn export-md-btn" data-turn="${turn.id}" title="Download Markdown Briefing">
+                  ${icons.file} <span>Markdown</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    return '';
+  }).join('');
+
+  bindTurnEvents();
+}
+
+function renderActivityStages(stages = [], isLive = false) {
+  if (!stages.length) {
+    return `
+      <div class="activity-stage-item">
+        <span class="activity-stage-icon ${isLive ? 'running' : 'completed'}">
+          ${isLive ? icons.spinner : icons.check}
+        </span>
+        <div class="activity-stage-content">
+          <div class="activity-stage-name">Analysing Request & Scope</div>
+          <div class="activity-stage-desc">Cross-referencing entities against official Indian registries...</div>
+        </div>
+      </div>
+    `;
+  }
+
+  return stages.map(s => `
+    <div class="activity-stage-item">
+      <span class="activity-stage-icon ${s.status === 'running' ? 'running' : 'completed'}">
+        ${s.status === 'running' ? icons.spinner : icons.check}
+      </span>
+      <div class="activity-stage-content">
+        <div class="activity-stage-head">
+          <span class="activity-stage-name">${escapeHtml(s.title)}</span>
+        </div>
+        <div class="activity-stage-desc">${escapeHtml(s.summary || '')}</div>
+        ${s.details?.queries ? `
+          <div class="activity-stage-chips">
+            ${s.details.queries.map(q => `<span class="query-chip">${escapeHtml(q)}</span>`).join('')}
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function bindTurnEvents() {
+  // Citation links
+  document.querySelectorAll('.citation-ref').forEach(link => {
+    link.addEventListener('click', e => {
+      e.preventDefault();
+      const citeId = link.getAttribute('data-citation');
+      openEvidencePanel(citeId);
+    });
+  });
+
+  // Open evidence buttons
+  document.querySelectorAll('.open-evidence-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      openEvidencePanel();
+    });
+  });
+
+  // Copy briefing buttons
+  document.querySelectorAll('.copy-turn-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const turnId = btn.getAttribute('data-turn');
+      const prose = document.querySelector(`#prose-${turnId}`);
+      if (prose) {
+        await navigator.clipboard.writeText(prose.innerText);
+        showToast('Briefing copied to clipboard');
+      }
+    });
+  });
+
+  // Re-evaluate
+  document.querySelectorAll('.retry-turn-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const conv = getActiveConversation();
+      if (!conv || !conv.turns.length) return;
+      const lastUserTurn = [...conv.turns].reverse().find(t => t.role === 'user');
+      if (lastUserTurn) {
+        showToast('Re-running investigation pipeline...');
+        executeInvestigation(lastUserTurn.content, lastUserTurn.attachments || [], true);
+      }
+    });
+  });
+
+  // Stop button
+  document.querySelectorAll('.stop-turn-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (state.streamAbortController) {
+        state.streamAbortController.abort();
+        state.isStreaming = false;
+        showToast('Investigation halted by user');
+        renderConversationFeed();
+      }
+    });
+  });
+
+  // Export PDF
+  document.querySelectorAll('.export-pdf-btn').forEach(btn => {
+    btn.addEventListener('click', () => window.print());
+  });
+
+  // Export Markdown
+  document.querySelectorAll('.export-md-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const conv = getActiveConversation();
+      if (!conv) return;
+      const turnId = btn.getAttribute('data-turn');
+      const turn = conv.turns.find(t => t.id === turnId);
+      if (turn && turn.fullText) {
+        const blob = new Blob([turn.fullText], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${conv.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}_briefing.md`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('Markdown briefing downloaded');
+      }
+    });
+  });
+}
+
+// CONTEXTUAL EVIDENCE PANEL LOGIC
+function updateEvidenceSources(sources = []) {
+  els.topbarEvidenceBadge.textContent = sources.length;
+  els.topbarEvidenceBadge.style.display = sources.length ? 'inline-flex' : 'none';
+  if (els.evidenceCountBadge) {
+    els.evidenceCountBadge.textContent = sources.length;
+  }
+  els.evidencePanelSubtitle.textContent = `${sources.length} indexed primary records`;
+
+  renderEvidenceCards(sources);
+}
+
+function renderEvidenceCards(sources = []) {
+  const query = state.evidenceFilter.toLowerCase().trim();
+  const filtered = sources.filter(s => {
+    if (!query) return true;
+    return (s.title || '').toLowerCase().includes(query) ||
+           (s.domain || '').toLowerCase().includes(query) ||
+           (s.passage || '').toLowerCase().includes(query);
+  });
+
+  if (!filtered.length) {
+    els.evidencePanelBody.innerHTML = `
+      <div style="text-align:center;padding:40px 10px;color:var(--dam-text-muted);">
+        <p>No sources matching "${escapeHtml(query)}"</p>
+      </div>
+    `;
+    return;
+  }
+
+  els.evidencePanelBody.innerHTML = filtered.map(src => `
+    <div class="evidence-card" id="evidence-card-${src.id}" data-index="${src.id}">
+      <div class="evidence-card-header">
+        <span class="evidence-index-badge">[${src.id}]</span>
+        <span class="evidence-card-domain">${escapeHtml(src.domain)}</span>
+        <span class="evidence-stance-badge ${src.stance || 'context'}">${escapeHtml(src.stance || 'Context')}</span>
+      </div>
+      <a href="${escapeHtml(src.url)}" target="_blank" rel="noopener noreferrer" class="evidence-card-title">
+        ${escapeHtml(src.title)} ${icons.external}
+      </a>
+      <div class="evidence-passage">
+        "${escapeHtml(src.passage)}"
+      </div>
+      <div style="font-size:11px;color:var(--dam-text-muted);display:flex;justify-content:space-between;">
+        <span>Published ${escapeHtml(src.date || 'Recent')}</span>
+        <span>${escapeHtml(src.type || 'Government')}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function openEvidencePanel(focusIndex = null) {
+  els.evidencePanel.hidden = false;
+  els.evidencePanel.classList.add('open');
+  state.evidencePanelOpen = true;
+
+  if (focusIndex) {
+    setTimeout(() => {
+      const card = els.evidencePanelBody.querySelector(`[data-index="${focusIndex}"]`);
+      if (card) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        card.classList.add('highlight-target');
+        setTimeout(() => card.classList.remove('highlight-target'), 2400);
+      }
+    }, 150);
+  }
+}
+
+function closeEvidencePanel() {
+  els.evidencePanel.classList.remove('open');
+  state.evidencePanelOpen = false;
+  setTimeout(() => {
+    if (!state.evidencePanelOpen) els.evidencePanel.hidden = true;
+  }, 220);
+}
+
+// EXECUTE INVESTIGATION (Connects to /api/investigate/stream)
+async function executeInvestigation(promptText, attachments = [], isRetry = false) {
+  const cleanPrompt = (promptText || '').trim();
+  if (!cleanPrompt && !attachments.length) return;
+
+  // Ensure active conversation
+  let conv = getActiveConversation();
+  if (!conv || !isRetry) {
+    if (!conv) {
+      conv = {
+        id: 'conv_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+        title: titleFromPrompt(cleanPrompt),
+        caseId: 'DAM-2026-IND-' + Math.floor(1000 + Math.random() * 9000),
+        createdAt: new Date().toISOString(),
+        turns: [],
+      };
+      state.conversations.unshift(conv);
+      state.current = conv.id;
+      saveConversations();
+    }
+  }
+
+  // Add User Turn
+  const userTurnId = 'turn_u_' + Date.now();
+  conv.turns.push({
+    id: userTurnId,
+    role: 'user',
+    content: cleanPrompt,
+    attachments: attachments.map(a => ({ name: a.name, type: a.type, size: a.size })),
+    createdAt: new Date().toISOString(),
+  });
+
+  // Add Assistant Turn placeholder
+  const assistantTurnId = 'turn_a_' + Date.now();
+  const assistantTurn = {
+    id: assistantTurnId,
+    role: 'assistant',
+    isLive: true,
+    stages: [],
+    fullText: '',
+    meta: null,
+  };
+  conv.turns.push(assistantTurn);
+  saveConversations();
+
+  // Render conversation feed
+  renderConversationFeed();
+  renderHistory();
+  els.workspace.scrollTop = els.workspace.scrollHeight;
+
+  // Clear inputs and draft
+  els.input.value = '';
+  state.attachments = [];
+  renderAttachments();
+  resizeInput();
+  clearDraft();
+
+  // Start real SSE streaming pipeline
+  state.isStreaming = true;
+  state.streamAbortController = new AbortController();
+
+  try {
+    const historyPayload = conv.turns.slice(0, -2).map(t => ({
+      role: t.role,
+      content: t.content || t.fullText || ''
+    }));
+
+    const response = await fetch('/api/investigate/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: state.streamAbortController.signal,
+      body: JSON.stringify({
+        prompt: cleanPrompt,
+        attachments: attachments,
+        mode: state.activeMode,
+        lang: state.activeLang,
+        history: historyPayload,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Server returned HTTP ${response.status}`);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const events = buffer.split('\n\n');
+      buffer = events.pop(); // keep trailing incomplete chunk
+
+      for (const rawEvent of events) {
+        if (!rawEvent.trim()) continue;
+        const lines = rawEvent.split('\n');
+        let eventType = 'message';
+        let eventData = '';
+
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            eventType = line.slice(7).trim();
+          } else if (line.startsWith('data: ')) {
+            eventData = line.slice(6).trim();
+          }
+        }
+
+        if (!eventData) continue;
+        let payload = {};
+        try { payload = JSON.parse(eventData); } catch (e) { continue; }
+
+        if (eventType === 'stage') {
+          // Update stage in assistant turn
+          const existingStage = assistantTurn.stages.find(s => s.id === payload.id);
+          if (existingStage) {
+            Object.assign(existingStage, payload);
+          } else {
+            assistantTurn.stages.push(payload);
+          }
+
+          // Update stages DOM directly
+          const stagesContainer = document.querySelector(`#activityStages-${assistantTurn.id}`);
+          if (stagesContainer) {
+            stagesContainer.innerHTML = renderActivityStages(assistantTurn.stages, true);
+          }
+        } else if (eventType === 'token') {
+          assistantTurn.fullText += (payload.text || '');
+          const proseEl = document.querySelector(`#prose-${assistantTurn.id}`);
+          if (proseEl) {
+            proseEl.innerHTML = renderMarkdownText(assistantTurn.fullText, true);
+          }
+          if (els.workspace) {
+            els.workspace.scrollTop = els.workspace.scrollHeight;
+          }
+        } else if (eventType === 'meta') {
+          assistantTurn.meta = payload;
+          if (payload.sources) {
+            updateEvidenceSources(payload.sources);
+          }
+        } else if (eventType === 'done') {
+          assistantTurn.isLive = false;
+        }
+      }
+    }
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      showToast('Generation cancelled');
+    } else {
+      console.error('Investigation streaming error:', err);
+      showToast('Investigation encountered an error: ' + err.message);
+      assistantTurn.fullText += `\n\n> [!WARNING]\n> Network stream interrupted. Partial findings recorded above.`;
+    }
+  } finally {
+    assistantTurn.isLive = false;
+    state.isStreaming = false;
+    saveConversations();
+    renderConversationFeed();
+    els.workspace.scrollTop = els.workspace.scrollHeight;
+  }
+}
+
+// ATTACHMENTS HANDLING
+function handleFileSelection(files) {
+  Array.from(files).forEach(file => {
+    if (file.size > 10 * 1024 * 1024) {
+      showToast(`"${file.name}" exceeds 10MB limit.`);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = e => {
+      state.attachments.push({
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        preview: e.target.result,
+      });
+      renderAttachments();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderAttachments() {
+  if (!state.attachments.length) {
+    els.tray.hidden = true;
+    els.tray.innerHTML = '';
+    return;
+  }
+  els.tray.hidden = false;
+  els.tray.innerHTML = state.attachments.map((a, i) => `
+    <div class="attachment-chip">
+      ${a.type === 'application/pdf' ? icons.file : `<img src="${a.preview}" alt="${escapeHtml(a.name)}" class="attachment-thumb" />`}
+      <span class="attachment-name">${escapeHtml(a.name)}</span>
+      <button type="button" class="attachment-remove" data-index="${i}" aria-label="Remove">&times;</button>
+    </div>
+  `).join('');
+
+  els.tray.querySelectorAll('.attachment-remove').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const idx = parseInt(btn.getAttribute('data-index'), 10);
+      state.attachments.splice(idx, 1);
+      renderAttachments();
+    });
+  });
+}
+
+// SIDEBAR HISTORY GROUPING
 function renderHistory() {
-  if (!state.conversations.length) {
+  const query = state.historySearchQuery.toLowerCase().trim();
+  const filtered = state.conversations.filter(c => {
+    if (!query) return true;
+    return (c.title || '').toLowerCase().includes(query);
+  });
+
+  if (!filtered.length) {
     els.historyList.innerHTML = `
       <div class="history-empty">
         <div class="history-empty-icon">${icons.emptyShield}</div>
-        <p>No recent investigations recorded on this workstation.</p>
-        <button type="button" class="history-empty-btn" id="tryExampleHistoryBtn">Try a verified example</button>
+        <p>${query ? 'No matching investigations.' : 'No recent investigations.'}</p>
       </div>
     `;
-    const btn = document.querySelector('#tryExampleHistoryBtn');
-    if (btn) {
-      btn.addEventListener('click', () => {
-        executePredefinedInvestigation("Verify electricity bill disconnection message threatening power cut tonight at 9:30 PM.");
-      });
-    }
     return;
   }
 
@@ -231,19 +857,9 @@ function renderHistory() {
   const yesterday = today - 86400000;
   const last7Days = today - 6 * 86400000;
 
-  const groups = {
-    pinned: [],
-    today: [],
-    yesterday: [],
-    last7: [],
-    older: [],
-  };
+  const groups = { today: [], yesterday: [], last7: [], older: [] };
 
-  state.conversations.forEach(item => {
-    if (item.pinned) {
-      groups.pinned.push(item);
-      return;
-    }
+  filtered.forEach(item => {
     const itemDate = new Date(item.createdAt || Date.now()).getTime();
     if (itemDate >= today) groups.today.push(item);
     else if (itemDate >= yesterday) groups.yesterday.push(item);
@@ -251,1591 +867,381 @@ function renderHistory() {
     else groups.older.push(item);
   });
 
-  const renderGroup = (title, items) => {
+  const renderGroup = (label, items) => {
     if (!items.length) return '';
     return `
-      <div class="history-group-title">${title}</div>
-      ${items.map(item => `
-        <div class="history-item-wrap ${item.id === state.current ? 'current' : ''}">
-          <button class="history-item" data-id="${item.id}" title="${escapeHtml(item.title)}">
-            ${item.pinned ? `<span class="history-pin-icon">${icons.pin}</span>` : ''}
-            <span class="history-title-text">${escapeHtml(item.title)}</span>
-          </button>
-          <div class="history-actions">
-            <button class="history-action-btn pin-btn" data-action="pin" data-id="${item.id}" title="${item.pinned ? 'Unpin' : 'Pin to top'}">
-              ${icons.pin}
-            </button>
-            <button class="history-action-btn rename-btn" data-action="rename" data-id="${item.id}" title="Rename">
-              ${icons.edit}
-            </button>
-            <button class="history-action-btn delete delete-btn" data-action="delete" data-id="${item.id}" title="Delete">
-              ${icons.trash}
-            </button>
+      <div class="history-group">
+        <div class="history-group-title">${label}</div>
+        ${items.map(item => `
+          <div class="history-item ${item.id === state.current ? 'active' : ''}" data-id="${item.id}">
+            <span class="history-title">${escapeHtml(item.title)}</span>
+            <div class="history-item-actions">
+              <button class="history-action-btn rename-history-btn" data-id="${item.id}" title="Rename">${icons.edit}</button>
+              <button class="history-action-btn delete-history-btn" data-id="${item.id}" title="Delete">${icons.trash}</button>
+            </div>
           </div>
-        </div>
-      `).join('')}
+        `).join('')}
+      </div>
     `;
   };
 
-  els.historyList.innerHTML = [
-    renderGroup('Pinned', groups.pinned),
-    renderGroup('Today', groups.today),
-    renderGroup('Yesterday', groups.yesterday),
-    renderGroup('Last 7 Days', groups.last7),
-    renderGroup('Older', groups.older),
-  ].join('');
+  els.historyList.innerHTML = 
+    renderGroup('Today', groups.today) +
+    renderGroup('Yesterday', groups.yesterday) +
+    renderGroup('Previous 7 Days', groups.last7) +
+    renderGroup('Older', groups.older);
+
+  // Bind click on history items
+  els.historyList.querySelectorAll('.history-item').forEach(item => {
+    item.addEventListener('click', e => {
+      if (e.target.closest('.history-action-btn')) return;
+      const id = item.getAttribute('data-id');
+      state.current = id;
+      renderConversationFeed();
+      renderHistory();
+      if (document.body.classList.contains('menu-open')) {
+        document.body.classList.remove('menu-open');
+      }
+    });
+  });
+
+  // Rename
+  els.historyList.querySelectorAll('.rename-history-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const id = btn.getAttribute('data-id');
+      const conv = state.conversations.find(c => c.id === id);
+      if (!conv) return;
+      state.editingItem = conv;
+      els.renameInputText.value = conv.title;
+      els.renameModal.hidden = false;
+      els.renameInputText.focus();
+    });
+  });
+
+  // Delete with Undo Toast
+  els.historyList.querySelectorAll('.delete-history-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const id = btn.getAttribute('data-id');
+      const idx = state.conversations.findIndex(c => c.id === id);
+      if (idx === -1) return;
+      const deleted = state.conversations.splice(idx, 1)[0];
+      saveConversations();
+      if (state.current === id) {
+        state.current = null;
+        switchView(false);
+      }
+      renderHistory();
+      showToast(`Deleted "${deleted.title.slice(0, 24)}..."`, () => {
+        state.conversations.splice(idx, 0, deleted);
+        saveConversations();
+        renderHistory();
+      });
+    });
+  });
 }
 
-// ATTACHMENTS & CHIPS (Part 2)
-function renderAttachments() {
-  els.tray.hidden = !state.attachments.length;
-  els.tray.innerHTML = state.attachments.map((file, index) => {
-    let iconOrThumb = icons.file;
-    if (file.preview) {
-      iconOrThumb = `<img src="${file.preview}" alt="preview" class="attachment-preview-thumb" />`;
-    } else if (file.type && file.type.startsWith('image/')) {
-      iconOrThumb = icons.image;
-    } else if (file.isUrl) {
-      iconOrThumb = icons.link;
-    }
-    return `
-      <span class="attachment-chip">
-        ${iconOrThumb}
-        <span>${escapeHtml(file.name)}</span>
-        <button type="button" data-remove="${index}" aria-label="Remove ${escapeHtml(file.name)}">&times;</button>
-      </span>
-    `;
-  }).join('');
-  updateSendState();
+// COMPOSER & INPUT LOGIC
+function resizeInput() {
+  els.input.style.height = 'auto';
+  els.input.style.height = Math.min(els.input.scrollHeight, 180) + 'px';
 }
 
 function updateSendState() {
   const hasText = els.input.value.trim().length > 0;
-  const hasAttachments = state.attachments.length > 0;
-  els.send.disabled = !(hasText || hasAttachments);
+  const hasFiles = state.attachments.length > 0;
+  els.send.disabled = !(hasText || hasFiles) || state.isStreaming;
 }
 
-function resizeInput() {
-  els.input.style.height = 'auto';
-  els.input.style.height = `${Math.min(els.input.scrollHeight, 180)}px`;
+function saveDraft() {
+  localStorage.setItem('dam-draft', JSON.stringify({ text: els.input.value }));
+  els.draftIndicator.classList.toggle('visible', els.input.value.trim().length > 0);
 }
 
-// MODE & LANGUAGE SETTERS (Part 2)
-function setEvidenceMode(mode) {
-  state.activeMode = mode;
-  const labels = {
-    evidence: 'Evidence mode',
-    quick: 'Quick check',
-    deep: 'Deep investigation',
-  };
-  els.selectedModeLabel.textContent = labels[mode] || 'Evidence mode';
-  document.querySelectorAll('.mode-option').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.mode === mode);
-  });
-  saveDraft();
-}
-
-function setLanguage(lang) {
-  state.activeLang = lang;
-  const labels = {
-    auto: 'Auto-detect',
-    en: 'English',
-    hi: 'हिन्दी (Hindi)',
-    mr: 'मराठी (Marathi)',
-    ta: 'தமிழ் (Tamil)',
-    bn: 'বাংলা (Bengali)',
-    te: 'తెలుగు (Telugu)',
-  };
-  els.selectedLangLabel.textContent = labels[lang] || 'Auto-detect';
-  document.querySelectorAll('.lang-option').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.lang === lang);
-  });
-  saveDraft();
-}
-
-// KNOWLEDGE ENGINE FOR REAL INDIAN SCAM & REGULATORY INQUIRIES
-function analyzeIndianQuery(prompt, attachments) {
-  const text = (prompt + ' ' + (attachments.map(a => a.name).join(' '))).toLowerCase();
-
-  // Pattern 1: Electricity bill disconnection scam
-  if (text.includes('electricity') || text.includes('disconnection') || text.includes('power will be disconnected') || text.includes('bill was not updated')) {
-    return {
-      caseType: 'electricity_scam',
-      topic: 'State Discom Electricity Disconnection Threat',
-      factualCorrectness: 'Contradicted',
-      scamRisk: 'High',
-      evidenceSufficiency: 'Sufficient',
-      riskTriggers: [
-        'Urgency Threat',
-        'Personal 10-Digit Sender',
-        'Violates SERC 15-Day Rule',
-        'APK / Remote-Access Risk'
-      ],
-      claims: [
-        {
-          claim: 'Electricity connection will be disconnected tonight at 9:30 PM without prior formal notice',
-          label: 'Contradicted',
-          supporting: 'None. No Indian discom executes immediate overnight cuts via casual SMS.',
-          contradicting: 'SERC section 56(1) mandates a formal 15-day written notice before disconnection. State discoms (e.g. BESCOM, MSEDCL, TPDDL) strictly prohibit personal 10-digit numbers.'
-        },
-        {
-          claim: 'Consumers must call a personal 10-digit mobile number to update bill',
-          label: 'Contradicted',
-          supporting: 'None.',
-          contradicting: 'State discom official alerts are dispatched exclusively via registered 6-character alpha headers (e.g., VM-BESCOM, JD-MSEDCL) and require portal login.'
-        }
-      ],
-      sources: [
-        {
-          domain: 'pib.gov.in',
-          title: 'PIB Fact Check: Fake Electricity Bill Disconnection Messages Circulating via SMS',
-          date: 'Aug 2026',
-          type: 'Government',
-          url: 'https://pib.gov.in/FactCheck/electricity-sms-alert'
-        },
-        {
-          domain: 'sancharsaathi.gov.in',
-          title: 'Department of Telecommunications: Chakshu Facility Warning on Disconnection Extortion',
-          date: 'Sep 2026',
-          type: 'Government',
-          url: 'https://sancharsaathi.gov.in/sfc/'
-        },
-        {
-          domain: 'cert-in.org.in',
-          title: 'CERT-In Advisory CIAD-2026-0041: Fake Utility Bill Phishing Scams in India',
-          date: 'Jul 2026',
-          type: 'Government',
-          url: 'https://cert-in.org.in/advisories'
-        },
-        {
-          domain: 'boomlive.in',
-          title: 'Fact Check: Viral Electricity Bill SMS Threatens Power Cut Tonight',
-          date: 'Aug 2026',
-          type: 'Fact-checker',
-          url: 'https://boomlive.in/fact-check/electricity-bill-scam-viral'
-        }
-      ],
-      challengerAudit: [
-        'Checked whether any regional power discom recently revised automated meter reading (AMR) rules for emergency disconnections — none found.',
-        'Considered if the user has an outstanding commercial industrial dispute — industrial disputes still require written gazette compliance under the Indian Electricity Act 2003.',
-        'Assumed the message was sent via standard SMS rather than physical post delivered to the registered premises.'
-      ],
-      leadSummary: `This message is a confirmed **High-Risk Impersonation Scam** designed to panic consumers into calling fraudulent phone numbers or installing malicious screen-sharing APKs [1][3]. Under Section 56 of the Indian Electricity Act, 2003, no electricity distribution licensee has the authority to cut power without providing at least 15 days of formal written notice [1][2].`,
-      actionGuidance: `**Never call the number in the SMS.** All legitimate electricity payments must be checked directly through the official state discom application (e.g., BESCOM Mithra, Mahavitaran, Mahadiscom) or your registered consumer account number (CA Number). Report the sender number on the national **Chakshu portal (sancharsaathi.gov.in)** [2].`
-    };
-  }
-
-  // Pattern 2: RBI ₹500 Note Ban / Demonetization
-  if (text.includes('500') || text.includes('ban') || text.includes('demonetiz') || text.includes('rbi') || text.includes('star mark')) {
-    return {
-      caseType: 'rbi_note_claim',
-      topic: 'RBI ₹500 Banknote Withdrawal or Ban Rumor',
-      factualCorrectness: 'Contradicted',
-      scamRisk: 'Medium',
-      evidenceSufficiency: 'Sufficient',
-      riskTriggers: [
-        'Currency Panic Rumor',
-        'Fabricated Circular',
-        'Unverified Exchange Link'
-      ],
-      claims: [
-        {
-          claim: 'The Reserve Bank of India has banned or withdrawn ₹500 notes from circulation',
-          label: 'Contradicted',
-          supporting: 'None.',
-          contradicting: 'RBI Master Circular on Currency Management confirms ₹500 Mahatma Gandhi (New) Series notes remain valid legal tender throughout India.'
-        },
-        {
-          claim: '₹500 banknotes with a star (*) symbol in the number panel are fake or banned',
-          label: 'Contradicted',
-          supporting: 'None.',
-          contradicting: 'RBI Press Release 2023-2024/677 clarifies that the Star (*) symbol is a legitimate replacement note indicator and does not invalidate the currency.'
-        }
-      ],
-      sources: [
-        {
-          domain: 'rbi.org.in',
-          title: 'Reserve Bank of India: Clarification on Status of ₹500 Banknotes in Circulation',
-          date: 'Sep 2026',
-          type: 'Government',
-          url: 'https://rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx'
-        },
-        {
-          domain: 'pib.gov.in',
-          title: 'PIB Fact Check: Viral Claim Regarding Banning of ₹500 Currency Notes is Fake',
-          date: 'Sep 2026',
-          type: 'Government',
-          url: 'https://pib.gov.in/FactCheck/RBI-500-note'
-        },
-        {
-          domain: 'thehindu.com',
-          title: 'RBI dismisses rumors about demonetization of ₹500 banknotes',
-          date: 'Aug 2026',
-          type: 'News',
-          url: 'https://thehindu.com/business/rbi-500-notes-valid-legal-tender'
-        }
-      ],
-      challengerAudit: [
-        'Verified whether any clean note policy withdrawal targets ₹500 notes (similar to ₹2000 notes in 2023) — RBI officially denied any such measure.',
-        'Evaluated whether soiled/mutilated note disposal rules were misquoted as currency bans.',
-        'Confirmed that all commercial banks and RBI branches accept both star-panel and standard ₹500 notes.'
-      ],
-      leadSummary: `The claim that the Reserve Bank of India has banned or ordered the withdrawal of ₹500 notes is **Factually Contradicted** [1][2]. The RBI and the Press Information Bureau have repeatedly confirmed that ₹500 notes of the Mahatma Gandhi (New) Series are valid legal tender across India [1].`,
-      actionGuidance: `Do not forward rumors or engage with third-party currency exchange portals. For genuine regulatory directives on currency, consult exclusively the **rbi.org.in** press release repository.`
-    };
-  }
-
-  // Pattern 3: TRAI / Mobile SIM Blocking / Police Impersonation
-  if (text.includes('trai') || text.includes('sim') || text.includes('dot') || text.includes('block') || text.includes('deactivation') || text.includes('cbi') || text.includes('arrest')) {
-    return {
-      caseType: 'trai_scam',
-      topic: 'TRAI / DoT Mobile Number Deactivation Extortion',
-      factualCorrectness: 'Contradicted',
-      scamRisk: 'High',
-      evidenceSufficiency: 'Sufficient',
-      riskTriggers: [
-        'Authority Impersonation',
-        'Digital Arrest Threat',
-        'Deposit Extortion Demand',
-        '2-Hour Disconnect Robocall'
-      ],
-      claims: [
-        {
-          claim: 'TRAI blocks individual customer phone numbers due to harassment complaints',
-          label: 'Contradicted',
-          supporting: 'None.',
-          contradicting: 'TRAI does not block individual mobile numbers. It regulates telecom providers; telecom operators follow DoT verification orders only after written notice.'
-        },
-        {
-          claim: 'Customers must pay a verification deposit to avoid legal arrest by DoT',
-          label: 'Contradicted',
-          supporting: 'None.',
-          contradicting: 'DoT and TRAI never seek monetary security deposits or demand video call appearances.'
-        }
-      ],
-      sources: [
-        {
-          domain: 'trai.gov.in',
-          title: 'TRAI Public Notice: Beware of Fraudulent Calls in the Name of TRAI',
-          date: 'Sep 2026',
-          type: 'Government',
-          url: 'https://trai.gov.in/notifications/press-release'
-        },
-        {
-          domain: 'sancharsaathi.gov.in',
-          title: 'Sanchar Saathi: Advisory Against Cyber Crime and Impersonation of Government Bodies',
-          date: 'Aug 2026',
-          type: 'Government',
-          url: 'https://sancharsaathi.gov.in'
-        },
-        {
-          domain: 'cybercrime.gov.in',
-          title: 'National Cyber Crime Reporting Portal: Threat of Digital Arrest is Illegal Extortion',
-          date: 'Sep 2026',
-          type: 'Government',
-          url: 'https://cybercrime.gov.in'
-        }
-      ],
-      challengerAudit: [
-        'Examined DoT reverification guidelines for bulk connections — individual retail SIMs have no 2-hour disconnection rule.',
-        'Assessed potential Chakshu blacklisting — telecom operators send notifications via official operator SMS, never via interactive voice response (IVR) phone calls demanding money.'
-      ],
-      leadSummary: `This is a **Severe Impersonation and Extortion Scheme** known as the "Digital Arrest / TRAI SIM Threat" [1][3]. TRAI has issued repeated public notices stating it never contacts individuals to threaten SIM cancellation, nor does it conduct video-interrogations [1][2].`,
-      actionGuidance: `**Disconnect immediately.** Do not pay money or join video calls. Report the number immediately on **1930** (National Cybercrime Helpline) or **cybercrime.gov.in** [3].`
-    };
-  }
-
-  // Default: General Evidence-First Analysis
-  return {
-    caseType: 'general_claim',
-    topic: 'India Public Information & Verification Scope',
-    factualCorrectness: 'Unverified',
-    scamRisk: 'Low',
-    evidenceSufficiency: 'Partial',
-    riskTriggers: [
-      'Heuristic Scan Clear',
-      'Pending Gazette Verification'
-    ],
-    claims: [
-      {
-        claim: prompt.slice(0, 120),
-        label: 'Unverified',
-        supporting: 'Local evidence scope established; awaiting formal publication in Indian ministries.',
-        contradicting: 'No definitive contradiction found in indexed press releases.'
-      }
-    ],
-    sources: [
-      {
-        domain: 'pib.gov.in',
-        title: 'Press Information Bureau Government of India Portal',
-        date: 'Oct 2026',
-        type: 'Government',
-        url: 'https://pib.gov.in'
-      },
-      {
-        domain: 'india.gov.in',
-        title: 'National Portal of India — Citizen Guidelines & Notices',
-        date: '2026',
-        type: 'Government',
-        url: 'https://india.gov.in'
-      }
-    ],
-    challengerAudit: [
-      'The assertion relies on user-provided text without an official ministry notification serial number.',
-      'Regional state laws may differ from central union policies.'
-    ],
-    leadSummary: `DAM has converted your request into an evidence-first investigation brief [1]. In accordance with our verification standard, because authoritative primary gazette confirmation has not yet been established for this specific text, the status is cataloged as **Unverified** with **Partial Evidence** [1][2].`,
-    actionGuidance: `Do not forward or rely on this claim for financial or legal actions until a gazette order or ministry press release is officially published.`
-  };
-}
-
-// CHARACTER-BY-CHARACTER GENAI STREAMING WRITER (with natural human/model cadence)
-function renderStreamingAnswer(container, analysis, onComplete) {
-  state.isStreaming = true;
-  state.streamAbortController = new AbortController();
-
-  const answerProse = container.querySelector('.answer-prose');
-  if (!answerProse) return;
-
-  const stopBtn = container.querySelector('#stopStreamingBtn');
-  if (stopBtn) {
-    stopBtn.style.display = 'inline-flex';
-    stopBtn.onclick = () => {
-      state.isStreaming = false;
-      stopBtn.style.display = 'none';
-      showToast('Generation halted');
-    };
-  }
-
-  answerProse.classList.add('generating');
-  answerProse.innerHTML = '<span class="genai-cursor">▌</span>';
-
-  const fullMarkdown = `
-### Primary Finding
-${analysis.leadSummary}
-
-### Claim Verification Details
-DAM cross-examined the assertions against indexed regulatory records [1][2]. The evidence indicates that official communication protocols were violated, and claims regarding regulatory actions do not match published notifications [1][3].
-
-### Recommended Protocol for Citizens
-${analysis.actionGuidance}
-  `.trim();
-
-  let charIndex = 0;
-  const totalLength = fullMarkdown.length;
-
-  function typeNext() {
-    if (!state.isStreaming || charIndex >= totalLength) {
-      state.isStreaming = false;
-      answerProse.classList.remove('generating');
-      if (stopBtn) stopBtn.style.display = 'none';
-
-      // Final polished markdown with clickable citation pills
-      let cleaned = fullMarkdown
-        .replace(/\s+([.,;:!?])/g, '$1')
-        .replace(/\]\s+\[/g, '][');
-      let finalHtml = cleaned
-        .replace(/### (.*?)\n/g, '<h3>$1</h3>')
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\n\n/g, '<p></p>')
-        .replace(/\[([0-9]+)\]/g, (match, p1) => {
-          return `<a href="#source-card-${p1}" class="citation-ref" title="Jump to source ${p1}">[${p1}]</a>`;
-        });
-
-      answerProse.innerHTML = finalHtml;
-      if (onComplete) onComplete();
-      return;
-    }
-
-    const currentChar = fullMarkdown[charIndex];
-    charIndex = Math.min(charIndex + 1, totalLength);
-    const slice = fullMarkdown.slice(0, charIndex);
-
-    // Live HTML parsing during streaming with glowing cursor at leading edge
-    let cleanSlice = slice
-      .replace(/\s+([.,;:!?])/g, '$1')
-      .replace(/\]\s+\[/g, '][');
-    let html = cleanSlice
-      .replace(/### (.*?)\n/g, '<h3>$1</h3>')
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\n\n/g, '<p></p>')
-      .replace(/\[([0-9]+)\]/g, '<span class="citation-ref">[$1]</span>');
-
-    answerProse.innerHTML = html + '<span class="genai-cursor">▌</span>';
-
-    // Auto-scroll workspace smoothly to follow streaming generation
-    if (els.workspace) {
-      els.workspace.scrollTop = els.workspace.scrollHeight;
-    }
-
-    // Natural cadence: pause slightly at punctuation to allow comprehension
-    let nextDelay = 18; // Smooth 18ms per character
-    if (currentChar === '.' || currentChar === '?' || currentChar === '!') {
-      nextDelay = 110; // Sentence pause
-    } else if (currentChar === ',' || currentChar === ':') {
-      nextDelay = 45;  // Clause breath
-    } else if (currentChar === '\n') {
-      nextDelay = 75;
-    }
-
-    setTimeout(typeNext, nextDelay);
-  }
-
-  typeNext();
-}
-
-// GENERATE HTML MARKUP FOR COMPLETE INVESTIGATION EXPERIENCE (Part 4)
-function buildInvestigationMarkup(item, analysis, isLive = true) {
-  const caseId = item.caseId || 'DAM-2026-IND-9021';
-  const createdAt = item.createdAt ? new Date(item.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : new Date().toLocaleString('en-IN');
-
-  const correctnessClass = analysis.factualCorrectness.toLowerCase();
-  const riskClass = `risk-${analysis.scamRisk.toLowerCase()}`;
-  const suffClass = `suff-${analysis.evidenceSufficiency.toLowerCase()}`;
-
-  return `
-    <div class="message-user" role="article" aria-label="User query">
-      ${escapeHtml(item.prompt)}
-      ${item.attachments && item.attachments.length ? `
-        <div class="attachment-tray" style="margin-top:10px;">
-          ${item.attachments.map(att => `
-            <span class="attachment-chip">${att.type && att.type.startsWith('image/') ? icons.image : icons.file} <span>${escapeHtml(att.name)}</span></span>
-          `).join('')}
-        </div>
-      ` : ''}
-    </div>
-
-    <div class="message-assistant" role="article" aria-label="DAM Investigation Assessment">
-      <div class="assistant-avatar" aria-hidden="true">D</div>
-      <div class="assistant-body">
-        <div class="assistant-header">
-          <div class="assistant-title">
-            <strong>DAM AI Intelligence Desk</strong>
-            <span class="assistant-tag">Case #${caseId}</span>
-            <span class="assistant-tag" style="color:var(--dam-text-muted);">${createdAt} IST</span>
-          </div>
-        </div>
-
-        <!-- 1. LIVE ACTIVITY TIMELINE -->
-        <details class="activity-timeline" open>
-          <summary class="timeline-summary">
-            <div class="timeline-summary-left">
-              <svg class="timeline-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
-              <span>Investigation Pipeline</span>
-              <span class="timeline-status-badge ${isLive ? 'running' : 'complete'}" id="timelineStatusBadge">
-                ${isLive ? 'Processing Step 1/6: Reading Input...' : 'Completed (6 steps in 1.4s)'}
-              </span>
-            </div>
-            <span style="font-size:11px;color:var(--dam-text-muted);">Real Backend Run</span>
-          </summary>
-          <div class="timeline-steps" id="timelineSteps">
-            <div class="timeline-step ${isLive ? 'running' : 'complete'}" id="stepItem1">
-              <div class="timeline-step-head">
-                <span class="step-marker ${isLive ? 'running' : 'complete'}" id="stepMarker1"></span>
-                <span class="timeline-step-title">1. Reading input & metadata</span>
-                <span class="timeline-step-time" id="stepTime1">${isLive ? 'running...' : '0.12s'}</span>
-              </div>
-              <div class="timeline-step-details">
-                Detected language: <strong>${state.activeLang.toUpperCase()}</strong>. Parsed entity vectors and attachment metadata.
-              </div>
-            </div>
-
-            <div class="timeline-step ${isLive ? 'pending' : 'complete'}" id="stepItem2">
-              <div class="timeline-step-head">
-                <span class="step-marker ${isLive ? 'pending' : 'complete'}" id="stepMarker2"></span>
-                <span class="timeline-step-title">2. Extracting verifiable claims</span>
-                <span class="timeline-step-time" id="stepTime2">${isLive ? '--' : '0.24s'}</span>
-              </div>
-              <div class="timeline-step-details">
-                Isolated ${analysis.claims.length} testable assertions targeting regulatory authority and urgency signals.
-              </div>
-            </div>
-
-            <div class="timeline-step ${isLive ? 'pending' : 'complete'}" id="stepItem3">
-              <div class="timeline-step-head">
-                <span class="step-marker ${isLive ? 'pending' : 'complete'}" id="stepMarker3"></span>
-                <span class="timeline-step-title">3. Searching primary Indian registries</span>
-                <span class="timeline-step-time" id="stepTime3">${isLive ? '--' : '0.45s'}</span>
-              </div>
-              <div class="timeline-step-details">
-                Queries run:
-                <ul>
-                  <li><code>site:rbi.org.in "${escapeHtml(analysis.topic)}"</code></li>
-                  <li><code>site:pib.gov.in fact check "${escapeHtml(analysis.topic)}"</code></li>
-                  <li><code>site:sancharsaathi.gov.in "chakshu" notification</code></li>
-                </ul>
-              </div>
-            </div>
-
-            <div class="timeline-step ${isLive ? 'pending' : 'complete'}" id="stepItem4">
-              <div class="timeline-step-head">
-                <span class="step-marker ${isLive ? 'pending' : 'complete'}" id="stepMarker4"></span>
-                <span class="timeline-step-title">4. Evidence cross-examination</span>
-                <span class="timeline-step-time" id="stepTime4">${isLive ? '--' : '0.28s'}</span>
-              </div>
-              <div class="timeline-step-details">
-                Matched against ${analysis.sources.length} primary Indian regulatory sources. Confirmed compliance requirements.
-              </div>
-            </div>
-
-            <div class="timeline-step ${isLive ? 'pending' : 'complete'}" id="stepItem5">
-              <div class="timeline-step-head">
-                <span class="step-marker ${isLive ? 'pending' : 'complete'}" id="stepMarker5"></span>
-                <span class="timeline-step-title">5. Autonomous challenger agent audit</span>
-                <span class="timeline-step-time" id="stepTime5">${isLive ? '--' : '0.19s'}</span>
-              </div>
-              <div class="timeline-step-details">
-                Formulated adversarial edge cases: checked state jurisdiction boundaries and addendum releases.
-              </div>
-            </div>
-
-            <div class="timeline-step ${isLive ? 'pending' : 'complete'}" id="stepItem6">
-              <div class="timeline-step-head">
-                <span class="step-marker ${isLive ? 'pending' : 'complete'}" id="stepMarker6"></span>
-                <span class="timeline-step-title">6. Writing verified briefing</span>
-                <span class="timeline-step-time" id="stepTime6">${isLive ? '--' : '0.12s'}</span>
-              </div>
-              <div class="timeline-step-details">
-                Generated citations and compiled separate verdicts.
-              </div>
-            </div>
-          </div>
-        </details>
-
-        <!-- 2. STREAMING ANSWER PROSE -->
-        <div class="answer-prose">
-          <!-- Populated during live streaming -->
-        </div>
-
-        <!-- 3. THREE SEPARATE VERDICT CARDS (Never Blended) -->
-        <div class="verdicts-grid progressive-section ${isLive ? '' : 'revealed'}" id="progressiveVerdicts">
-          <div class="verdict-card">
-            <span class="verdict-header">Factual Correctness</span>
-            <div class="verdict-badge ${correctnessClass}">
-              <span>${analysis.factualCorrectness}</span>
-            </div>
-            <p class="verdict-notes">Based on primary government notifications and indexed circulars.</p>
-          </div>
-
-          <div class="verdict-card">
-            <span class="verdict-header">Scam Risk</span>
-            <div class="verdict-badge ${riskClass}">
-              <span>${analysis.scamRisk} Risk</span>
-            </div>
-            <div class="verdict-triggers">
-              ${analysis.riskTriggers.map(t => `<span class="trigger-tag">${escapeHtml(t)}</span>`).join('')}
-            </div>
-          </div>
-
-          <div class="verdict-card">
-            <span class="verdict-header">Evidence Sufficiency</span>
-            <div class="verdict-badge ${suffClass}">
-              <span>${analysis.evidenceSufficiency}</span>
-            </div>
-            <p class="verdict-notes">Zero-hallucination standard. "Insufficient" is an honest outcome.</p>
-          </div>
-        </div>
-
-        <!-- 4. CLAIM-BY-CLAIM BREAKDOWN TABLE -->
-        <div class="claim-breakdown progressive-section ${isLive ? '' : 'revealed'}" id="progressiveClaims">
-          <h4>Claim-by-Claim Breakdown</h4>
-          <div class="claims-table-wrapper">
-            <table class="claims-table">
-              <thead>
-                <tr>
-                  <th style="width:30%;">Claim Assertion</th>
-                  <th style="width:18%;">Verdict</th>
-                  <th style="width:26%;">Supporting Evidence</th>
-                  <th style="width:26%;">Contradicting Evidence</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${analysis.claims.map(c => `
-                  <tr>
-                    <td><strong>${escapeHtml(c.claim)}</strong></td>
-                    <td><span class="verdict-badge ${c.label.toLowerCase()}">${escapeHtml(c.label)}</span></td>
-                    <td>${escapeHtml(c.supporting)}</td>
-                    <td>${escapeHtml(c.contradicting)}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- 5. SOURCE CARDS -->
-        <div class="sources-section progressive-section ${isLive ? '' : 'revealed'}" id="progressiveSources">
-          <h4>Indexed Primary Sources (${analysis.sources.length})</h4>
-          <div class="sources-grid">
-            ${analysis.sources.map((src, i) => `
-              <a href="${escapeHtml(src.url)}" target="_blank" rel="noopener noreferrer" class="source-card" id="source-card-${i + 1}">
-                <div class="source-card-head">
-                  <span class="source-domain">[${i + 1}] ${escapeHtml(src.domain)}</span>
-                  <span class="source-badge ${src.type.toLowerCase().replace(/[^a-z]/g, '')}">${escapeHtml(src.type)}</span>
-                </div>
-                <div class="source-title">${escapeHtml(src.title)}</div>
-                <div class="source-date">Published ${escapeHtml(src.date)} &bull; Direct Registry Link ${icons.external}</div>
-              </a>
-            `).join('')}
-          </div>
-        </div>
-
-        <!-- 6. WHAT COULD MAKE THIS WRONG? (Challenger Agent) -->
-        <details class="challenger-box progressive-section ${isLive ? '' : 'revealed'}" id="progressiveChallenger" open>
-          <summary class="challenger-summary">
-            <svg viewBox="0 0 24 24" style="width:16px;height:16px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-            <span>What could make this assessment wrong? (Challenger Agent)</span>
-          </summary>
-          <div class="challenger-content">
-            <p>To prevent unwarranted certainty, our adversarial red-team model probed the following assumptions:</p>
-            <ul>
-              ${analysis.challengerAudit.map(pt => `<li>${escapeHtml(pt)}</li>`).join('')}
-            </ul>
-          </div>
-        </details>
-
-        <!-- 7. CONTROLS (Stop, Retry, Follow-up, Copy) -->
-        <div class="investigation-controls">
-          <div class="controls-left">
-            <button class="control-btn stop" id="stopStreamingBtn" style="display:none;" title="Stop generation">
-              ${icons.stop} <span>Stop</span>
-            </button>
-            <button class="control-btn" id="retryInvestigationBtn" title="Re-run investigation">
-              ${icons.retry} <span>Re-evaluate</span>
-            </button>
-            <button class="control-btn" id="copyBriefingBtn" title="Copy briefing text">
-              ${icons.copy} <span>Copy Briefing</span>
-            </button>
-          </div>
-          <div class="controls-right">
-            <button class="control-btn" id="pdfReportBtn" title="Download official PDF report">
-              ${icons.file} <span>Export PDF</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Follow-up composer bar -->
-        <div class="followup-composer">
-          <input type="text" class="followup-input" id="followupInput" placeholder="Ask a follow-up question (e.g. 'How do I lodge a complaint on Chakshu?')" />
-          <button type="button" class="followup-send-btn" id="followupSendBtn">Follow-up</button>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-// ANIMATED PIPELINE STAGE RUNNER WITH PACING & PROGRESSIVE DISCLOSURE
-async function animatePipelineAndStream(container, analysis, onComplete) {
-  const badge = container.querySelector('#timelineStatusBadge');
-  const delay = ms => new Promise(r => setTimeout(r, ms));
-
-  // Ticks an active millisecond timer so user sees work happening
-  const runStepWithTimer = async (stepNum, targetMs, title) => {
-    const item = container.querySelector(`#stepItem${stepNum}`);
-    const marker = container.querySelector(`#stepMarker${stepNum}`);
-    const time = container.querySelector(`#stepTime${stepNum}`);
-
-    if (badge) badge.textContent = `Processing Step ${stepNum}/6: ${title}...`;
-    if (item) {
-      item.classList.remove('pending', 'complete');
-      item.classList.add('running');
-    }
-    if (marker) marker.className = 'step-marker running';
-
-    const start = Date.now();
-    const timerInterval = setInterval(() => {
-      const elapsed = ((Date.now() - start) / 1000).toFixed(1) + 's';
-      if (time) time.textContent = elapsed;
-    }, 70);
-
-    await delay(targetMs);
-
-    clearInterval(timerInterval);
-    const finalSec = ((Date.now() - start) / 1000).toFixed(2) + 's';
-    if (time) time.textContent = finalSec;
-    if (item) {
-      item.classList.remove('running');
-      item.classList.add('complete');
-    }
-    if (marker) marker.className = 'step-marker complete';
-  };
-
-  // Step 1: Reading input & metadata (paced ~550ms)
-  await runStepWithTimer(1, 550, 'Reading Input & Entity Vectors');
-
-  // Step 2: Extracting verifiable claims (paced ~700ms)
-  await runStepWithTimer(2, 700, 'Extracting Verifiable Claims');
-
-  // Step 3: Searching primary Indian registries (paced ~950ms)
-  await runStepWithTimer(3, 950, 'Querying RBI, PIB & TRAI Registries');
-
-  // Step 4: Evidence cross-examination (paced ~750ms)
-  await runStepWithTimer(4, 750, 'Cross-Examining Regulatory Feeds');
-
-  // Step 5: Challenger agent audit (paced ~650ms)
-  await runStepWithTimer(5, 650, 'Autonomous Challenger Agent Audit');
-
-  // Step 6: Writing verified briefing (begins character-by-character typewriter)
-  const step6Item = container.querySelector('#stepItem6');
-  const step6Marker = container.querySelector('#stepMarker6');
-  const step6Time = container.querySelector('#stepTime6');
-
-  if (badge) badge.textContent = 'Step 6/6: Synthesizing Verified Briefing...';
-  if (step6Item) {
-    step6Item.classList.remove('pending');
-    step6Item.classList.add('running');
-  }
-  if (step6Marker) step6Marker.className = 'step-marker running';
-  if (step6Time) step6Time.textContent = 'writing...';
-
-  renderStreamingAnswer(container, analysis, async () => {
-    if (step6Item) {
-      step6Item.classList.remove('running');
-      step6Item.classList.add('complete');
-    }
-    if (step6Marker) step6Marker.className = 'step-marker complete';
-    if (step6Time) step6Time.textContent = '0.34s';
-    if (badge) {
-      badge.className = 'timeline-status-badge complete';
-      badge.textContent = 'Completed (6 steps verified in 3.96s)';
-    }
-
-    // Staggered progressive reveal of verdicts and evidence
-    const progSections = container.querySelectorAll('.progressive-section');
-    for (let i = 0; i < progSections.length; i++) {
-      await delay(140);
-      progSections[i].classList.add('revealed');
-    }
-
-    if (onComplete) onComplete();
-  });
-}
-
-// EXECUTE INVESTIGATION PIPELINE (Part 4 & Background Runs)
-async function executeInvestigation(promptText, attachments = [], isReattach = false, existingItem = null) {
-  const cleanPrompt = promptText.trim() || 'Verify attached message';
-  const analysis = analyzeIndianQuery(cleanPrompt, attachments);
-  const caseId = existingItem?.caseId || generateCaseId();
-
-  // Query live Indian registries via Tavily if available
+function restoreDraft() {
   try {
-    const searchRes = await fetch('/api/search', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        query: `${cleanPrompt} India fact check OR RBI notification OR TRAI circular OR government notice`,
-        max_results: 3,
-      }),
-    });
-    if (searchRes.ok) {
-      const data = await searchRes.json();
-      if (data.results && data.results.length > 0) {
-        const liveSources = data.results.map(r => {
-          let domain = 'official';
-          try { domain = new URL(r.url).hostname.replace(/^www\./, ''); } catch(e) {}
-          const isGov = domain.endsWith('.gov.in') || domain.endsWith('.nic.in') || domain.includes('rbi.org.in');
-          const isFactCheck = domain.includes('boomlive') || domain.includes('altnews') || domain.includes('factcheck');
-          return {
-            domain: domain,
-            title: r.title || 'Official Indian Registry',
-            date: 'Live Registry',
-            type: isGov ? 'Government' : isFactCheck ? 'Fact-checker' : 'News',
-            url: r.url,
-          };
-        });
-        analysis.sources = [...liveSources, ...analysis.sources].slice(0, 6);
-      }
-    }
-  } catch (err) {
-    // Falls back to verified local Indian regulatory intelligence database
-  }
-
-  let item = existingItem;
-  if (!item) {
-    item = {
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
-      caseId: caseId,
-      title: titleFromPrompt(cleanPrompt),
-      prompt: cleanPrompt,
-      createdAt: new Date().toISOString(),
-      attachments: attachments.map(a => ({ name: a.name, type: a.type, size: a.size })),
-      mode: state.activeMode,
-      lang: state.activeLang,
-      analysis: analysis,
-    };
-    state.conversations.unshift(item);
-    state.current = item.id;
-    saveConversations();
-  }
-
-  // Persist active run in case of reload (Part 4 requirement 8)
-  saveActiveRun({
-    id: item.id,
-    prompt: cleanPrompt,
-    attachments: item.attachments,
-    startedAt: Date.now(),
-  });
-
-  // Switch UI view from landing to conversation
-  els.landingBlock.hidden = true;
-  els.conversation.hidden = false;
-  els.title.textContent = item.title;
-  els.caseIdBadge.textContent = `CASE #${caseId}`;
-  els.caseIdBadge.hidden = false;
-  els.shareInvestigationBtn.hidden = false;
-  els.downloadReport.disabled = false;
-
-  // Render container
-  els.conversation.innerHTML = buildInvestigationMarkup(item, analysis, !isReattach);
-  els.workspace.scrollTop = 0;
-
-  // Bind controls inside conversation
-  const copyBtn = document.querySelector('#copyBriefingBtn');
-  if (copyBtn) {
-    copyBtn.addEventListener('click', async () => {
-      const prose = els.conversation.querySelector('.answer-prose');
-      if (prose) {
-        await navigator.clipboard.writeText(prose.innerText);
-        showToast('Briefing copied to clipboard');
-      }
-    });
-  }
-
-  const retryBtn = document.querySelector('#retryInvestigationBtn');
-  if (retryBtn) {
-    retryBtn.addEventListener('click', () => {
-      showToast('Re-running evidence pipeline...');
-      executeInvestigation(cleanPrompt, attachments, false, item);
-    });
-  }
-
-  const pdfBtn = document.querySelector('#pdfReportBtn');
-  if (pdfBtn) {
-    pdfBtn.addEventListener('click', () => {
-      exportPdfReport();
-    });
-  }
-
-  const followupInput = document.querySelector('#followupInput');
-  const followupSendBtn = document.querySelector('#followupSendBtn');
-  const handleFollowup = () => {
-    const q = followupInput.value.trim();
-    if (!q) return;
-    followupInput.value = '';
-    showToast(`Investigating follow-up: "${q.slice(0, 30)}..."`);
-    executeInvestigation(`${cleanPrompt} \n\nFollow-up: ${q}`, [], false);
-  };
-  if (followupSendBtn && followupInput) {
-    followupSendBtn.addEventListener('click', handleFollowup);
-    followupInput.addEventListener('keydown', e => {
-      if (e.key === 'Enter') handleFollowup();
-    });
-  }
-
-  // Clear composer inputs and draft
-  els.input.value = '';
-  state.attachments = [];
-  renderAttachments();
-  resizeInput();
-  clearDraft();
-  renderHistory();
-
-  // Run live animated pipeline & character-by-character typewriter
-  if (!isReattach) {
-    animatePipelineAndStream(els.conversation, analysis, () => {
-      saveActiveRun(null);
-    });
-  } else {
-    // If viewing past history, render complete text immediately
-    const prose = els.conversation.querySelector('.answer-prose');
-    if (prose) {
-      const fullMarkdown = `
-### Primary Finding
-${analysis.leadSummary}
-
-### Claim Verification Details
-DAM cross-examined the assertions against indexed regulatory records [1][2]. The evidence indicates that official communication protocols were violated, and claims regarding regulatory actions do not match published notifications [1][3].
-
-### Recommended Protocol for Citizens
-${analysis.actionGuidance}
-      `.trim();
-      prose.innerHTML = fullMarkdown
-        .replace(/### (.*?)\n/g, '<h3>$1</h3>')
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\n\n/g, '<p></p>')
-        .replace(/\[([0-9]+)\]/g, (match, p1) => {
-          return `<a href="#source-card-${p1}" class="citation-ref" title="Jump to source ${p1}">[${p1}]</a>`;
-        });
-    }
-    saveActiveRun(null);
-  }
-}
-
-function executePredefinedInvestigation(prompt) {
-  els.input.value = prompt;
-  resizeInput();
-  updateSendState();
-  executeInvestigation(prompt, state.attachments);
-}
-
-// RE-ATTACH TO RUNNING JOB ACROSS REFRESH (Part 4 requirement 8)
-function checkAndReattachActiveRun() {
-  if (state.activeRun) {
-    const existing = state.conversations.find(c => c.id === state.activeRun.id);
-    if (existing) {
-      state.current = existing.id;
-      executeInvestigation(existing.prompt, existing.attachments || [], true, existing);
-      showToast('Re-attached to active investigation');
-    }
-  }
-}
-
-// EXPORT TO PDF & SHARABLE LINK (Part 4 requirement 7)
-function exportPdfReport() {
-  window.print();
-}
-
-function shareCurrentInvestigation() {
-  const currentItem = state.conversations.find(c => c.id === state.current);
-  if (!currentItem) return;
-  const shareUrl = `${window.location.origin}${window.location.pathname}?case=${currentItem.caseId || 'DAM-2026-IND'}`;
-  navigator.clipboard.writeText(shareUrl).then(() => {
-    showToast(`Shareable case link copied: ${currentItem.caseId || 'DAM-2026'}`);
-  }).catch(() => {
-    showToast(`Case ID: ${currentItem.caseId}`);
-  });
-}
-
-// RESET TO LANDING VIEW
-function showLandingView() {
-  state.current = null;
-  state.attachments = [];
-  renderAttachments();
-  els.landingBlock.hidden = false;
-  els.conversation.hidden = true;
-  els.title.textContent = 'New investigation';
-  els.caseIdBadge.hidden = true;
-  els.shareInvestigationBtn.hidden = true;
-  els.downloadReport.disabled = true;
-  renderHistory();
-  restoreDraft();
-  els.input.focus();
-}
-
-// COMMAND PALETTE SEARCH (Part 3)
-function openCommandPalette() {
-  els.commandPaletteModal.hidden = false;
-  els.paletteSearchInput.value = '';
-  renderPaletteResults('');
-  els.paletteSearchInput.focus();
-}
-
-function closeCommandPalette() {
-  els.commandPaletteModal.hidden = true;
-}
-
-function renderPaletteResults(query) {
-  const q = query.toLowerCase().trim();
-  const results = [];
-
-  // Default Quick Actions
-  results.push({
-    title: 'New Investigation',
-    subtitle: 'Start a fresh evidence verification case',
-    badge: 'Action',
-    action: () => { showLandingView(); closeCommandPalette(); }
-  });
-
-  results.push({
-    title: 'How DAM Verifies Evidence',
-    subtitle: 'Protocol, Challenger Agent, and Indian Regulatory Standards',
-    badge: 'Docs',
-    action: () => { closeCommandPalette(); openMethodologyModal(); }
-  });
-
-  // Search History
-  state.conversations.forEach(c => {
-    if (!q || c.title.toLowerCase().includes(q) || (c.prompt && c.prompt.toLowerCase().includes(q))) {
-      results.push({
-        title: c.title,
-        subtitle: `Case #${c.caseId || 'DAM'} • ${new Date(c.createdAt).toLocaleDateString()}`,
-        badge: 'History',
-        action: () => {
-          state.current = c.id;
-          executeInvestigation(c.prompt, c.attachments || [], false, c);
-          closeCommandPalette();
-        }
-      });
-    }
-  });
-
-  // Built-in Evidence Registry Searches
-  const builtInEvidence = [
-    { title: 'RBI Master Circular - Currency Management & Banknotes', subtitle: 'rbi.org.in • Legal Tender Directives', badge: 'Evidence' },
-    { title: 'PIB Fact Check Registry - Government Schemes 2026', subtitle: 'pib.gov.in • Rebuttals & Notifications', badge: 'Evidence' },
-    { title: 'TRAI & DoT Chakshu Portal - Mobile Fraud Repository', subtitle: 'sancharsaathi.gov.in • SIM Disconnection Rules', badge: 'Evidence' },
-    { title: 'State Electricity Regulatory Commission (SERC) - 15-Day Disconnection Rule', subtitle: 'serc.gov.in • Section 56(1) Compliance', badge: 'Evidence' },
-  ];
-
-  builtInEvidence.forEach(e => {
-    if (!q || e.title.toLowerCase().includes(q)) {
-      results.push({
-        title: e.title,
-        subtitle: e.subtitle,
-        badge: e.badge,
-        action: () => {
-          showToast(`Opening ${e.title}`);
-          closeCommandPalette();
-        }
-      });
-    }
-  });
-
-  els.paletteResults.innerHTML = results.map((r, i) => `
-    <button class="palette-item ${i === 0 ? 'active' : ''}" data-index="${i}">
-      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>
-      <div class="palette-item-text">
-        <strong>${escapeHtml(r.title)}</strong>
-        <small>${escapeHtml(r.subtitle)}</small>
-      </div>
-      <span class="palette-item-badge">${escapeHtml(r.badge)}</span>
-    </button>
-  `).join('');
-
-  // Bind clicks
-  els.paletteResults.querySelectorAll('.palette-item').forEach((btn, idx) => {
-    btn.addEventListener('click', () => {
-      if (results[idx] && results[idx].action) results[idx].action();
-    });
-  });
-}
-
-// METHODOLOGY MODAL
-function openMethodologyModal() {
-  els.methodologyModal.hidden = false;
-}
-
-function closeMethodologyModal() {
-  els.methodologyModal.hidden = true;
-}
-
-// API KEYS & ENGINE SETTINGS MODAL
-async function openApiKeysModal() {
-  const saved = JSON.parse(localStorage.getItem('dam-api-keys') || '{}');
-  if (saved.llmProvider) els.llmProviderSelect.value = saved.llmProvider;
-  if (saved.llmApiKey) els.llmApiKeyInput.value = saved.llmApiKey;
-  if (saved.searchProvider) els.searchProviderSelect.value = saved.searchProvider;
-  if (saved.searchApiKey) els.searchApiKeyInput.value = saved.searchApiKey;
-  if (saved.backendUrl) els.backendUrlInput.value = saved.backendUrl;
-
-  try {
-    const res = await fetch('/api/config');
-    if (res.ok) {
-      const cfg = await res.json();
-      if (cfg.hasOpenAI && !els.llmApiKeyInput.value) {
-        els.llmApiKeyInput.placeholder = `Active via .env (${cfg.maskedOpenAI})`;
-      }
-      if (cfg.hasTavily && !els.searchApiKeyInput.value) {
-        els.searchApiKeyInput.placeholder = `Active via .env (${cfg.maskedTavily})`;
-      }
+    const raw = localStorage.getItem('dam-draft');
+    if (!raw) return;
+    const d = JSON.parse(raw);
+    if (d.text) {
+      els.input.value = d.text;
+      resizeInput();
+      updateSendState();
+      els.draftIndicator.classList.add('visible');
     }
   } catch (e) {}
-
-  els.apiKeysModal.hidden = false;
-  els.llmApiKeyInput.focus();
 }
 
-function closeApiKeysModal() {
-  els.apiKeysModal.hidden = true;
+function clearDraft() {
+  localStorage.removeItem('dam-draft');
+  els.draftIndicator.classList.remove('visible');
 }
 
-function saveApiKeys() {
-  const config = {
-    llmProvider: els.llmProviderSelect.value,
-    llmApiKey: els.llmApiKeyInput.value.trim(),
-    searchProvider: els.searchProviderSelect.value,
-    searchApiKey: els.searchApiKeyInput.value.trim(),
-    backendUrl: els.backendUrlInput.value.trim(),
-  };
-  localStorage.setItem('dam-api-keys', JSON.stringify(config));
-  closeApiKeysModal();
-  showToast('API keys and engine settings saved securely');
-}
+// SETUP EVENT LISTENERS
+function init() {
+  // Restore draft and render history
+  restoreDraft();
+  renderHistory();
 
-function clearApiKeys() {
-  localStorage.removeItem('dam-api-keys');
-  els.llmApiKeyInput.value = '';
-  els.searchApiKeyInput.value = '';
-  els.backendUrlInput.value = '';
-  showToast('API keys cleared from browser');
-}
-
-// FILE HANDLING & DRAG-AND-DROP (Part 2)
-function handleFiles(fileList) {
-  const allowed = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
-  const maxSize = 10 * 1024 * 1024; // 10MB
-
-  [...fileList].forEach(file => {
-    if (!allowed.includes(file.type)) {
-      showToast(`${file.name}: Unsupported file format`);
-      return;
-    }
-    if (file.size > maxSize) {
-      showToast(`${file.name}: Exceeds 10 MB limit`);
-      return;
-    }
-    if (state.attachments.length >= 4) {
-      showToast('Maximum 4 attachments allowed per investigation');
-      return;
-    }
-
-    const item = {
-      name: file.name,
-      type: file.type,
-      size: file.size,
-      fileObj: file,
-      preview: null,
-    };
-
-    if (file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onload = e => {
-        item.preview = e.target.result;
-        renderAttachments();
-      };
-      reader.readAsDataURL(file);
-    }
-
-    state.attachments.push(item);
+  // New Conversation
+  els.newConversation.addEventListener('click', () => {
+    switchView(false);
+    renderHistory();
+    els.input.focus();
   });
-
-  renderAttachments();
-  showToast(`Added ${fileList.length} attachment${fileList.length > 1 ? 's' : ''}`);
-}
-
-// CLIPBOARD PASTE (Part 2)
-async function handleClipboardPaste() {
-  try {
-    const clipboardItems = await navigator.clipboard.read();
-    let handled = false;
-    for (const item of clipboardItems) {
-      for (const type of item.types) {
-        if (type.startsWith('image/')) {
-          const blob = await item.getType(type);
-          const file = new File([blob], `clipboard_screenshot_${Date.now()}.png`, { type });
-          handleFiles([file]);
-          handled = true;
-          break;
-        }
-      }
-    }
-    if (!handled) {
-      const text = await navigator.clipboard.readText();
-      if (text) {
-        els.input.value += (els.input.value ? '\n' : '') + text;
-        resizeInput();
-        updateSendState();
-        saveDraft();
-        showToast('Pasted text from clipboard');
-      }
-    }
-  } catch (err) {
-    showToast('Clipboard access requires permission or Ctrl+V');
+  if (els.brandLink) {
+    els.brandLink.addEventListener('click', e => {
+      e.preventDefault();
+      switchView(false);
+    });
   }
-}
 
-// EVENT LISTENERS INITIALIZATION
-function initEventListeners() {
-  // Sidebar Toggle
-  els.collapseSidebar.addEventListener('click', () => {
-    els.body.classList.toggle('sidebar-collapsed');
-  });
+  // Sidebar toggle
+  if (els.collapseSidebar) {
+    els.collapseSidebar.addEventListener('click', () => {
+      document.body.classList.toggle('sidebar-collapsed');
+    });
+  }
+  if (els.mobileMenu) {
+    els.mobileMenu.addEventListener('click', () => {
+      document.body.classList.toggle('menu-open');
+    });
+  }
 
-  els.mobileMenu.addEventListener('click', () => {
-    els.body.classList.toggle('menu-open');
-  });
-
-  // Brand Link & New Investigation
-  els.brandLink.addEventListener('click', e => {
-    e.preventDefault();
-    showLandingView();
-  });
-  els.newConversation.addEventListener('click', showLandingView);
-
-  // Textarea input & Draft Persistence
+  // Input listeners
   els.input.addEventListener('input', () => {
     resizeInput();
     updateSendState();
     saveDraft();
   });
 
-  // Enter to send, Shift+Enter for newline (Part 2 requirement 1)
   els.input.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       if (!els.send.disabled) {
-        els.form.requestSubmit();
+        executeInvestigation(els.input.value, state.attachments);
       }
     }
   });
 
-  // Form Submit
   els.form.addEventListener('submit', e => {
     e.preventDefault();
-    const text = els.input.value.trim();
-    if (!text && !state.attachments.length) return;
-    executeInvestigation(text, state.attachments);
+    if (!els.send.disabled) {
+      executeInvestigation(els.input.value, state.attachments);
+    }
   });
 
-  // File Inputs
-  els.fileInput.addEventListener('change', e => {
-    handleFiles(e.target.files);
-    e.target.value = '';
-  });
-  els.fileInputScreenshot.addEventListener('change', e => {
-    handleFiles(e.target.files);
-    e.target.value = '';
-  });
-  els.fileInputPdf.addEventListener('change', e => {
-    handleFiles(e.target.files);
-    e.target.value = '';
-  });
-
-  // Attachment Tray Click (Remove)
-  els.tray.addEventListener('click', e => {
-    const btn = e.target.closest('[data-remove]');
-    if (!btn) return;
-    const idx = Number(btn.dataset.remove);
-    state.attachments.splice(idx, 1);
-    renderAttachments();
-  });
-
-  // Quick Chips Buttons
-  els.pasteClipboardBtn.addEventListener('click', handleClipboardPaste);
-  els.addUrlChipBtn.addEventListener('click', () => {
-    els.urlModal.hidden = false;
-    els.urlInputText.value = '';
-    els.urlInputText.focus();
-  });
-
-  // URL Modal
-  els.closeUrlModal.addEventListener('click', () => els.urlModal.hidden = true);
-  els.cancelUrlBtn.addEventListener('click', () => els.urlModal.hidden = true);
-  els.confirmUrlBtn.addEventListener('click', () => {
-    const url = els.urlInputText.value.trim();
-    if (url) {
-      state.attachments.push({
-        name: url.replace(/^https?:\/\//, '').slice(0, 32),
-        type: 'text/uri-list',
-        size: 0,
-        url: url,
-        isUrl: true,
+  // Attachments
+  [els.fileInput, els.fileInputScreenshot, els.fileInputPdf].forEach(input => {
+    if (input) {
+      input.addEventListener('change', () => {
+        if (input.files) handleFileSelection(input.files);
+        input.value = '';
       });
-      renderAttachments();
-      els.urlModal.hidden = true;
-      showToast('URL attached to investigation');
     }
   });
 
-  // Methodology Modal
-  els.howItWorksBtn.addEventListener('click', e => {
-    e.preventDefault();
-    openMethodologyModal();
-  });
-  els.disclaimerHowLink.addEventListener('click', e => {
-    e.preventDefault();
-    openMethodologyModal();
-  });
-  els.closeMethodologyModal.addEventListener('click', closeMethodologyModal);
-  els.dismissMethodologyBtn.addEventListener('click', closeMethodologyModal);
-
-  // Command Palette
-  els.openCommandPaletteBtn.addEventListener('click', openCommandPalette);
-  els.paletteSearchInput.addEventListener('input', e => {
-    renderPaletteResults(e.target.value);
-  });
-
-  // Topbar Actions
-  els.downloadReport.addEventListener('click', exportPdfReport);
-  els.shareInvestigationBtn.addEventListener('click', shareCurrentInvestigation);
-
-  // Mode Dropdown Toggle
-  els.modeDropdownTrigger.addEventListener('click', e => {
-    e.stopPropagation();
-    const isHidden = els.modeDropdownMenu.hidden;
-    els.modeDropdownMenu.hidden = !isHidden;
-    els.langDropdownMenu.hidden = true;
-  });
-
-  document.querySelectorAll('.mode-option').forEach(btn => {
-    btn.addEventListener('click', () => {
-      setEvidenceMode(btn.dataset.mode);
-      els.modeDropdownMenu.hidden = true;
+  // Paste from clipboard
+  if (els.pasteClipboardBtn) {
+    els.pasteClipboardBtn.addEventListener('click', async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          els.input.value = (els.input.value ? els.input.value + '\n' : '') + text;
+          resizeInput();
+          updateSendState();
+          showToast('Text pasted from clipboard');
+        }
+      } catch (err) {
+        showToast('Clipboard access denied');
+      }
     });
-  });
+  }
 
-  // Language Dropdown Toggle
-  els.langDropdownTrigger.addEventListener('click', e => {
-    e.stopPropagation();
-    const isHidden = els.langDropdownMenu.hidden;
-    els.langDropdownMenu.hidden = !isHidden;
-    els.modeDropdownMenu.hidden = true;
-  });
-
-  document.querySelectorAll('.lang-option').forEach(btn => {
-    btn.addEventListener('click', () => {
-      setLanguage(btn.dataset.lang);
-      els.langDropdownMenu.hidden = true;
+  // URL modal
+  if (els.addUrlChipBtn) {
+    els.addUrlChipBtn.addEventListener('click', () => {
+      els.urlModal.hidden = false;
+      els.urlInputText.focus();
     });
-  });
+  }
+  if (els.closeUrlModal) els.closeUrlModal.onclick = () => els.urlModal.hidden = true;
+  if (els.cancelUrlBtn) els.cancelUrlBtn.onclick = () => els.urlModal.hidden = true;
+  if (els.confirmUrlBtn) {
+    els.confirmUrlBtn.onclick = () => {
+      const u = els.urlInputText.value.trim();
+      if (u) {
+        state.attachments.push({ name: u, type: 'url', size: 0, url: u });
+        renderAttachments();
+        els.urlInputText.value = '';
+        els.urlModal.hidden = true;
+      }
+    };
+  }
 
-  // Workspace Menu Popover
-  els.workspaceMenuTrigger.addEventListener('click', e => {
-    e.stopPropagation();
-    els.workspaceMenuPopover.hidden = !els.workspaceMenuPopover.hidden;
-  });
+  // Evidence panel toggle & close
+  if (els.toggleEvidencePanelBtn) {
+    els.toggleEvidencePanelBtn.addEventListener('click', () => {
+      if (state.evidencePanelOpen) closeEvidencePanel();
+      else openEvidencePanel();
+    });
+  }
+  if (els.closeEvidencePanelBtn) {
+    els.closeEvidencePanelBtn.addEventListener('click', closeEvidencePanel);
+  }
+  if (els.evidenceSearchInput) {
+    els.evidenceSearchInput.addEventListener('input', () => {
+      state.evidenceFilter = els.evidenceSearchInput.value;
+      const conv = getActiveConversation();
+      let allSources = [];
+      if (conv) {
+        (conv.turns || []).forEach(t => {
+          if (t.role === 'assistant' && t.meta?.sources) allSources = [...allSources, ...t.meta.sources];
+        });
+      }
+      renderEvidenceCards(allSources);
+    });
+  }
 
-  // API Keys Modal Listeners
-  els.topbarApiKeysBtn.addEventListener('click', openApiKeysModal);
-  els.closeApiKeysModal.addEventListener('click', closeApiKeysModal);
-  els.cancelApiKeysBtn.addEventListener('click', closeApiKeysModal);
-  els.saveApiKeysBtn.addEventListener('click', saveApiKeys);
-  els.clearApiKeysBtn.addEventListener('click', clearApiKeys);
+  // Jump to latest button
+  if (els.workspace && els.jumpToLatestBtn) {
+    els.workspace.addEventListener('scroll', () => {
+      const distFromBottom = els.workspace.scrollHeight - els.workspace.scrollTop - els.workspace.clientHeight;
+      els.jumpToLatestBtn.hidden = distFromBottom < 220 || !state.current;
+    });
+    els.jumpToLatestBtn.addEventListener('click', () => {
+      els.workspace.scrollTo({ top: els.workspace.scrollHeight, behavior: 'smooth' });
+    });
+  }
 
-  els.menuSettings.addEventListener('click', () => {
-    els.workspaceMenuPopover.hidden = true;
-    openApiKeysModal();
-  });
-
-  els.menuUsage.addEventListener('click', () => {
-    els.workspaceMenuPopover.hidden = true;
-    showToast('Workspace Quota: 84 of 500 verifications utilized this billing cycle');
-  });
-
-  els.menuSwitchWorkspace.addEventListener('click', () => {
-    els.workspaceMenuPopover.hidden = true;
-    showToast('Workspace switching: Multi-tenant ready (Default: India Desk)');
-  });
-
-  els.menuSignOut.addEventListener('click', () => {
-    els.workspaceMenuPopover.hidden = true;
-    showToast('Logged out of workspace session');
-  });
-
-  // Close Popovers on Outer Click
-  document.addEventListener('click', e => {
-    if (!els.modeDropdownTrigger.contains(e.target) && !els.modeDropdownMenu.contains(e.target)) {
-      els.modeDropdownMenu.hidden = true;
-    }
-    if (!els.langDropdownTrigger.contains(e.target) && !els.langDropdownMenu.contains(e.target)) {
-      els.langDropdownMenu.hidden = true;
-    }
-    if (!els.workspaceMenuTrigger.contains(e.target) && !els.workspaceMenuPopover.contains(e.target)) {
-      els.workspaceMenuPopover.hidden = true;
-    }
-  });
-
-  // CARDS 1-4 CLICK BEHAVIOR (Part 1 requirement 6)
+  // Starters & Trends
   document.querySelectorAll('.starter').forEach(card => {
     card.addEventListener('click', () => {
-      const mode = card.dataset.mode || 'evidence';
-      const placeholder = card.dataset.placeholder;
-      const prompt = card.dataset.prompt;
-
-      setEvidenceMode(mode);
-      if (placeholder) {
-        els.input.placeholder = placeholder;
-      }
-      if (prompt) {
-        els.input.value = prompt;
-        resizeInput();
-        updateSendState();
-      }
+      const p = card.getAttribute('data-prompt');
+      els.input.value = p;
+      resizeInput();
+      updateSendState();
       els.input.focus();
     });
   });
 
-  // INDIA TRENDS & POPULAR EXAMPLES (Part 5)
   document.querySelectorAll('.trend-pill, .example-chip').forEach(btn => {
     btn.addEventListener('click', () => {
-      const prompt = btn.dataset.prompt;
-      if (prompt) {
-        els.input.value = prompt;
-        resizeInput();
-        updateSendState();
-        els.input.focus();
-      }
+      const p = btn.getAttribute('data-prompt');
+      els.input.value = p;
+      resizeInput();
+      updateSendState();
+      els.input.focus();
     });
   });
 
-  // KEYBOARD SHORTCUTS (1-4, Cmd/Ctrl+K, Esc, Ctrl+B)
-  document.addEventListener('keydown', e => {
-    const isInputFocused = ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName);
+  // Methodology modal
+  if (els.howItWorksBtn) els.howItWorksBtn.onclick = () => els.methodologyModal.hidden = false;
+  if (els.disclaimerHowLink) els.disclaimerHowLink.onclick = () => els.methodologyModal.hidden = false;
+  if (els.closeMethodologyModal) els.closeMethodologyModal.onclick = () => els.methodologyModal.hidden = true;
+  if (els.dismissMethodologyBtn) els.dismissMethodologyBtn.onclick = () => els.methodologyModal.hidden = true;
 
-    // Cmd/Ctrl+K opens command palette
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-      e.preventDefault();
-      openCommandPalette();
-      return;
-    }
-
-    // Ctrl+B toggles sidebar
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b') {
-      e.preventDefault();
-      els.body.classList.toggle('sidebar-collapsed');
-      return;
-    }
-
-    // Escape closes modals
-    if (e.key === 'Escape') {
-      closeCommandPalette();
-      closeMethodologyModal();
-      closeApiKeysModal();
-      els.urlModal.hidden = true;
-      els.renameModal.hidden = true;
-      els.body.classList.remove('menu-open');
-    }
-
-    // Numbers 1-4 trigger starter cards when not typing in input (Part 1 requirement 4)
-    if (!isInputFocused && !e.metaKey && !e.ctrlKey && !e.altKey) {
-      if (['1', '2', '3', '4'].includes(e.key)) {
-        const card = document.querySelector(`.starter[data-key="${e.key}"]`);
-        if (card) {
-          e.preventDefault();
-          card.click();
-        }
-      }
-    }
-  });
-
-  // DRAG AND DROP OVERLAY (Part 2 requirement 2)
-  ['dragenter', 'dragover'].forEach(name => {
-    window.addEventListener(name, e => {
-      e.preventDefault();
-      e.stopPropagation();
-      els.dropOverlay.hidden = false;
-    });
-  });
-
-  ['dragleave', 'drop'].forEach(name => {
-    els.dropOverlay.addEventListener(name, e => {
-      e.preventDefault();
-      e.stopPropagation();
-      els.dropOverlay.hidden = true;
-    });
-  });
-
-  els.dropOverlay.addEventListener('drop', e => {
-    if (e.dataTransfer && e.dataTransfer.files) {
-      handleFiles(e.dataTransfer.files);
-    }
-  });
-
-  // HISTORY ITEM ACTIONS (Pin, Rename, Delete)
-  els.historyList.addEventListener('click', e => {
-    const target = e.target;
-
-    // Pin/Unpin
-    const pinBtn = target.closest('.pin-btn');
-    if (pinBtn) {
-      e.stopPropagation();
-      const id = pinBtn.dataset.id;
-      const item = state.conversations.find(c => c.id === id);
-      if (item) {
-        item.pinned = !item.pinned;
+  // Rename modal
+  if (els.closeRenameModal) els.closeRenameModal.onclick = () => els.renameModal.hidden = true;
+  if (els.cancelRenameBtn) els.cancelRenameBtn.onclick = () => els.renameModal.hidden = true;
+  if (els.confirmRenameBtn) {
+    els.confirmRenameBtn.onclick = () => {
+      const newTitle = els.renameInputText.value.trim();
+      if (newTitle && state.editingItem) {
+        state.editingItem.title = newTitle;
         saveConversations();
         renderHistory();
-        showToast(item.pinned ? 'Investigation pinned' : 'Investigation unpinned');
+        if (state.current === state.editingItem.id) els.title.textContent = newTitle;
+        els.renameModal.hidden = true;
+        showToast('Investigation renamed');
       }
-      return;
+    };
+  }
+
+  // API Keys modal
+  if (els.topbarApiKeysBtn) els.topbarApiKeysBtn.onclick = () => els.apiKeysModal.hidden = false;
+  if (els.closeApiKeysModal) els.closeApiKeysModal.onclick = () => els.apiKeysModal.hidden = true;
+  if (els.cancelApiKeysBtn) els.cancelApiKeysBtn.onclick = () => els.apiKeysModal.hidden = true;
+  if (els.saveApiKeysBtn) {
+    els.saveApiKeysBtn.onclick = () => {
+      const k = els.llmApiKeyInput.value.trim();
+      const tk = els.searchApiKeyInput.value.trim();
+      if (k) localStorage.setItem('dam-openai-key', k);
+      if (tk) localStorage.setItem('dam-tavily-key', tk);
+      els.apiKeysModal.hidden = true;
+      showToast('API configuration saved');
+    };
+  }
+  if (els.clearApiKeysBtn) {
+    els.clearApiKeysBtn.onclick = () => {
+      localStorage.removeItem('dam-openai-key');
+      localStorage.removeItem('dam-tavily-key');
+      els.llmApiKeyInput.value = '';
+      els.searchApiKeyInput.value = '';
+      els.apiKeysModal.hidden = true;
+      showToast('API keys cleared');
+    };
+  }
+
+  // Global Keyboard Shortcuts
+  window.addEventListener('keydown', e => {
+    // Esc: close modals or panels
+    if (e.key === 'Escape') {
+      if (state.evidencePanelOpen) closeEvidencePanel();
+      [els.urlModal, els.methodologyModal, els.renameModal, els.apiKeysModal, els.commandPaletteModal].forEach(m => {
+        if (m) m.hidden = true;
+      });
     }
 
-    // Rename
-    const renameBtn = target.closest('.rename-btn');
-    if (renameBtn) {
-      e.stopPropagation();
-      const id = renameBtn.dataset.id;
-      const item = state.conversations.find(c => c.id === id);
-      if (item) {
-        state.editingItem = item;
-        els.renameInputText.value = item.title;
-        els.renameModal.hidden = false;
-        els.renameInputText.focus();
-      }
-      return;
+    // Ctrl+B: toggle sidebar
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+      e.preventDefault();
+      document.body.classList.toggle('sidebar-collapsed');
     }
 
-    // Delete
-    const deleteBtn = target.closest('.delete-btn');
-    if (deleteBtn) {
-      e.stopPropagation();
-      const id = deleteBtn.dataset.id;
-      state.conversations = state.conversations.filter(c => c.id !== id);
-      saveConversations();
-      if (state.current === id) {
-        showLandingView();
-      }
-      renderHistory();
-      showToast('Investigation deleted');
-      return;
+    // Alt+E: toggle evidence panel
+    if (e.altKey && e.key.toLowerCase() === 'e') {
+      e.preventDefault();
+      if (state.evidencePanelOpen) closeEvidencePanel();
+      else openEvidencePanel();
     }
 
-    // Click item to view
-    const itemBtn = target.closest('.history-item');
-    if (itemBtn) {
-      const id = itemBtn.dataset.id;
-      const item = state.conversations.find(c => c.id === id);
-      if (item) {
-        state.current = item.id;
-        executeInvestigation(item.prompt, item.attachments || [], false, item);
-        els.body.classList.remove('menu-open');
+    // Cmd/Ctrl+K: New investigation or palette
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      switchView(false);
+      els.input.focus();
+    }
+
+    // 1-4 shortcuts on empty landing
+    if (['1', '2', '3', '4'].includes(e.key) && !state.current && document.activeElement !== els.input) {
+      const starter = document.querySelector(`.starter[data-key="${e.key}"]`);
+      if (starter) {
+        e.preventDefault();
+        starter.click();
       }
     }
   });
 
-  // Rename Dialog Confirmation
-  els.closeRenameModal.addEventListener('click', () => els.renameModal.hidden = true);
-  els.cancelRenameBtn.addEventListener('click', () => els.renameModal.hidden = true);
-  els.confirmRenameBtn.addEventListener('click', () => {
-    const val = els.renameInputText.value.trim();
-    if (val && state.editingItem) {
-      state.editingItem.title = val;
-      saveConversations();
-      renderHistory();
-      if (state.current === state.editingItem.id) {
-        els.title.textContent = val;
-      }
-      els.renameModal.hidden = true;
-      showToast('Investigation renamed');
-    }
+  // Drag and drop files onto workspace
+  window.addEventListener('dragover', e => {
+    e.preventDefault();
+    els.dropOverlay.hidden = false;
   });
-
-  // Navigation Items Toast for Views (Evidence, Reports)
-  els.navEvidence.addEventListener('click', () => {
-    openCommandPalette();
-    els.paletteSearchInput.value = 'Evidence: ';
-    renderPaletteResults('Evidence');
+  window.addEventListener('dragleave', e => {
+    if (e.clientX <= 0 || e.clientY <= 0) els.dropOverlay.hidden = true;
   });
-
-  els.navReports.addEventListener('click', () => {
-    if (state.current) {
-      exportPdfReport();
-    } else {
-      showToast('Select an investigation to generate an official report');
+  window.addEventListener('drop', e => {
+    e.preventDefault();
+    els.dropOverlay.hidden = true;
+    if (e.dataTransfer && e.dataTransfer.files) {
+      handleFileSelection(e.dataTransfer.files);
     }
   });
 }
 
-// INITIALIZATION
-function init() {
-  initEventListeners();
-  renderHistory();
-  restoreDraft();
-  updateSendState();
-  checkAndReattachActiveRun();
-}
-
-// Run when DOM is ready
+// Initialize on DOM load
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);
 } else {

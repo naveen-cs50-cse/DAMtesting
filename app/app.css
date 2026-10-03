@@ -694,16 +694,17 @@ svg {
   flex-direction: column;
   align-items: center;
   width: 100%;
-  padding-bottom: 24px;
 }
 
 .workspace-content-inner {
   width: 100%;
-  max-width: 900px;
-  padding: 24px 24px 32px;
+  max-width: 800px;
+  padding: 24px 20px 16px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
+  align-items: stretch;
+  box-sizing: border-box;
 }
 
 /* COMPOSER DOCK CONTAINER (FIXED AT BOTTOM) */
@@ -715,18 +716,20 @@ svg {
   align-items: center;
   z-index: 35;
   pointer-events: none;
-  background: linear-gradient(180deg, rgba(9, 9, 11, 0) 0%, rgba(9, 9, 11, 0.78) 22%, var(--dam-bg-root) 65%);
-  padding: 10px 24px 16px;
+  background: linear-gradient(180deg, rgba(9, 9, 11, 0) 0%, rgba(9, 9, 11, 0.82) 20%, var(--dam-bg-root) 65%);
+  padding: 8px 20px 14px;
+  box-sizing: border-box;
 }
 
 .composer-dock-inner {
   width: 100%;
-  max-width: 780px;
+  max-width: 800px;
   margin: 0 auto;
   pointer-events: auto;
   display: flex;
   flex-direction: column;
   position: relative;
+  box-sizing: border-box;
 }
 
 /* FLOATING SCROLL TO BOTTOM BUTTON */
@@ -802,16 +805,25 @@ svg {
   font-size: var(--text-sm);
 }
 
-/* LANDING BLOCK (Vertically Balanced, Gap Removed) */
+/* LANDING BLOCK (Vertically Balanced, Aligned to Grid) */
 .landing-block {
-  width: min(880px, calc(100% - 48px));
-  margin: auto auto;
-  padding: 32px 0 24px;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 22px;
+  gap: 14px;
+  box-sizing: border-box;
   animation: fadeIn 0.3s ease-out;
+}
+
+.welcome {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-sizing: border-box;
 }
 
 .landing-block[hidden] {
@@ -824,18 +836,18 @@ svg {
 }
 
 .eyebrow {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 14px;
-  color: #c9c9d4;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
+  gap: 10px;
+  margin-bottom: 2px;
+  color: var(--dam-text-muted);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.14em;
 }
 
 .eyebrow-line {
-  width: 28px;
+  width: 24px;
   height: 2px;
   background: var(--dam-red);
   border-radius: var(--radius-full);
@@ -844,11 +856,12 @@ svg {
 .landing-heading {
   margin: 0;
   font-family: var(--font-serif);
-  font-size: clamp(40px, 5.5vw, 62px);
+  font-size: clamp(34px, 4.4vw, 50px);
   font-weight: 500;
-  line-height: 1.04;
-  letter-spacing: -0.04em;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
   color: var(--dam-text-primary);
+  text-align: left;
 }
 
 .landing-heading em {
@@ -858,23 +871,28 @@ svg {
 }
 
 .landing-subtext {
-  max-width: 680px;
-  margin: 14px 0 20px;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
   color: var(--dam-text-secondary);
-  font-size: 15.5px;
-  line-height: 1.65;
+  font-size: 14.5px;
+  line-height: 1.55;
+  text-align: left;
 }
 
 /* Scam Trends Strip (India) */
 .scam-trends-strip {
+  width: 100%;
+  box-sizing: border-box;
   background: rgba(22, 22, 27, 0.7);
   border: 1px solid var(--dam-border-default);
   border-radius: var(--radius-md);
-  padding: 10px 14px;
+  padding: 8px 12px;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   overflow-x: auto;
+  margin-top: 2px;
 }
 
 .trends-label {
@@ -959,23 +977,26 @@ svg {
 
 /* STARTER CARDS (1-4 Shortcuts, Hover Lift, Border Glows, Raised Contrast) */
 .starter-grid {
+  width: 100%;
+  box-sizing: border-box;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-top: 6px;
+  gap: 10px;
+  margin-top: 4px;
 }
 
 .starter {
   position: relative;
-  min-height: 82px;
+  min-height: 74px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 14px 16px;
+  padding: 12px 14px;
   border: 1px solid var(--dam-border-default);
   border-radius: var(--radius-md);
   background: rgba(18, 18, 22, 0.85);
   text-align: left;
+  box-sizing: border-box;
   transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
 }
 
@@ -984,20 +1005,20 @@ svg {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .starter-icon {
-  width: 34px;
-  height: 34px;
+  width: 28px;
+  height: 28px;
   display: grid;
   place-items: center;
   border-radius: var(--radius-sm);
 }
 
 .starter-icon svg {
-  width: 18px;
-  height: 18px;
+  width: 15px;
+  height: 15px;
 }
 
 .starter-icon.red { color: #ff5b5b; background: var(--dam-red-soft); }
@@ -1019,11 +1040,11 @@ svg {
 .starter-text {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .starter-text strong {
-  font-size: 14.5px;
+  font-size: 13.5px;
   color: var(--dam-text-primary);
   font-weight: 600;
 }
@@ -1031,13 +1052,13 @@ svg {
 /* Raised contrast for subtext to WCAG AA >= 4.5:1 */
 .starter-text small {
   color: var(--dam-text-secondary);
-  font-size: 12.5px;
-  line-height: 1.4;
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 /* Card Hover Lifts & Colored Border Glows */
 .starter:hover {
-  transform: translateY(-3px);
+  transform: translateY(-2px);
   background: #19191f;
 }
 
@@ -1063,34 +1084,41 @@ svg {
 
 /* Clickable Examples Section */
 .examples-section {
+  width: 100%;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
   margin-top: 4px;
 }
 
 .examples-heading {
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 10.5px;
+  font-weight: 750;
   letter-spacing: 0.08em;
   color: var(--dam-text-muted);
+  text-align: left;
 }
 
 .examples-pills {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 7px;
+  width: 100%;
 }
 
 .example-chip {
-  padding: 6px 12px;
+  padding: 5px 11px;
   border-radius: var(--radius-full);
   background: var(--dam-bg-panel);
   border: 1px solid var(--dam-border-default);
   color: var(--dam-text-secondary);
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 500;
+  line-height: 1.3;
   transition: all var(--transition-fast);
+  cursor: pointer;
+  text-align: left;
 }
 
 .example-chip:hover {
@@ -1110,6 +1138,7 @@ svg {
 
 .chatgpt-composer-pill {
   width: 100%;
+  box-sizing: border-box;
   background: #1e1e23;
   border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 26px;
@@ -1176,8 +1205,10 @@ svg {
 
 .composer-textarea-row {
   width: 100%;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
+  padding: 2px 2px 0;
 }
 
 .composer-textarea-row textarea {
@@ -1194,6 +1225,7 @@ svg {
   line-height: 1.5;
   padding: 0;
   margin: 0;
+  box-sizing: border-box;
 }
 
 .composer-textarea-row textarea::placeholder {
@@ -1205,6 +1237,8 @@ svg {
   align-items: center;
   justify-content: space-between;
   margin-top: 4px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .composer-left-actions {

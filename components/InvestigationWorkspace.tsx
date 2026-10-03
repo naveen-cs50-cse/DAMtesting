@@ -12,6 +12,7 @@ import { MethodologyModal } from './modals/MethodologyModal';
 import { UrlModal } from './modals/UrlModal';
 import { RenameModal } from './modals/RenameModal';
 import { Attachment, Conversation, IndexedSource, ChatTurn, ActivityStage, InvestigationMeta } from '@/lib/investigation/types';
+import { generateSmartTitle } from '@/lib/investigation/naming';
 
 export const InvestigationWorkspace: React.FC = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -305,6 +306,9 @@ export const InvestigationWorkspace: React.FC = () => {
             autoScrollIfPinned();
           } else if (eventType === 'done') {
             assistantTurn.isLive = false;
+            // Auto-rename conversation to clean topic title if currently raw slice
+            const smart = generateSmartTitle(promptToSend, assistantTurn.meta);
+            targetConv.title = smart;
             targetConv.turns = [...targetConv.turns];
             saveConversations([...updatedConversations]);
             autoScrollIfPinned();
@@ -319,6 +323,8 @@ export const InvestigationWorkspace: React.FC = () => {
       }
     } finally {
       assistantTurn.isLive = false;
+      const smart = generateSmartTitle(promptToSend, assistantTurn.meta);
+      targetConv.title = smart;
       targetConv.turns = [...targetConv.turns];
       saveConversations([...updatedConversations]);
       autoScrollIfPinned();
@@ -405,6 +411,7 @@ export const InvestigationWorkspace: React.FC = () => {
                     if (lastUser?.content) handleSendInvestigation(lastUser.content);
                   }}
                   onStop={handleStop}
+                  onFollowUpClick={prompt => handleSendInvestigation(prompt)}
                 />
               )}
             </div>
@@ -442,6 +449,7 @@ export const InvestigationWorkspace: React.FC = () => {
                 onSend={() => handleSendInvestigation()}
                 onStop={handleStop}
                 onOpenUrlModal={() => setUrlModalOpen(true)}
+                hasCompletedTurn={Boolean(activeConversation?.turns.some(t => t.role === 'assistant' && !t.isLive))}
               />
             </div>
           </div>

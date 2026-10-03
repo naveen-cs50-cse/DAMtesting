@@ -18,6 +18,7 @@ interface ComposerProps {
   onSend: () => void;
   onStop: () => void;
   onOpenUrlModal: () => void;
+  hasCompletedTurn?: boolean;
 }
 
 export const Composer: React.FC<ComposerProps> = ({
@@ -34,6 +35,7 @@ export const Composer: React.FC<ComposerProps> = ({
   onSend,
   onStop,
   onOpenUrlModal,
+  hasCompletedTurn = false,
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -214,7 +216,11 @@ export const Composer: React.FC<ComposerProps> = ({
             ref={textareaRef}
             id="promptInput"
             rows={1}
-            placeholder="Work with UseDAM… (paste a claim, message, or link)"
+            placeholder={
+              hasCompletedTurn
+                ? "Ask a follow-up inquiry or investigate another message…"
+                : "Work with UseDAM… (paste a claim, message, or link)"
+            }
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => {

@@ -3142,10 +3142,15 @@ body.sidebar-collapsed .workspace-chip {
   cursor: pointer;
   background: rgba(255, 255, 255, 0.015);
   user-select: none;
+  list-style: none;
+}
+
+.activity-summary-bar::-webkit-details-marker {
+  display: none;
 }
 
 .activity-summary-bar:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.035);
 }
 
 .activity-summary-left {
@@ -3174,8 +3179,23 @@ body.sidebar-collapsed .workspace-chip {
 }
 
 .activity-summary-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 12px;
   color: var(--dam-text-muted);
+}
+
+.activity-summary-chevron {
+  width: 14px;
+  height: 14px;
+  color: var(--dam-text-muted);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+}
+
+details[open] .activity-summary-chevron {
+  transform: rotate(180deg);
 }
 
 .activity-stages-list {
@@ -3256,6 +3276,74 @@ body.sidebar-collapsed .workspace-chip {
   border: 1px solid var(--dam-border-subtle);
   border-radius: var(--radius-xs);
   color: var(--dam-text-secondary);
+}
+
+/* CONTEXTUAL FOLLOW-UP SUGGESTIONS (Phase 2) */
+.followup-suggestions-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 12px 14px;
+  background: rgba(18, 18, 22, 0.55);
+  border: 1px dashed var(--dam-border-default);
+  border-radius: var(--radius-md);
+  box-sizing: border-box;
+}
+
+.followup-suggestions-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  color: var(--dam-text-muted);
+  text-transform: uppercase;
+}
+
+.followup-suggestions-label svg {
+  color: var(--dam-red);
+}
+
+.followup-chips-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.followup-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--dam-bg-panel);
+  border: 1px solid var(--dam-border-subtle);
+  color: var(--dam-text-secondary);
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: left;
+}
+
+.followup-chip:hover {
+  background: var(--dam-bg-panel-hover);
+  border-color: var(--dam-border-hover);
+  color: var(--dam-text-primary);
+  transform: translateY(-1px);
+}
+
+.followup-chip .chip-arrow {
+  color: var(--dam-red);
+  font-weight: bold;
+  opacity: 0.6;
+  transition: transform var(--transition-fast), opacity var(--transition-fast);
+}
+
+.followup-chip:hover .chip-arrow {
+  opacity: 1;
+  transform: translateX(2px);
 }
 
 /* JUMP TO LATEST BUTTON */

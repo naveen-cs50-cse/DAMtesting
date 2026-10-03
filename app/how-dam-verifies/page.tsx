@@ -11,7 +11,7 @@ export default function HowDamVerifiesPage() {
       <div style={{ maxWidth: 760, margin: '0 auto', background: 'var(--dam-bg-panel, #131317)', border: '1px solid var(--dam-border-default, #2d2d34)', borderRadius: 'var(--radius-lg, 16px)', padding: '36px 32px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--dam-border-subtle, #202025)', paddingBottom: 20, marginBottom: 28 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span className="brand-mark" style={{ width: 36, height: 36, fontSize: 16 }}>D</span>
+            <img src="/assets/dam-mark-transparent.png" alt="DAM" style={{ width: 36, height: 36, objectFit: 'contain' }} />
             <div>
               <h1 style={{ margin: 0, fontSize: '1.4rem', color: 'var(--dam-text-primary, #f8f8fc)' }}>How DAM Verifies Evidence</h1>
               <small style={{ color: 'var(--dam-text-muted, #9c9ca8)' }}>India Regulatory &amp; Scam Detection Protocol v2.4</small>

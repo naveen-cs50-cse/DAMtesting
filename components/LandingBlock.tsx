@@ -10,9 +10,16 @@ export const LandingBlock: React.FC<LandingBlockProps> = ({ onSelectPrompt }) =>
   return (
     <div className="landing-block" id="landingBlock">
       <div className="welcome" id="welcome">
-        <div className="eyebrow">
-          <span className="eyebrow-line" aria-hidden="true" />
-          <span>EVIDENCE-FIRST AI &bull; INDIA DESK</span>
+        <div className="landing-brand-header">
+          <img 
+            src="/assets/dam-lockup-transparent.png" 
+            alt="DAM | Defence Against Misinformation" 
+            className="landing-brand-logo" 
+          />
+          <span className="landing-live-badge">
+            <span className="live-dot" />
+            LIVE PRIVATE BETA
+          </span>
         </div>
         <h1 className="landing-heading">
           What should we<br />

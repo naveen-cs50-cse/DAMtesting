@@ -91,6 +91,14 @@ svg {
   min-width: 0;
 }
 
+.brand-logo {
+  display: block;
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  object-position: center;
+}
+
 .brand-mark {
   width: 34px;
   height: 34px;
@@ -104,6 +112,13 @@ svg {
   font-size: 18px;
   color: #fff;
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15) inset, 0 6px 16px var(--dam-red-glow);
+}
+
+.brand-mark-image {
+  padding: 0;
+  object-fit: contain;
+  background: transparent;
+  box-shadow: none;
 }
 
 .brand-copy {
@@ -1608,7 +1623,7 @@ details[open] .timeline-chevron {
 .step-marker.complete::after {
   content: "✓";
   font-size: 9px;
-  color: #09090b;
+  color: var(--dam-text-inverse);
   font-weight: 900;
 }
 

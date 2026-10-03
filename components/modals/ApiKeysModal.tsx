@@ -26,7 +26,7 @@ export const ApiKeysModal: React.FC<ApiKeysModalProps> = ({ isOpen, onClose, onS
       <div className="modal-dialog" style={{ width: 'min(580px, 100%)' }}>
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div className="brand-mark" style={{ width: 28, height: 28, fontSize: 14 }}>D</div>
+            <img src="/assets/dam-mark-transparent.png" alt="DAM" className="brand-mark-img" style={{ width: 28, height: 28 }} />
             <div>
               <h3>API Keys &amp; Engine Settings</h3>
               <small style={{ color: 'var(--dam-text-muted)' }}>Stored securely in your local browser session</small>

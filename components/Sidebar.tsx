@@ -204,10 +204,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
           }}
           title={typeof document !== 'undefined' && document.body.classList.contains('sidebar-collapsed') ? "Click to expand sidebar" : "New investigation"}
         >
-          <span className="brand-mark" aria-hidden="true">D</span>
+          <img 
+            src="/assets/dam-mark-transparent.png" 
+            alt="DAM" 
+            className="brand-mark-img" 
+          />
           <span className="brand-copy">
             <strong>DAM</strong>
-            <small>AI workspace</small>
+            <small>DEFENCE AGAINST MISINFORMATION</small>
           </span>
         </a>
         <button

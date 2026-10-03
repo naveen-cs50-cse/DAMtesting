@@ -95,13 +95,19 @@ svg {
   flex: 0 0 34px;
   display: grid;
   place-items: center;
-  background: var(--dam-red);
-  border-radius: var(--radius-sm);
-  font-family: var(--font-serif);
-  font-weight: 800;
-  font-size: 18px;
-  color: #fff;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15) inset, 0 6px 16px var(--dam-red-glow);
+}
+
+.brand-mark-img {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 14px rgba(240, 58, 58, 0.42));
+  transition: transform var(--transition-fast);
+}
+
+.brand:hover .brand-mark-img {
+  transform: scale(1.06);
 }
 
 .brand-copy {
@@ -112,17 +118,20 @@ svg {
 }
 
 .brand-copy strong {
+  font-family: var(--font-display);
   font-size: 15px;
+  font-weight: 800;
   letter-spacing: 0.12em;
-  color: var(--dam-text-primary);
+  color: #ffffff;
 }
 
 .brand-copy small {
   margin-top: 3px;
   color: var(--dam-text-muted);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  font-weight: 500;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .icon-button {
@@ -1197,6 +1206,49 @@ svg {
   to { opacity: 1; transform: translateY(0); }
 }
 
+.landing-brand-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 8px;
+}
+
+.landing-brand-logo {
+  height: 38px;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 16px rgba(240, 58, 58, 0.35));
+}
+
+.landing-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 11px;
+  font-weight: 750;
+  color: #d4d4d8;
+  letter-spacing: 0.06em;
+}
+
+.landing-live-badge .live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--dam-red);
+  box-shadow: 0 0 10px var(--dam-red);
+  animation: pulseLiveDot 2.2s infinite;
+}
+
+@keyframes pulseLiveDot {
+  0%, 100% { opacity: 0.6; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.25); }
+}
+
 .eyebrow {
   display: inline-flex;
   align-items: center;
@@ -1218,19 +1270,19 @@ svg {
 
 .landing-heading {
   margin: 0;
-  font-family: var(--font-serif);
-  font-size: clamp(34px, 4.4vw, 50px);
-  font-weight: 500;
-  line-height: 1.06;
+  font-family: var(--font-display), 'Sora', sans-serif;
+  font-size: clamp(34px, 4.4vw, 52px);
+  font-weight: 800;
+  line-height: 1.04;
   letter-spacing: -0.035em;
-  color: var(--dam-text-primary);
+  color: #ffffff;
   text-align: left;
 }
 
 .landing-heading em {
   font-style: italic;
-  font-weight: 400;
-  background: linear-gradient(135deg, #ffffff 30%, #c9c9d4 100%);
+  font-weight: 700;
+  background: linear-gradient(135deg, #ffffff 40%, #ff8585 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -1780,14 +1832,15 @@ svg {
 }
 
 .composer-circle-submit-btn.can-send {
-  background: #ffffff;
-  color: #09090b;
-  box-shadow: 0 2px 10px rgba(255, 255, 255, 0.25);
+  background: var(--dam-red);
+  color: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 6px 18px rgba(240, 58, 58, 0.38);
 }
 
 .composer-circle-submit-btn.can-send:hover {
-  background: #f0f0f3;
-  transform: scale(1.04);
+  background: var(--dam-red-hover);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 8px 24px rgba(240, 58, 58, 0.55);
+  transform: scale(1.06);
 }
 
 .composer-circle-submit-btn.stop-state {

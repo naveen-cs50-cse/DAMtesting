@@ -4,6 +4,7 @@ import { searchAndReadSources } from '@/lib/investigation/researcher';
 import { verifyAndChallenge } from '@/lib/investigation/verifier';
 import { performForensicAnalysis } from '@/lib/investigation/forensics';
 import { extractEntitiesFromText } from '@/lib/investigation/ocr';
+import { generateIncidentReport } from '@/lib/investigation/incidentReport';
 import { createOpenAI } from '@ai-sdk/openai';
 import { streamText } from 'ai';
 
@@ -252,15 +253,26 @@ Always verify forwarded announcements through official portals (such as **pib.go
             }
           }
 
+          const caseId = 'DAM-2026-' + Math.floor(1000 + Math.random() * 9000);
+          const incidentReport = generateIncidentReport(
+            caseId,
+            prompt,
+            plan.taskType,
+            verdicts,
+            forensics,
+            extractedTextFromAttachments
+          );
+
           // Send metadata
           sendEvent('meta', {
-            caseId: 'DAM-2026-' + Math.floor(1000 + Math.random() * 9000),
+            caseId,
             taskType: plan.taskType,
             verdicts,
             claims,
             sources,
             challengerAudit,
             forensics,
+            incidentReport,
           });
 
           sendEvent('done', { success: true });

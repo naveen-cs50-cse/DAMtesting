@@ -63,6 +63,7 @@ export interface InvestigationMeta {
   sources: IndexedSource[];
   challengerAudit: string[];
   forensics?: import('./forensics').EntityForensics;
+  incidentReport?: import('./incidentReport').IncidentReport | null;
 }
 
 export interface ChatTurn {

@@ -133,6 +133,19 @@ Rules:
 
               const sourcesText = sources.map(s => `[${s.id}] Domain: ${s.domain}\nTitle: ${s.title}\nDate: ${s.date}\nPassage: ${s.passage}`).join('\n\n');
 
+              const extractedTextFromAttachments = attachments
+                .filter((a: any) => a.extractedText)
+                .map((a: any) => `[Attachment: ${a.name} (OCR Transcribed Text)]:\n${a.extractedText}`)
+                .join('\n\n');
+
+              const userContent = [
+                `User Inquiry: ${prompt || '(Investigation initiated from uploaded document/image)'}`,
+                extractedTextFromAttachments ? `\n\nExtracted Attachment Evidence:\n${extractedTextFromAttachments}` : '',
+                `\nTask Type: ${plan.taskType}`,
+                `\n\nIndexed Sources:\n${sourcesText}`,
+                `\n\nDraft the comprehensive evidence briefing:`
+              ].join('');
+
               const result = streamText({
                 model: openai('gpt-4o-mini'),
                 system: systemPrompt,
@@ -140,7 +153,7 @@ Rules:
                   ...history.slice(-4).map((h: any) => ({ role: h.role, content: h.content })),
                   {
                     role: 'user',
-                    content: `User Inquiry: ${prompt}\nTask Type: ${plan.taskType}\n\nIndexed Sources:\n${sourcesText}\n\nDraft the comprehensive evidence briefing:`
+                    content: userContent
                   }
                 ],
                 temperature: 0.15,

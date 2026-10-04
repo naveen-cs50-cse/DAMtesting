@@ -1690,6 +1690,64 @@ svg {
   border-radius: 14px;
   font-size: 11.5px;
   color: var(--dam-text-primary);
+  transition: all 0.2s ease;
+}
+
+.composer-attachment-pill.ocr-success {
+  border-color: rgba(34, 197, 94, 0.35);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.composer-attachment-pill.ocr-pending {
+  border-color: rgba(240, 58, 58, 0.35);
+  background: rgba(240, 58, 58, 0.06);
+}
+
+.ocr-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 8px;
+  letter-spacing: 0.02em;
+}
+
+.ocr-status-badge.pending {
+  color: var(--dam-amber);
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.ocr-dot-pulse {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--dam-amber);
+  animation: pulseLiveDot 1.2s infinite;
+}
+
+.ocr-action-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(240, 58, 58, 0.16);
+  border: 1px solid rgba(240, 58, 58, 0.4);
+  color: #ff8585;
+  font-size: 10.5px;
+  font-weight: 650;
+  padding: 2px 7px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ocr-action-chip:hover {
+  background: var(--dam-red);
+  color: #ffffff;
+  border-color: var(--dam-red);
+  transform: translateY(-1px);
 }
 
 .composer-attachment-thumb {
@@ -3809,9 +3867,42 @@ body.sidebar-collapsed .workspace-menu-popover {
 
 .user-turn-attachments {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 8px;
   margin-bottom: 8px;
+  width: 100%;
+}
+
+.user-attachment-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.user-ocr-transcript {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-left: 2px solid var(--dam-red);
+  border-radius: var(--radius-xs);
+  padding: 6px 10px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.user-ocr-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--dam-text-muted);
+  margin-bottom: 2px;
+}
+
+.user-ocr-snippet {
+  margin: 0;
+  color: #e0e0ea;
+  font-style: italic;
 }
 
 .user-attachment-thumb {

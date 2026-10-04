@@ -9,6 +9,7 @@ interface ComposerProps {
   setInput: (val: string) => void;
   attachments: Attachment[];
   onAddAttachment: (att: Attachment) => void;
+  onUpdateAttachment?: (index: number, updated: Partial<Attachment>) => void;
   onRemoveAttachment: (index: number) => void;
   activeMode: string;
   setActiveMode: (mode: string) => void;
@@ -26,6 +27,7 @@ export const Composer: React.FC<ComposerProps> = ({
   setInput,
   attachments,
   onAddAttachment,
+  onUpdateAttachment,
   onRemoveAttachment,
   activeMode,
   setActiveMode,
@@ -72,19 +74,55 @@ export const Composer: React.FC<ComposerProps> = ({
 
   const handleFileUpload = (files: FileList | null) => {
     if (!files) return;
-    Array.from(files).forEach(file => {
+    Array.from(files).forEach((file, index) => {
       if (file.size > 10 * 1024 * 1024) {
         alert(`"${file.name}" exceeds 10MB limit.`);
         return;
       }
       const reader = new FileReader();
-      reader.onload = e => {
+      reader.onload = async e => {
+        const preview = e.target?.result as string;
+        const isImage = file.type.startsWith('image/');
+        
+        // Add attachment with pending OCR status if image
         onAddAttachment({
           name: file.name,
           type: file.type,
           size: file.size,
-          preview: e.target?.result as string,
+          preview,
+          ocrStatus: isImage ? 'pending' : undefined
         });
+
+        // Trigger server-side OCR via /api/upload
+        if (isImage) {
+          try {
+            const apiKey = typeof window !== 'undefined' ? localStorage.getItem('dam-openai-key') || '' : '';
+            const res = await fetch('/api/upload', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                name: file.name,
+                type: file.type,
+                size: file.size,
+                base64: preview,
+                apiKey
+              })
+            });
+            const data = await res.json();
+            if (data.success && data.file) {
+              const currentIdx = attachments.length + index;
+              onUpdateAttachment?.(currentIdx, {
+                extractedText: data.file.extractedText,
+                ocrStatus: data.file.ocrStatus,
+                threatEntities: data.file.threatEntities
+              });
+            }
+          } catch (err) {
+            console.error('OCR Upload Error:', err);
+            const currentIdx = attachments.length + index;
+            onUpdateAttachment?.(currentIdx, { ocrStatus: 'failed' });
+          }
+        }
       };
       reader.readAsDataURL(file);
     });
@@ -187,7 +225,7 @@ export const Composer: React.FC<ComposerProps> = ({
         {attachments.length > 0 && (
           <div className="composer-attachments-row" aria-label="Attached files">
             {attachments.map((att, idx) => (
-              <div key={idx} className="composer-attachment-pill">
+              <div key={idx} className={`composer-attachment-pill ${att.ocrStatus ? `ocr-${att.ocrStatus}` : ''}`}>
                 {att.type === 'application/pdf' ? (
                   <FileIcon className="w-3.5 h-3.5 text-blue-400" />
                 ) : att.isUrl ? (
@@ -197,6 +235,29 @@ export const Composer: React.FC<ComposerProps> = ({
                   <img src={att.preview} alt={att.name} className="composer-attachment-thumb" />
                 )}
                 <span className="composer-attachment-text">{att.name}</span>
+
+                {/* OCR Status Badge */}
+                {att.ocrStatus === 'pending' && (
+                  <span className="ocr-status-badge pending" title="Extracting text via OCR...">
+                    <span className="ocr-dot-pulse" /> OCR...
+                  </span>
+                )}
+                {att.ocrStatus === 'success' && att.extractedText && (
+                  <button
+                    type="button"
+                    className="ocr-action-chip"
+                    onClick={() => {
+                      if (att.extractedText) {
+                        setInput(input ? `${input}\n\n${att.extractedText}` : att.extractedText);
+                      }
+                    }}
+                    title="Insert extracted OCR text into investigation inquiry"
+                  >
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    <span>Insert Text</span>
+                  </button>
+                )}
+
                 <button
                   type="button"
                   className="composer-attachment-close"

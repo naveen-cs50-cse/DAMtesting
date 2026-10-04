@@ -3,6 +3,13 @@ export type ScamRisk = 'Low' | 'Medium' | 'High';
 export type EvidenceSufficiency = 'Sufficient' | 'Partial' | 'Insufficient';
 export type TaskType = 'verification' | 'scam_check' | 'research' | 'document_analysis';
 
+export interface ThreatEntities {
+  phones?: string[];
+  urls?: string[];
+  senderIds?: string[];
+  amounts?: string[];
+}
+
 export interface Attachment {
   name: string;
   type: string;
@@ -10,6 +17,9 @@ export interface Attachment {
   url?: string;
   preview?: string;
   isUrl?: boolean;
+  extractedText?: string;
+  ocrStatus?: 'pending' | 'success' | 'failed' | 'empty';
+  threatEntities?: ThreatEntities;
 }
 
 export interface ClaimFinding {

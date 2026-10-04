@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { performOcr } from '@/lib/investigation/ocr';
 
 export const runtime = 'nodejs';
 
@@ -9,6 +10,7 @@ export async function POST(req: NextRequest) {
     let type = '';
     let size = 0;
     let base64 = '';
+    let apiKey = '';
 
     if (contentType.includes('application/json')) {
       const data = await req.json();
@@ -16,6 +18,7 @@ export async function POST(req: NextRequest) {
       type = data.type;
       size = data.size;
       base64 = data.base64;
+      apiKey = data.apiKey;
     } else if (contentType.includes('multipart/form-data')) {
       const formData = await req.formData();
       const file = formData.get('file') as File | null;
@@ -25,6 +28,7 @@ export async function POST(req: NextRequest) {
       name = file.name;
       type = file.type;
       size = file.size;
+      apiKey = (formData.get('apiKey') as string) || '';
       const buffer = Buffer.from(await file.arrayBuffer());
       base64 = `data:${type};base64,${buffer.toString('base64')}`;
     } else {
@@ -46,6 +50,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Trigger OCR extraction for image formats
+    let ocrResult: { text: string; threatEntities: any; status: 'success' | 'empty' | 'failed' } = {
+      text: '',
+      threatEntities: {},
+      status: 'empty'
+    };
+
+    if (type.startsWith('image/') && base64) {
+      ocrResult = await performOcr(base64, type, apiKey);
+    }
+
     const fileId = 'att_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
     return NextResponse.json({
       success: true,
@@ -54,7 +69,10 @@ export async function POST(req: NextRequest) {
         name: name || 'attachment',
         type: type,
         size: size,
-        previewUrl: base64 ? base64.slice(0, 300) : null,
+        previewUrl: base64,
+        extractedText: ocrResult.text || null,
+        ocrStatus: ocrResult.status,
+        threatEntities: ocrResult.threatEntities,
         uploadedAt: new Date().toISOString()
       }
     });

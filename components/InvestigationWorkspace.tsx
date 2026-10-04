@@ -475,6 +475,7 @@ export const InvestigationWorkspace: React.FC = () => {
                 setInput={setInput}
                 attachments={attachments}
                 onAddAttachment={att => setAttachments(prev => [...prev, att])}
+                onUpdateAttachment={(idx, updated) => setAttachments(prev => prev.map((a, i) => i === idx ? { ...a, ...updated } : a))}
                 onRemoveAttachment={idx => setAttachments(prev => prev.filter((_, i) => i !== idx))}
                 activeMode={activeMode}
                 setActiveMode={setActiveMode}

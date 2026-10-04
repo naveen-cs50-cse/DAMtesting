@@ -65,6 +65,8 @@ export interface InvestigationMeta {
   forensics?: import('./forensics').EntityForensics;
   incidentReport?: import('./incidentReport').IncidentReport | null;
   manipulationAudit?: import('./manipulation').ManipulationAudit;
+  statutes?: import('./statutes').StatutoryAudit;
+  certificate?: import('./certificate').VerificationCertificate;
 }
 
 export interface ChatTurn {

@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import { ChatTurn } from '@/lib/investigation/types';
 import { CopyIcon, EvidenceIcon, FileIcon, RetryIcon, ShieldIcon, SpinnerIcon, StopIcon } from './icons';
 import { VernacularAudioPlayer } from './VernacularAudioPlayer';
+import { CertificateModal } from './CertificateModal';
+import { WatchtowerDrawer } from './WatchtowerDrawer';
 
 interface ConversationFeedProps {
   turns: ChatTurn[];
@@ -139,6 +141,7 @@ const AssistantTurnView: React.FC<{
   const [userExpandedAudit, setUserExpandedAudit] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copiedReport, setCopiedReport] = useState(false);
+  const [showCertModal, setShowCertModal] = useState(false);
   const isAuditOpen = isLive ? true : userExpandedAudit;
 
   const handleCopy = () => {
@@ -321,6 +324,49 @@ const AssistantTurnView: React.FC<{
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* 1.55 LEGAL & STATUTORY CLAUSE CROSS-EXAMINATION */}
+        {meta?.statutes && meta.statutes.applicableStatutes.length > 0 && (
+          <div className="statutes-card revealed" aria-label="Legal & Statutory Clause Cross-Examination">
+            <div className="statutes-head">
+              <div className="statutes-title">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
+                  <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
+                  <path d="M7 21h10" />
+                  <path d="M12 3v18" />
+                  <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2" />
+                </svg>
+                <strong>Legal & Statutory Cross-Examination</strong>
+              </div>
+              <span className="statutes-badge">{meta.statutes.statutoryViolationCount} Violations Flagged</span>
+            </div>
+
+            <div className="statutes-body">
+              <div className="statutes-grid">
+                {meta.statutes.applicableStatutes.map((clause, cIdx) => (
+                  <div key={cIdx} className="statute-item">
+                    <div className="statute-item-top">
+                      <span className="statute-act-name">{clause.act}</span>
+                      <span className="statute-sec-pill">{clause.section}</span>
+                    </div>
+                    <h5 className="statute-clause-title">{clause.title}</h5>
+                    <p className="statute-rule-desc"><strong>Statutory Standard:</strong> {clause.statutoryRule}</p>
+                    <p className="statute-remedy-desc"><strong>Citizen Remedy:</strong> {clause.punishmentOrRemedy}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="statutes-rights-note">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                <span>{meta.statutes.citizenRightsSummary}</span>
+              </div>
             </div>
           </div>
         )}
@@ -636,6 +682,20 @@ const AssistantTurnView: React.FC<{
                 <button className="control-btn" onClick={onRetry} title="Re-evaluate investigation">
                   <RetryIcon className="w-3.5 h-3.5" /> <span>Re-evaluate</span>
                 </button>
+                {meta?.certificate && (
+                  <button
+                    type="button"
+                    className="control-btn cert-trigger-btn"
+                    onClick={() => setShowCertModal(true)}
+                    title="View Cryptographic SHA-256 Legal Evidence Certificate"
+                  >
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                      <path d="m9 12 2 2 4-4" />
+                    </svg>
+                    <span>SHA-256 Legal Certificate</span>
+                  </button>
+                )}
               </>
             )}
           </div>
@@ -657,6 +717,15 @@ const AssistantTurnView: React.FC<{
             </button>
           </div>
         </div>
+
+        {/* 9. Cryptographic Verification Certificate Modal */}
+        {meta?.certificate && (
+          <CertificateModal
+            certificate={meta.certificate}
+            isOpen={showCertModal}
+            onClose={() => setShowCertModal(false)}
+          />
+        )}
       </div>
     </div>
   );
@@ -728,8 +797,30 @@ export const ConversationFeed: React.FC<ConversationFeedProps> = ({
     );
   };
 
+  const [isWatchtowerOpen, setIsWatchtowerOpen] = useState(false);
+
   return (
     <div className="conversation" id="conversation">
+      {/* Live Regulatory Watchtower Banner */}
+      <div className="feed-watchtower-bar">
+        <button
+          type="button"
+          className="watchtower-trigger-btn"
+          onClick={() => setIsWatchtowerOpen(true)}
+          title="Open Live National Regulatory Watchtower (PIB, RBI, TRAI, CERT-In)"
+        >
+          <span className="beacon-ping" />
+          <span className="beacon-dot" />
+          <span className="watchtower-btn-title">Live Regulatory Watchtower</span>
+          <span className="watchtower-btn-badge">6 Active Bulletins</span>
+        </button>
+      </div>
+
+      <WatchtowerDrawer
+        isOpen={isWatchtowerOpen}
+        onClose={() => setIsWatchtowerOpen(false)}
+      />
+
       {turns.map(turn => {
         if (turn.role === 'user') {
           return (

@@ -6,6 +6,8 @@ import { performForensicAnalysis } from '@/lib/investigation/forensics';
 import { extractEntitiesFromText } from '@/lib/investigation/ocr';
 import { generateIncidentReport } from '@/lib/investigation/incidentReport';
 import { analyzeManipulationVectors } from '@/lib/investigation/manipulation';
+import { evaluateStatutoryContradictions } from '@/lib/investigation/statutes';
+import { generateVerificationCertificate } from '@/lib/investigation/certificate';
 import { createOpenAI } from '@ai-sdk/openai';
 import { streamText } from 'ai';
 
@@ -267,6 +269,14 @@ Always verify forwarded announcements through official portals (such as **pib.go
           }
 
           const caseId = 'DAM-2026-' + Math.floor(1000 + Math.random() * 9000);
+          const statutes = evaluateStatutoryContradictions(prompt, extractedTextFromAttachments, allDetectedEntities);
+          const certificate = generateVerificationCertificate(
+            caseId,
+            prompt,
+            verdicts,
+            statutes.applicableStatutes.map(s => s.section),
+            sources.length
+          );
           const incidentReport = generateIncidentReport(
             caseId,
             prompt,
@@ -287,6 +297,8 @@ Always verify forwarded announcements through official portals (such as **pib.go
             forensics,
             incidentReport,
             manipulationAudit,
+            statutes,
+            certificate,
           });
 
           sendEvent('done', { success: true });

@@ -2683,6 +2683,154 @@ details[open] .timeline-chevron {
   align-items: center;
 }
 
+/* THREAT ENTITY & URL FORENSICS CARD (Phase 2) */
+.forensics-card {
+  background: linear-gradient(180deg, rgba(20, 20, 26, 0.95) 0%, rgba(14, 14, 18, 0.95) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.forensics-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #f97316 0%, var(--dam-red) 50%, #eab308 100%);
+}
+
+.forensics-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding-bottom: 10px;
+}
+
+.forensics-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #ffffff;
+  font-size: 13.5px;
+}
+
+.forensics-title svg {
+  color: #f97316;
+}
+
+.forensics-badge {
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: rgba(249, 115, 22, 0.12);
+  color: #f97316;
+  border: 1px solid rgba(249, 115, 22, 0.3);
+}
+
+.forensics-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.forensic-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.forensic-section-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--dam-text-muted);
+}
+
+.forensic-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.forensic-item {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.forensic-item.status-critical {
+  border-color: rgba(228, 61, 61, 0.35);
+  background: rgba(228, 61, 61, 0.05);
+}
+
+.forensic-item.status-safe {
+  border-color: rgba(34, 197, 94, 0.35);
+  background: rgba(34, 197, 94, 0.04);
+}
+
+.forensic-item-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.forensic-status-pill {
+  font-size: 10px;
+  font-weight: 750;
+  padding: 1px 7px;
+  border-radius: var(--radius-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.forensic-status-pill.safe {
+  background: var(--dam-green-soft);
+  color: var(--dam-green);
+}
+
+.forensic-status-pill.critical {
+  background: var(--dam-red-soft);
+  color: var(--dam-red);
+}
+
+.forensic-status-pill.suspicious {
+  background: var(--dam-amber-soft);
+  color: var(--dam-amber);
+}
+
+.forensic-domain-text {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #f1f1f5;
+  word-break: break-all;
+}
+
+.forensic-reason-text {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--dam-text-secondary);
+}
+
 /* 3. STREAMING ANSWER & CITATIONS */
 .answer-prose {
   font-size: 15.5px;

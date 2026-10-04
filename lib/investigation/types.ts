@@ -62,6 +62,7 @@ export interface InvestigationMeta {
   claims: ClaimFinding[];
   sources: IndexedSource[];
   challengerAudit: string[];
+  forensics?: import('./forensics').EntityForensics;
 }
 
 export interface ChatTurn {

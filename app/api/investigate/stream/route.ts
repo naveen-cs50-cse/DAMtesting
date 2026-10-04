@@ -2,6 +2,8 @@ import { NextRequest } from 'next/server';
 import { coordinateInvestigation } from '@/lib/investigation/coordinator';
 import { searchAndReadSources } from '@/lib/investigation/researcher';
 import { verifyAndChallenge } from '@/lib/investigation/verifier';
+import { performForensicAnalysis } from '@/lib/investigation/forensics';
+import { extractEntitiesFromText } from '@/lib/investigation/ocr';
 import { createOpenAI } from '@ai-sdk/openai';
 import { streamText } from 'ai';
 
@@ -110,6 +112,11 @@ export async function POST(req: NextRequest) {
             summary: 'Formulating evidence-backed findings and citizen guidance with citations...',
           });
 
+          const extractedTextFromAttachments = attachments
+            .filter((a: any) => a.extractedText)
+            .map((a: any) => `[Attachment: ${a.name} (OCR Transcribed Text)]:\n${a.extractedText}`)
+            .join('\n\n');
+
           let streamedWithSDK = false;
 
           if (openaiKey) {
@@ -132,11 +139,6 @@ Rules:
 4. Never hallucinate. If evidence is missing, state it honestly.`;
 
               const sourcesText = sources.map(s => `[${s.id}] Domain: ${s.domain}\nTitle: ${s.title}\nDate: ${s.date}\nPassage: ${s.passage}`).join('\n\n');
-
-              const extractedTextFromAttachments = attachments
-                .filter((a: any) => a.extractedText)
-                .map((a: any) => `[Attachment: ${a.name} (OCR Transcribed Text)]:\n${a.extractedText}`)
-                .join('\n\n');
 
               const userContent = [
                 `User Inquiry: ${prompt || '(Investigation initiated from uploaded document/image)'}`,
@@ -231,6 +233,25 @@ Always verify forwarded announcements through official portals (such as **pib.go
             summary: 'Briefing synthesized with verified citations and actionable citizen guidance.',
           });
 
+          // STAGE 4.5 / 5: Compute Forensic Analysis
+          const promptEntities = extractEntitiesFromText(prompt);
+          const allDetectedEntities = {
+            phones: Array.from(new Set([...(promptEntities.phones || []), ...attachments.flatMap((a: any) => a.threatEntities?.phones || [])])),
+            urls: Array.from(new Set([...(promptEntities.urls || []), ...attachments.flatMap((a: any) => a.threatEntities?.urls || [])])),
+            senderIds: Array.from(new Set([...(promptEntities.senderIds || []), ...attachments.flatMap((a: any) => a.threatEntities?.senderIds || [])])),
+            amounts: Array.from(new Set([...(promptEntities.amounts || []), ...attachments.flatMap((a: any) => a.threatEntities?.amounts || [])]))
+          };
+
+          const forensics = performForensicAnalysis(prompt, extractedTextFromAttachments, allDetectedEntities);
+
+          // If critical phishing or personal SIM threat found, escalate scam risk
+          if (forensics.urls.some(u => u.status === 'critical') || forensics.phones.some(p => p.risk === 'High')) {
+            verdicts.scamRisk = 'High';
+            if (!verdicts.riskTriggers.includes('Deceptive URL / APK Phishing')) {
+              verdicts.riskTriggers.push('Deceptive URL / APK Phishing');
+            }
+          }
+
           // Send metadata
           sendEvent('meta', {
             caseId: 'DAM-2026-' + Math.floor(1000 + Math.random() * 9000),
@@ -239,6 +260,7 @@ Always verify forwarded announcements through official portals (such as **pib.go
             claims,
             sources,
             challengerAudit,
+            forensics,
           });
 
           sendEvent('done', { success: true });

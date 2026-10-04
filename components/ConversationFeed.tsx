@@ -181,6 +181,81 @@ const AssistantTurnView: React.FC<{
           </div>
         )}
 
+        {/* 1.5 THREAT ENTITY & URL FORENSICS CARD (Phase 2) */}
+        {meta?.forensics && (meta.forensics.urls.length > 0 || meta.forensics.phones.length > 0 || meta.forensics.senders.length > 0) && (
+          <div className="forensics-card revealed" aria-label="Digital Entity & Link Forensics">
+            <div className="forensics-head">
+              <div className="forensics-title">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+                <strong>Digital Entity & Link Forensics</strong>
+              </div>
+              <span className="forensics-badge">Indian Scam Guard</span>
+            </div>
+
+            <div className="forensics-body">
+              {/* Suspicious or Analyzed URLs */}
+              {meta.forensics.urls.length > 0 && (
+                <div className="forensic-section">
+                  <span className="forensic-section-label">Link & Domain Authenticity</span>
+                  <div className="forensic-items-list">
+                    {meta.forensics.urls.map((item, uIdx) => (
+                      <div key={uIdx} className={`forensic-item status-${item.status}`}>
+                        <div className="forensic-item-main">
+                          <span className={`forensic-status-pill ${item.status}`}>
+                            {item.status === 'safe' ? 'Verified Gov/NIC' : item.status === 'critical' ? 'Phishing / Malware APK' : 'Unverified 3rd-Party'}
+                          </span>
+                          <span className="forensic-domain-text">{item.domain || item.url}</span>
+                        </div>
+                        <p className="forensic-reason-text">{item.reason}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Analyzed Phone Numbers */}
+              {meta.forensics.phones.length > 0 && (
+                <div className="forensic-section">
+                  <span className="forensic-section-label">Telephone Number Risk</span>
+                  <div className="forensic-items-list">
+                    {meta.forensics.phones.map((phone, pIdx) => (
+                      <div key={pIdx} className={`forensic-item status-${phone.risk === 'High' ? 'critical' : 'suspicious'}`}>
+                        <div className="forensic-item-main">
+                          <span className={`forensic-status-pill ${phone.risk === 'High' ? 'critical' : 'suspicious'}`}>
+                            {phone.risk} Risk Caller
+                          </span>
+                          <span className="forensic-domain-text">{phone.number}</span>
+                        </div>
+                        <p className="forensic-reason-text">{phone.notes}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* DLT Sender Headers */}
+              {meta.forensics.senders.length > 0 && (
+                <div className="forensic-section">
+                  <span className="forensic-section-label">TRAI DLT Header Verification</span>
+                  <div className="forensic-items-list">
+                    {meta.forensics.senders.map((sender, sIdx) => (
+                      <div key={sIdx} className={`forensic-item status-${sender.isRegisteredDLT ? 'safe' : 'suspicious'}`}>
+                        <div className="forensic-item-main">
+                          <span className={`forensic-status-pill ${sender.isRegisteredDLT ? 'safe' : 'suspicious'}`}>
+                            {sender.isRegisteredDLT ? 'Registered DLT Header' : 'Unregistered Header'}
+                          </span>
+                          <span className="forensic-domain-text">{sender.id}</span>
+                        </div>
+                        <p className="forensic-reason-text">{sender.notes}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* 2. Investigation Briefing Prose */}
         <div className={`answer-prose ${isLive ? 'generating' : ''}`}>
           {renderMarkdown(turn.fullText || '', isLive)}

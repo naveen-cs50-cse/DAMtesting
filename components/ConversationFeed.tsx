@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { ChatTurn } from '@/lib/investigation/types';
 import { CopyIcon, EvidenceIcon, FileIcon, RetryIcon, ShieldIcon, SpinnerIcon, StopIcon } from './icons';
+import { VernacularAudioPlayer } from './VernacularAudioPlayer';
 
 interface ConversationFeedProps {
   turns: ChatTurn[];
@@ -362,6 +363,17 @@ const AssistantTurnView: React.FC<{
               </details>
             </div>
           </div>
+        )}
+
+        {/* 1.7 VERNACULAR REGIONAL AUDIO ADVISORY (Phase 4) */}
+        {!isLive && turn.fullText && (
+          <VernacularAudioPlayer
+            text={turn.fullText}
+            verdictSummary={{
+              factualCorrectness: meta?.verdicts?.factualCorrectness,
+              scamRisk: meta?.verdicts?.scamRisk,
+            }}
+          />
         )}
 
         {/* 2. Investigation Briefing Prose */}

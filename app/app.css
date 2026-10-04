@@ -2683,6 +2683,215 @@ details[open] .timeline-chevron {
   align-items: center;
 }
 
+/* 1.4 PSYCHOLOGICAL MANIPULATION & SOCIAL ENGINEERING RADAR */
+.manipulation-card {
+  background: linear-gradient(180deg, rgba(24, 20, 28, 0.98) 0%, rgba(16, 14, 20, 0.98) 100%);
+  border: 1px solid rgba(236, 72, 153, 0.25);
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+}
+
+.manipulation-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #ec4899 0%, #8b5cf6 50%, #f97316 100%);
+}
+
+.manipulation-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.manipulation-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #ffffff;
+  font-size: 13.5px;
+}
+
+.manipulation-title svg {
+  color: #ec4899;
+}
+
+.manipulation-badge {
+  font-size: 10.5px;
+  font-weight: 750;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 9px;
+  border-radius: var(--radius-full);
+}
+
+.manipulation-badge.level-critical {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.manipulation-badge.level-severe {
+  background: rgba(249, 115, 22, 0.15);
+  color: #f97316;
+  border: 1px solid rgba(249, 115, 22, 0.35);
+}
+
+.manipulation-badge.level-moderate {
+  background: rgba(234, 179, 8, 0.15);
+  color: #eab308;
+  border: 1px solid rgba(234, 179, 8, 0.35);
+}
+
+.manipulation-badge.level-low {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.35);
+}
+
+.manipulation-meter-track {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.manipulation-meter-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.manipulation-meter-fill.level-critical {
+  background: linear-gradient(90deg, #f97316 0%, #ef4444 100%);
+}
+
+.manipulation-meter-fill.level-severe {
+  background: linear-gradient(90deg, #eab308 0%, #f97316 100%);
+}
+
+.manipulation-meter-fill.level-moderate {
+  background: linear-gradient(90deg, #38bdf8 0%, #eab308 100%);
+}
+
+.manipulation-meter-fill.level-low {
+  background: #22c55e;
+}
+
+.manipulation-summary-text {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--dam-text-secondary);
+}
+
+.manipulation-vectors-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.vector-card {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  transition: all var(--transition-fast);
+}
+
+.vector-card.active {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.vector-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.vector-name {
+  font-size: 11px;
+  font-weight: 650;
+  color: #f1f1f5;
+}
+
+.vector-score {
+  font-size: 11px;
+  font-weight: 750;
+  color: var(--dam-text-muted);
+}
+
+.vector-card.level-severe .vector-score { color: #ef4444; }
+.vector-card.level-high .vector-score { color: #f97316; }
+.vector-card.level-medium .vector-score { color: #eab308; }
+
+.vector-progress-track {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 1.5px;
+  overflow: hidden;
+}
+
+.vector-progress-fill {
+  height: 100%;
+  border-radius: 1.5px;
+  background: linear-gradient(90deg, #ec4899 0%, #8b5cf6 100%);
+  transition: width 0.6s ease;
+}
+
+.vector-card.level-severe .vector-progress-fill {
+  background: linear-gradient(90deg, #f97316 0%, #ef4444 100%);
+}
+
+.vector-triggers-list {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.vector-trigger-tag {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 1px 5px;
+  border-radius: 2px;
+}
+
+.cognitive-pause-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(249, 115, 22, 0.08);
+  border: 1px dashed rgba(249, 115, 22, 0.3);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: #fdba74;
+}
+
+.cognitive-pause-banner svg {
+  color: #f97316;
+  flex-shrink: 0;
+}
+
 /* THREAT ENTITY & URL FORENSICS CARD (Phase 2) */
 .forensics-card {
   background: linear-gradient(180deg, rgba(20, 20, 26, 0.95) 0%, rgba(14, 14, 18, 0.95) 100%);

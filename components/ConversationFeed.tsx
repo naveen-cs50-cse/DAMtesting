@@ -191,6 +191,65 @@ const AssistantTurnView: React.FC<{
           </div>
         )}
 
+        {/* 1.4 PSYCHOLOGICAL MANIPULATION & SOCIAL ENGINEERING RADAR */}
+        {meta?.manipulationAudit && meta.manipulationAudit.overallIndex > 0 && (
+          <div className="manipulation-card revealed" aria-label="Psychological Manipulation Radar">
+            <div className="manipulation-head">
+              <div className="manipulation-title">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z" />
+                  <path d="M12 6v6l4 2" />
+                </svg>
+                <strong>Psychological Manipulation Radar</strong>
+              </div>
+              <div className={`manipulation-badge level-${meta.manipulationAudit.threatLevel.toLowerCase()}`}>
+                <span>{meta.manipulationAudit.overallIndex}% {meta.manipulationAudit.threatLevel} Manipulation</span>
+              </div>
+            </div>
+
+            <div className="manipulation-meter-track">
+              <div
+                className={`manipulation-meter-fill level-${meta.manipulationAudit.threatLevel.toLowerCase()}`}
+                style={{ width: `${meta.manipulationAudit.overallIndex}%` }}
+              />
+            </div>
+
+            <p className="manipulation-summary-text">{meta.manipulationAudit.summary}</p>
+
+            <div className="manipulation-vectors-grid">
+              {meta.manipulationAudit.vectors.map(vec => (
+                <div key={vec.id} className={`vector-card ${vec.score > 0 ? 'active' : 'inactive'} level-${vec.level.toLowerCase()}`}>
+                  <div className="vector-card-head">
+                    <span className="vector-name">{vec.name}</span>
+                    <span className="vector-score">{vec.score}%</span>
+                  </div>
+                  <div className="vector-progress-track">
+                    <div className="vector-progress-fill" style={{ width: `${vec.score}%` }} />
+                  </div>
+                  {vec.detectedTriggers.length > 0 && (
+                    <div className="vector-triggers-list">
+                      {vec.detectedTriggers.slice(0, 3).map((trig, tIdx) => (
+                        <span key={tIdx} className="vector-trigger-tag">"{trig}"</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {meta.manipulationAudit.counterMeasure && (
+              <div className="cognitive-pause-banner">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="10" y1="15" x2="10" y2="9" />
+                  <line x1="14" y1="15" x2="14" y2="9" />
+                </svg>
+                <span>{meta.manipulationAudit.counterMeasure}</span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* 1.5 THREAT ENTITY & URL FORENSICS CARD (Phase 2) */}
         {meta?.forensics && (meta.forensics.urls.length > 0 || meta.forensics.phones.length > 0 || meta.forensics.senders.length > 0) && (
           <div className="forensics-card revealed" aria-label="Digital Entity & Link Forensics">

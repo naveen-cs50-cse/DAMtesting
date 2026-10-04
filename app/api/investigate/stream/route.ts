@@ -5,6 +5,7 @@ import { verifyAndChallenge } from '@/lib/investigation/verifier';
 import { performForensicAnalysis } from '@/lib/investigation/forensics';
 import { extractEntitiesFromText } from '@/lib/investigation/ocr';
 import { generateIncidentReport } from '@/lib/investigation/incidentReport';
+import { analyzeManipulationVectors } from '@/lib/investigation/manipulation';
 import { createOpenAI } from '@ai-sdk/openai';
 import { streamText } from 'ai';
 
@@ -253,6 +254,18 @@ Always verify forwarded announcements through official portals (such as **pib.go
             }
           }
 
+          // Psychological Manipulation & Social Engineering Analysis
+          const manipulationAudit = analyzeManipulationVectors(prompt, extractedTextFromAttachments);
+          if (manipulationAudit.overallIndex >= 70 && verdicts.scamRisk === 'Low') {
+            verdicts.scamRisk = 'Medium';
+          }
+          if (manipulationAudit.overallIndex >= 80) {
+            verdicts.scamRisk = 'High';
+            if (!verdicts.riskTriggers.includes('Acute Psychological Coercion')) {
+              verdicts.riskTriggers.push('Acute Psychological Coercion');
+            }
+          }
+
           const caseId = 'DAM-2026-' + Math.floor(1000 + Math.random() * 9000);
           const incidentReport = generateIncidentReport(
             caseId,
@@ -273,6 +286,7 @@ Always verify forwarded announcements through official portals (such as **pib.go
             challengerAudit,
             forensics,
             incidentReport,
+            manipulationAudit,
           });
 
           sendEvent('done', { success: true });

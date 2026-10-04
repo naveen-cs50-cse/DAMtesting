@@ -64,6 +64,7 @@ export interface InvestigationMeta {
   challengerAudit: string[];
   forensics?: import('./forensics').EntityForensics;
   incidentReport?: import('./incidentReport').IncidentReport | null;
+  manipulationAudit?: import('./manipulation').ManipulationAudit;
 }
 
 export interface ChatTurn {

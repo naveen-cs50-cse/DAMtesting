@@ -568,8 +568,14 @@ Rules:
    
    ### Citizen Protocol & Recommended Action
    (Actionable steps: what should the user do or avoid, where to report)
-3. If language is specified (${lang}), respond in that language; otherwise use English.
-4. Never hallucinate. If evidence is missing, state it honestly.`;
+3. ESSENTIAL FORMATTING REQUIREMENT: **Bold** all critical information that is important for the person to know immediately. Specifically, bold:
+   - The definitive verdict or threat status (e.g., **Factually Contradicted**, **High-Risk Scam**, **Verified Official Notice**)
+   - Important statutory sections or legal mandates (e.g., **Section 56 of the Indian Electricity Act**)
+   - Warning signs and red flags (e.g., **Never share OTP**, **Do not click links**, **Personal 10-digit mobile number**)
+   - Official portals, verified numbers, and contact channels (e.g., **1930 Cybercrime Helpline**, **sancharsaathi.gov.in**)
+   - Exact mandatory actions or prohibitions for the citizen.
+4. If language is specified (${lang}), respond in that language; otherwise use English.
+5. Never hallucinate. If evidence is missing, state it honestly.`;
 
           const sourcesText = sources.map(s => `[${s.id}] Domain: ${s.domain}\nTitle: ${s.title}\nDate: ${s.date}\nPassage: ${s.passage}`).join('\n\n');
 
@@ -640,46 +646,46 @@ Draft the comprehensive evidence briefing:`;
         if (lower.includes('500') || lower.includes('rbi')) {
           fallbackMarkdown = `
 ### Primary Finding
-The claim that the Reserve Bank of India has banned or ordered the withdrawal of ₹500 notes is **Factually Contradicted** [1][2]. The RBI and the Press Information Bureau have repeatedly confirmed that ₹500 notes of the Mahatma Gandhi (New) Series remain valid legal tender across India [1].
+The claim that the Reserve Bank of India has banned or ordered the withdrawal of ₹500 notes is **Factually Contradicted** [1][2]. The **RBI** and the **Press Information Bureau** have repeatedly confirmed that **₹500 notes of the Mahatma Gandhi (New) Series remain valid legal tender** across India [1].
 
 ### Evidence & Regulatory Analysis
-DAM cross-examined the assertions against indexed regulatory records [1][2]. The evidence indicates that official communication protocols were violated, and claims regarding regulatory actions do not match published notifications [1]. No circular or gazette notification exists calling for demonetization.
+DAM cross-examined the assertions against indexed regulatory records [1][2]. The evidence indicates that **official communication protocols were violated**, and claims regarding regulatory actions **do not match published notifications** [1]. **No circular or gazette notification exists calling for demonetization.**
 
 ### Citizen Protocol & Recommended Action
-Do not forward rumors or engage with third-party currency exchange portals. For genuine regulatory directives on currency, consult exclusively the **rbi.org.in** press release repository.
+**Do not forward rumors** or engage with third-party currency exchange portals. For genuine regulatory directives on currency, consult exclusively the official **rbi.org.in** press release repository.
           `.trim();
         } else if (lower.includes('electric') || lower.includes('disconnection')) {
           fallbackMarkdown = `
 ### Primary Finding
-This message is a confirmed **High-Risk Impersonation Scam** designed to panic consumers into calling fraudulent phone numbers or installing malicious screen-sharing APKs [1][2]. Under Section 56 of the Indian Electricity Act, 2003, no electricity distribution licensee has the authority to cut power without providing at least 15 days of formal written notice [1].
+This message is a confirmed **High-Risk Impersonation Scam** designed to panic consumers into **calling fraudulent phone numbers** or **installing malicious screen-sharing APKs** [1][2]. Under **Section 56 of the Indian Electricity Act, 2003**, no electricity distribution licensee has the authority to cut power **without providing at least 15 days of formal written notice** [1].
 
 ### Evidence & Regulatory Analysis
-State electricity discoms (e.g., BESCOM, MSEDCL, TPDDL) dispatch official notifications exclusively through registered 6-character alpha headers (e.g., VM-BESCOM), never via personal 10-digit mobile numbers [1]. Immediate overnight disconnection via casual SMS is a regulatory impossibility.
+State electricity discoms (e.g., BESCOM, MSEDCL, TPDDL) dispatch official notifications exclusively through **registered 6-character alpha headers (e.g., VM-BESCOM)**, **never via personal 10-digit mobile numbers** [1]. Immediate overnight disconnection via casual SMS is a **regulatory impossibility**.
 
 ### Citizen Protocol & Recommended Action
-**Never call the number in the SMS.** All legitimate electricity payments must be checked directly through the official state discom application or your registered consumer account number (CA Number). Report the sender number on the national **Chakshu portal (sancharsaathi.gov.in)** [1].
+**Never call the number in the SMS.** All legitimate electricity payments must be checked directly through your **official state discom application** or your registered **consumer account number (CA Number)**. Report the sender number immediately on the national **Chakshu portal (sancharsaathi.gov.in)** [1].
           `.trim();
         } else if (lower.includes('trai') || lower.includes('sim') || lower.includes('block')) {
           fallbackMarkdown = `
 ### Primary Finding
-This is a **Severe Impersonation and Extortion Scheme** known as the "Digital Arrest / TRAI SIM Threat" [1][2]. TRAI has issued repeated public notices stating it never contacts individuals to threaten SIM cancellation, nor does it conduct video-interrogations [1].
+This is a **Severe Impersonation and Extortion Scheme** known as the **"Digital Arrest / TRAI SIM Threat"** [1][2]. TRAI has issued repeated public notices stating it **never contacts individuals to threaten SIM cancellation**, nor does it conduct video-interrogations [1].
 
 ### Evidence & Regulatory Analysis
-Regulatory authorities in India do not possess the power to unilaterally freeze citizen communications via robocalls or demand security deposits. All telecommunication enforcement is governed by written DoT verification protocols.
+**Regulatory authorities in India do not possess the power to unilaterally freeze citizen communications via robocalls or demand security deposits.** All telecommunication enforcement is governed strictly by **written DoT verification protocols**.
 
 ### Citizen Protocol & Recommended Action
-**Disconnect immediately.** Do not pay money or join video calls. Report the number immediately on **1930** (National Cybercrime Helpline) or **cybercrime.gov.in** [2].
+**Disconnect immediately.** **Do not pay money or join video calls.** Report the number immediately on **1930 (National Cybercrime Helpline)** or **cybercrime.gov.in** [2].
           `.trim();
         } else {
           fallbackMarkdown = `
 ### Primary Finding
-DAM has cross-examined your query against indexed public notifications and verified registries [1][2]. Current primary records provide verified context regarding published official guidelines.
+DAM has cross-examined your query against **indexed public notifications and verified registries** [1][2]. Current primary records provide verified context regarding published official guidelines.
 
 ### Evidence & Regulatory Analysis
-Based on indexed government and press releases [1][2], claims regarding regulatory updates require direct verification against union ministry gazettes. Official communication standards require formal publications before public enforcement.
+Based on indexed government and press releases [1][2], claims regarding regulatory updates require **direct verification against union ministry gazettes**. Official communication standards require **formal publications before public enforcement**.
 
 ### Citizen Protocol & Recommended Action
-Always verify forwarded announcements through official portals (such as **pib.gov.in** or **india.gov.in**) before acting on third-party messages.
+**Always verify forwarded announcements through official portals** (such as **pib.gov.in** or **india.gov.in**) before acting on third-party messages.
           `.trim();
         }
 

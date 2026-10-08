@@ -104,13 +104,14 @@ Do NOT summarize or add editorial remarks. Return ONLY the transcribed text.`;
       threatEntities,
       status: 'success'
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('OCR Error:', err);
+    const msg = err instanceof Error ? err.message : 'Failed to extract text from image.';
     return {
       text: '',
       threatEntities: {},
       status: 'failed',
-      error: err.message || 'Failed to extract text from image.'
+      error: msg
     };
   }
 }

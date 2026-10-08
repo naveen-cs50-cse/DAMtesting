@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 
 interface ApiKeysModalProps {
   isOpen: boolean;
@@ -14,8 +15,11 @@ export const ApiKeysModal: React.FC<ApiKeysModalProps> = ({ isOpen, onClose, onS
 
   useEffect(() => {
     if (isOpen) {
-      setOpenaiKey(localStorage.getItem('dam-openai-key') || '');
-      setTavilyKey(localStorage.getItem('dam-tavily-key') || '');
+      const timer = setTimeout(() => {
+        setOpenaiKey(localStorage.getItem('dam-openai-key') || '');
+        setTavilyKey(localStorage.getItem('dam-tavily-key') || '');
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [isOpen]);
 
@@ -26,7 +30,7 @@ export const ApiKeysModal: React.FC<ApiKeysModalProps> = ({ isOpen, onClose, onS
       <div className="modal-dialog" style={{ width: 'min(580px, 100%)' }}>
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <img src="/assets/dam-mark-transparent.png" alt="DAM" className="brand-mark-img" style={{ width: 28, height: 28 }} />
+            <Image src="/assets/dam-mark-transparent.png" alt="DAM" width={28} height={28} className="brand-mark-img" />
             <div>
               <h3>API Keys &amp; Engine Settings</h3>
               <small style={{ color: 'var(--dam-text-muted)' }}>Stored securely in your local browser session</small>

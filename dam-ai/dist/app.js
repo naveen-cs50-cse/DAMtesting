@@ -298,65 +298,9 @@ function renderConversationFeed() {
               ${renderMarkdownText(turn.fullText || '', isLive)}
             </div>
 
-            <!-- 3. VERDICTS (Revealed when meta ready) -->
-            ${meta.verdicts ? `
-              <div class="verdicts-grid revealed" id="verdicts-${turn.id}">
-                <div class="verdict-card">
-                  <span class="verdict-header">Factual Correctness</span>
-                  <div class="verdict-badge verdict-${(meta.verdicts.factualCorrectness || '').toLowerCase()}">
-                    <span>${escapeHtml(meta.verdicts.factualCorrectness || 'Unverified')}</span>
-                  </div>
-                  <p class="verdict-notes">Cross-referenced against primary Indian gazettes and circulars.</p>
-                </div>
 
-                <div class="verdict-card">
-                  <span class="verdict-header">Scam Risk</span>
-                  <div class="verdict-badge risk-${(meta.verdicts.scamRisk || 'medium').toLowerCase()}">
-                    <span>${escapeHtml(meta.verdicts.scamRisk || 'Medium')} Risk</span>
-                  </div>
-                  <div class="verdict-triggers">
-                    ${(meta.verdicts.riskTriggers || []).map(t => `<span class="trigger-tag">${escapeHtml(t)}</span>`).join('')}
-                  </div>
-                </div>
 
-                <div class="verdict-card">
-                  <span class="verdict-header">Evidence Sufficiency</span>
-                  <div class="verdict-badge suff-${(meta.verdicts.evidenceSufficiency || 'sufficient').toLowerCase()}">
-                    <span>${escapeHtml(meta.verdicts.evidenceSufficiency || 'Sufficient')}</span>
-                  </div>
-                  <p class="verdict-notes">Zero-hallucination standard. Honest disclosure when unconfirmed.</p>
-                </div>
-              </div>
-            ` : ''}
 
-            <!-- 4. CLAIM BREAKDOWN TABLE -->
-            ${meta.claims && meta.claims.length ? `
-              <div class="claim-breakdown revealed">
-                <h4>Claim-by-Claim Breakdown</h4>
-                <div class="claims-table-wrapper">
-                  <table class="claims-table">
-                    <thead>
-                      <tr>
-                        <th style="width:30%;">Claim Assertion</th>
-                        <th style="width:18%;">Verdict</th>
-                        <th style="width:26%;">Supporting Evidence</th>
-                        <th style="width:26%;">Contradicting Evidence</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      ${meta.claims.map(c => `
-                        <tr>
-                          <td><strong>${escapeHtml(c.claim)}</strong></td>
-                          <td><span class="verdict-badge verdict-${(c.label || '').toLowerCase()}">${escapeHtml(c.label)}</span></td>
-                          <td>${escapeHtml(c.supporting)}</td>
-                          <td>${escapeHtml(c.contradicting)}</td>
-                        </tr>
-                      `).join('')}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ` : ''}
 
             <!-- 5. PRIMARY SOURCES STRIP & OPEN EVIDENCE PANEL LINK -->
             ${meta.sources && meta.sources.length ? `

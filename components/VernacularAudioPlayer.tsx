@@ -44,7 +44,7 @@ export const VernacularAudioPlayer: React.FC<VernacularAudioPlayerProps> = ({
   text,
   verdictSummary,
 }) => {
-  const [isSupported, setIsSupported] = useState(false);
+  const [isSupported] = useState(() => typeof window !== 'undefined' && 'speechSynthesis' in window);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [selectedLang, setSelectedLang] = useState('en-IN');
@@ -54,8 +54,6 @@ export const VernacularAudioPlayer: React.FC<VernacularAudioPlayerProps> = ({
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      setIsSupported(true);
-
       const loadVoices = () => {
         const voices = window.speechSynthesis.getVoices();
         setAvailableVoices(voices);

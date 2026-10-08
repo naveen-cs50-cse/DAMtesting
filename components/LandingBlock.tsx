@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 
 interface LandingBlockProps {
   onSelectPrompt: (prompt: string) => void;
@@ -11,10 +12,13 @@ export const LandingBlock: React.FC<LandingBlockProps> = ({ onSelectPrompt }) =>
     <div className="landing-block" id="landingBlock">
       <div className="welcome" id="welcome">
         <div className="landing-brand-header">
-          <img 
+          <Image 
             src="/assets/dam-lockup-transparent.png" 
             alt="DAM | Defence Against Misinformation" 
-            className="landing-brand-logo" 
+            width={180}
+            height={42}
+            className="landing-brand-logo"
+            priority
           />
           <span className="landing-live-badge">
             <span className="live-dot" />

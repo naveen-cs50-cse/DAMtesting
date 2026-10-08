@@ -91,11 +91,10 @@ export function analyzeUrlForensics(rawUrl: string): UrlForensicItem {
 
 export function performForensicAnalysis(
   prompt: string,
-  extractedText: string = '',
+  _extractedText: string = '',
   detectedEntities: { phones?: string[]; urls?: string[]; senderIds?: string[]; amounts?: string[] } = {}
 ): EntityForensics {
-  const combined = `${prompt} ${extractedText}`;
-
+  void _extractedText;
   // Analyze Phone Numbers
   const phonesList = detectedEntities.phones || [];
   const phones = phonesList.map(num => {

@@ -28,7 +28,7 @@ export function generateIncidentReport(
   const hasSuspectPhones = forensics?.phones && forensics.phones.length > 0;
   const hasSuspectSenders = forensics?.senders && forensics.senders.length > 0;
 
-  if (!hasRisk && !hasSuspectUrls && !hasSuspectPhones) {
+  if (!hasRisk && !hasSuspectUrls && !hasSuspectPhones && !hasSuspectSenders) {
     return null;
   }
 

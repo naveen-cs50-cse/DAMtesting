@@ -34,13 +34,15 @@ export function generateVerificationCertificate(
 
   const certificateId = `CERT-DAM-${caseId.replace('DAM-', '')}-${sha256Fingerprint.slice(0, 8).toUpperCase()}`;
 
-  let status: VerificationCertificate['status'] = 'OFFICIALLY_CONTRADICTED';
+  let status: VerificationCertificate['status'] = 'EVIDENCE_INSUFFICIENT';
   if (verdicts.scamRisk === 'High') {
     status = 'VERIFIED_FRAUD';
-  } else if (verdicts.factualCorrectness === 'Accurate') {
-    status = 'VERIFIED_AUTHENTIC';
-  } else if (verdicts.evidenceSufficiency === 'Scarce') {
+  } else if (verdicts.evidenceSufficiency === 'Insufficient' || verdicts.factualCorrectness === 'Unverified') {
     status = 'EVIDENCE_INSUFFICIENT';
+  } else if (verdicts.factualCorrectness === 'Supported') {
+    status = 'VERIFIED_AUTHENTIC';
+  } else if (verdicts.factualCorrectness === 'Contradicted') {
+    status = 'OFFICIALLY_CONTRADICTED';
   }
 
   const inquiryDigest = prompt.length > 180 ? prompt.slice(0, 180) + '...' : prompt;

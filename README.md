@@ -1,36 +1,104 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# UseDAM (Data & Abuse Monitoring) — Regulatory Intelligence Engine
 
-## Getting Started
+UseDAM is an evidence-first misinformation investigation and regulatory verification platform for Indian citizens and enterprise risk teams. It correlates digital notices, viral forwards, uploaded documents (PDFs), images, and submitted URLs against indexed government gazettes, regulatory circulars (RBI, TRAI, MeitY, CERT-In), and primary authoritative registries.
 
-First, run the development server:
+---
 
+## 🛠️ Developer Commands
+
+### 1. Development Mode
+Starts the Next.js development server with Turbopack and hot reloading at `http://localhost:3000`:
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Linting
+Runs ESLint with strict TypeScript rules and React 19 / Next.js compiler checks:
+```bash
+npm run lint
+```
+*Note: Rules enforce zero errors and zero warnings across all workspace components.*
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 3. Running Automated Tests
+Runs all unit, integration, and end-to-end test suites using Node's native test runner (`node:test` via `tsx`):
+```bash
+npm test
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+You can also run specific test suites individually:
+```bash
+# Core Evidence-Driven Verdict Engine
+npx tsx --test tests/verdictEngine.test.ts
 
-## Learn More
+# Production Document & PDF Forensics
+npx tsx --test tests/documentAnalysis.test.ts
 
-To learn more about Next.js, take a look at the following resources:
+# Secure Server-Side URL Ingestion & SSRF Protection
+npx tsx --test tests/urlIngestion.test.ts
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Core Pipeline Unit Tests (Coordinator, OCR, Forensics, Statutes, Manipulation, Certificate, Naming)
+npx tsx --test tests/investigationUnits.test.ts
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# API Route Integration Tests (Health, Ready, Config, Search, Watchtower, Upload, Ingest)
+npx tsx --test tests/routeIntegration.test.ts
 
-## Deploy on Vercel
+# End-to-End Streamed Investigation Pipeline
+npx tsx --test tests/investigationE2E.test.ts
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 4. Production Build
+Validates TypeScript typechecking and builds the production-optimized Next.js bundle:
+```bash
+npm run build
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+To run the built production server locally:
+```bash
+npm run start
+```
+
+---
+
+## 🛡️ Safety, Security, & Quality Foundation
+
+UseDAM enforces a multi-layered security and safety perimeter across all server endpoints:
+
+### Server-Side Limits & Schema Validation (`lib/security/schemas.ts`)
+- **Max Prompt Length**: 10,000 characters.
+- **Max Conversation History**: 50 turns / messages.
+- **Max Attachments**: 5 files per request.
+- **Max Single File Size**: 15 MB.
+- **Max Total Request Payload**: 25 MB.
+- **Max Search Query**: 500 characters.
+- **Max Submitted URL**: 2,048 characters.
+- Strict input validation schemas reject malformed JSON, excessive depths, and boundary violations with HTTP 400 and structured error codes (`PROMPT_TOO_LONG`, `HISTORY_TOO_DEEP`, `FILE_TOO_LARGE`).
+
+### Rate Limiting & Provider Spend Protection (`lib/security/rateLimiter.ts`)
+- **Tiered Sliding-Window Rate Limiting**:
+  - `anonymous`: 30 requests/minute, max 20 investigations/hour.
+  - `authenticated` (via session or custom provider key): 120 requests/minute, max 100 investigations/hour.
+- **Spend Protection Ceiling**: Limits hourly token consumption to guard against denial-of-wallet attacks and runaway automated loops (HTTP 429 with retry-after diagnostics).
+
+### SSRF Defense & URL Hardening (`lib/investigation/urlIngestion.ts`)
+- Enforces HTTP/HTTPS protocol exclusivity.
+- Defends against Server-Side Request Forgery (SSRF) by verifying resolved DNS IPs against private (RFC 1918), loopback (`127.0.0.0/8`), link-local (`169.254.0.0/16`), multicast, and cloud metadata endpoints.
+- Analyzes domain risk for Punycode (`xn--`), Cyrillic/Greek homoglyphs, typosquatting of Indian institutions (SBI, RBI, UIDAI, Parivahan), and deceptive subdomain routing.
+
+### Provider Timeouts & Structured Errors (`lib/security/errors.ts`)
+- External provider calls (OpenAI, Tavily) are wrapped in strict abortable timeouts (`withTimeout`).
+- Consistent JSON error response shape: `{ error, code, requestId, details, timestamp }`.
+
+### Structured Redacting Logger (`lib/security/logger.ts`)
+- Every request is tagged with an `x-request-id` UUID.
+- Logs structured JSON with automatic redaction of:
+  - OpenAI / Google / Tavily API keys
+  - Authorization / Bearer tokens
+  - Indian PAN cards (`[A-Z]{5}[0-9]{4}[A-Z]`)
+  - Aadhaar numbers (`\d{4}\s?\d{4}\s?\d{4}`)
+  - Indian mobile numbers (`+91 ...`)
+  - Email addresses
+  - Raw base64 file payloads
+
+### Observability & Liveness Endpoints
+- **Liveness Probe**: `GET /api/health` — Returns service status, uptime, timestamp, and version (HTTP 200).
+- **Readiness Probe**: `GET /api/ready` — Checks runtime readiness, DNS resolution, and memory heap thresholds (HTTP 200 or 503).

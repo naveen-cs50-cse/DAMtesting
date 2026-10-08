@@ -75,53 +75,67 @@ export const Composer: React.FC<ComposerProps> = ({
   const handleFileUpload = (files: FileList | null) => {
     if (!files) return;
     Array.from(files).forEach((file, index) => {
-      if (file.size > 10 * 1024 * 1024) {
-        alert(`"${file.name}" exceeds 10MB limit.`);
+      if (file.size > 15 * 1024 * 1024) {
+        alert(`"${file.name}" exceeds 15MB limit.`);
         return;
       }
+      const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+      const isImage = file.type.startsWith('image/');
+
       const reader = new FileReader();
       reader.onload = async e => {
         const preview = e.target?.result as string;
-        const isImage = file.type.startsWith('image/');
-        
-        // Add attachment with pending OCR status if image
+
+        // Add attachment with pending OCR/analysis status
         onAddAttachment({
           name: file.name,
-          type: file.type,
+          type: file.type || (isPdf ? 'application/pdf' : 'application/octet-stream'),
           size: file.size,
-          preview,
-          ocrStatus: isImage ? 'pending' : undefined
+          preview: isImage ? preview : undefined,
+          ocrStatus: 'pending'
         });
 
-        // Trigger server-side OCR via /api/upload
-        if (isImage) {
-          try {
-            const apiKey = typeof window !== 'undefined' ? localStorage.getItem('dam-openai-key') || '' : '';
-            const res = await fetch('/api/upload', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                name: file.name,
-                type: file.type,
-                size: file.size,
-                base64: preview,
-                apiKey
-              })
+        // Trigger server-side analysis via /api/upload
+        try {
+          const apiKey = typeof window !== 'undefined' ? localStorage.getItem('dam-openai-key') || '' : '';
+          const res = await fetch('/api/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: file.name,
+              type: file.type || (isPdf ? 'application/pdf' : 'application/octet-stream'),
+              size: file.size,
+              base64: preview,
+              apiKey
+            })
+          });
+          const data = await res.json();
+          const currentIdx = attachments.length + index;
+
+          if (res.ok && data.success && data.file) {
+            onUpdateAttachment?.(currentIdx, {
+              id: data.file.id,
+              url: data.file.previewUrl,
+              preview: isImage ? preview : undefined,
+              extractedText: data.file.extractedText,
+              ocrStatus: data.file.ocrStatus,
+              threatEntities: data.file.threatEntities,
+              documentAnalysis: data.file.documentAnalysis
             });
-            const data = await res.json();
-            if (data.success && data.file) {
-              const currentIdx = attachments.length + index;
-              onUpdateAttachment?.(currentIdx, {
-                extractedText: data.file.extractedText,
-                ocrStatus: data.file.ocrStatus,
-                threatEntities: data.file.threatEntities
-              });
-            }
-          } catch (err) {
-            console.error('OCR Upload Error:', err);
-            const currentIdx = attachments.length + index;
-            onUpdateAttachment?.(currentIdx, { ocrStatus: 'failed' });
+          } else {
+            const errMsg = data.error || 'Failed to process document.';
+            console.warn('Document processing warning:', errMsg);
+            onUpdateAttachment?.(currentIdx, {
+              ocrStatus: 'failed',
+              extractedText: `[Document Processing Notice: ${errMsg}]`,
+              documentAnalysis: data.file?.documentAnalysis
+            });
+            alert(`Document "${file.name}": ${errMsg}`);
           }
+        } catch (err) {
+          console.error('Upload Error:', err);
+          const currentIdx = attachments.length + index;
+          onUpdateAttachment?.(currentIdx, { ocrStatus: 'failed' });
         }
       };
       reader.readAsDataURL(file);
@@ -142,8 +156,22 @@ export const Composer: React.FC<ComposerProps> = ({
   };
 
   const handleToggleVoice = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
+    interface SpeechRecognitionInstance {
+      lang: string;
+      interimResults: boolean;
+      maxAlternatives: number;
+      onstart: () => void;
+      onend: () => void;
+      onerror: () => void;
+      onresult: (event: { results: Array<Array<{ transcript: string }>> }) => void;
+      start: () => void;
+    }
+    const win = window as unknown as {
+      SpeechRecognition?: new () => SpeechRecognitionInstance;
+      webkitSpeechRecognition?: new () => SpeechRecognitionInstance;
+    };
+    const SpeechRecognitionClass = win.SpeechRecognition || win.webkitSpeechRecognition;
+    if (!SpeechRecognitionClass) {
       alert('Voice recognition is not supported in this browser. Please type your query.');
       return;
     }
@@ -154,7 +182,7 @@ export const Composer: React.FC<ComposerProps> = ({
     }
 
     try {
-      const recognition = new SpeechRecognition();
+      const recognition = new SpeechRecognitionClass();
       recognition.lang = activeLang === 'hi' ? 'hi-IN' : 'en-IN';
       recognition.interimResults = false;
       recognition.maxAlternatives = 1;
@@ -163,8 +191,8 @@ export const Composer: React.FC<ComposerProps> = ({
       recognition.onend = () => setIsListening(false);
       recognition.onerror = () => setIsListening(false);
 
-      recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
+      recognition.onresult = (event: { results: Array<Array<{ transcript: string }>> }) => {
+        const transcript = event.results[0]?.[0]?.transcript;
         if (transcript) {
           setInput(input ? input + ' ' + transcript : transcript);
         }
@@ -236,10 +264,20 @@ export const Composer: React.FC<ComposerProps> = ({
                 )}
                 <span className="composer-attachment-text">{att.name}</span>
 
-                {/* OCR Status Badge */}
+                {/* Status Badges */}
                 {att.ocrStatus === 'pending' && (
-                  <span className="ocr-status-badge pending" title="Extracting text via OCR...">
-                    <span className="ocr-dot-pulse" /> OCR...
+                  <span className="ocr-status-badge pending" title={att.isUrl ? "Ingesting and inspecting link..." : "Extracting text via OCR..."}>
+                    <span className="ocr-dot-pulse" /> {att.isUrl ? 'Ingesting…' : 'OCR…'}
+                  </span>
+                )}
+                {att.urlAnalysis && att.urlAnalysis.domainRisk.riskLevel === 'High' && (
+                  <span className="doc-tag-pill" style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#f87171' }} title="High domain risk detected">
+                    High Risk
+                  </span>
+                )}
+                {att.urlAnalysis && att.urlAnalysis.claims.length > 0 && (
+                  <span className="doc-tag-pill" title={`${att.urlAnalysis.claims.length} factual claims extracted`}>
+                    {att.urlAnalysis.claims.length} claims
                   </span>
                 )}
                 {att.ocrStatus === 'success' && att.extractedText && (
@@ -251,7 +289,7 @@ export const Composer: React.FC<ComposerProps> = ({
                         setInput(input ? `${input}\n\n${att.extractedText}` : att.extractedText);
                       }
                     }}
-                    title="Insert extracted OCR text into investigation inquiry"
+                    title={att.isUrl ? "Insert extracted page text into investigation prompt" : "Insert extracted OCR text into investigation inquiry"}
                   >
                     <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
                     <span>Insert Text</span>

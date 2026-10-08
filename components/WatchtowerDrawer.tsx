@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { WATCHTOWER_FEED, WatchtowerAdvisory } from '@/lib/investigation/watchtower';
+import { WATCHTOWER_FEED } from '@/lib/investigation/watchtower';
 
 interface WatchtowerDrawerProps {
   isOpen: boolean;

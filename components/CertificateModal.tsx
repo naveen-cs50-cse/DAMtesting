@@ -106,7 +106,7 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
             {/* Inquiry Digest */}
             <div className="cert-section-block">
               <span className="cert-field-lbl">SUBJECT INQUIRY DIGEST</span>
-              <div className="cert-digest-box">"{certificate.inquiryDigest}"</div>
+              <div className="cert-digest-box">&quot;{certificate.inquiryDigest}&quot;</div>
             </div>
 
             {/* Core Verification Findings */}

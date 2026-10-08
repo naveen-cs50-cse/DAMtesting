@@ -12,13 +12,52 @@ import { MethodologyModal } from './modals/MethodologyModal';
 import { UrlModal } from './modals/UrlModal';
 import { RenameModal } from './modals/RenameModal';
 import { ShareModal } from './modals/ShareModal';
-import { Attachment, Conversation, IndexedSource, ChatTurn, ActivityStage, InvestigationMeta } from '@/lib/investigation/types';
+import { FolderModal } from './modals/FolderModal';
+import { MoveToFolderModal } from './modals/MoveToFolderModal';
+import { Attachment, Conversation, Folder, IndexedSource, ChatTurn, ActivityStage, InvestigationMeta } from '@/lib/investigation/types';
 import { generateSmartTitle } from '@/lib/investigation/naming';
 
 export const InvestigationWorkspace: React.FC = () => {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const stored = localStorage.getItem('dam-conversations');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [folders, setFolders] = useState<Folder[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const stored = localStorage.getItem('dam-folders');
+      if (stored) return JSON.parse(stored);
+      const defaultFolders: Folder[] = [
+        { id: 'f_cybercrime', name: 'Cyber Crime & 1930 Cases', color: '#ef4444', createdAt: new Date(0).toISOString() },
+        { id: 'f_banking', name: 'Banking & KYC Verifications', color: '#3b82f6', createdAt: new Date(0).toISOString() },
+        { id: 'f_circulars', name: 'PIB & Regulatory Circulars', color: '#10b981', createdAt: new Date(0).toISOString() },
+      ];
+      return defaultFolders;
+    } catch {
+      return [];
+    }
+  });
+
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState<string>(() => {
+    if (typeof window === 'undefined') return '';
+    try {
+      const draft = localStorage.getItem('dam-draft');
+      if (draft) {
+        const parsed = JSON.parse(draft);
+        return parsed.text || '';
+      }
+    } catch {
+      return '';
+    }
+    return '';
+  });
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [activeMode, setActiveMode] = useState('evidence');
   const [activeLang, setActiveLang] = useState('auto');
@@ -31,6 +70,9 @@ export const InvestigationWorkspace: React.FC = () => {
   const [methodologyModalOpen, setMethodologyModalOpen] = useState(false);
   const [urlModalOpen, setUrlModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [folderModalOpen, setFolderModalOpen] = useState(false);
+  const [folderToEdit, setFolderToEdit] = useState<Folder | null>(null);
+  const [moveToFolderConv, setMoveToFolderConv] = useState<Conversation | null>(null);
   const [renamingConversation, setRenamingConversation] = useState<Conversation | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
@@ -75,32 +117,34 @@ export const InvestigationWorkspace: React.FC = () => {
     }, 350);
   };
 
-  const forceScrollToBottom = () => {
-    userScrolledUpRef.current = false;
-    setIsScrolledUp(false);
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
-    }
-  };
+  const anchorToActiveTurn = (smooth = true) => {
+    if (!scrollAreaRef.current) return;
+    const container = scrollAreaRef.current;
+    // Find the live assistant turn or latest turn in the feed
+    const liveTurn = container.querySelector('.chat-turn.assistant-row.live-turn, #conversation .chat-turn:last-child');
+    if (liveTurn instanceof HTMLElement) {
+      // Anchor to the user prompt right above this assistant turn if available, so user sees prompt + thinking pane
+      const prevTurn = liveTurn.previousElementSibling as HTMLElement | null;
+      const targetElement = prevTurn || liveTurn;
+      const containerRect = container.getBoundingClientRect();
+      const targetRect = targetElement.getBoundingClientRect();
+      const offset = targetRect.top - containerRect.top;
+      const targetScrollTop = container.scrollTop + offset - 18;
 
-  const autoScrollIfPinned = () => {
-    if (!userScrolledUpRef.current && scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+      container.scrollTo({
+        top: Math.max(0, targetScrollTop),
+        behavior: smooth ? 'smooth' : 'auto',
+      });
+    } else {
+      container.scrollTop = container.scrollHeight;
     }
   };
 
   const activeConversation = conversations.find(c => c.id === activeId) || null;
 
-  // Auto-scroll to bottom as investigation streams or turns update, as long as user hasn't scrolled up
+  // When activeId changes, scroll down to the active conversation if not streaming
   useEffect(() => {
-    if (!userScrolledUpRef.current && scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
-    }
-  });
-
-  // When activeId changes, scroll down to the active conversation
-  useEffect(() => {
-    if (activeId && scrollAreaRef.current) {
+    if (activeId && scrollAreaRef.current && !isStreaming) {
       userScrolledUpRef.current = false;
       setIsScrolledUp(false);
       requestAnimationFrame(() => {
@@ -109,27 +153,79 @@ export const InvestigationWorkspace: React.FC = () => {
         }
       });
     }
-  }, [activeId]);
+  }, [activeId, isStreaming]);
 
-  // Load conversations on mount
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem('dam-conversations');
-      if (stored) {
-        setConversations(JSON.parse(stored));
-      }
-      const draft = localStorage.getItem('dam-draft');
-      if (draft) {
-        const parsed = JSON.parse(draft);
-        if (parsed.text) setInput(parsed.text);
-      }
-    } catch (e) {}
-  }, []);
-
-  // Save conversations
+  // Save conversations (sanitizing heavy raw base64 bytes to stay well within localStorage quota)
   const saveConversations = (updated: Conversation[]) => {
     setConversations(updated);
-    localStorage.setItem('dam-conversations', JSON.stringify(updated.slice(0, 50)));
+    try {
+      const sanitized = updated.slice(0, 50).map(c => ({
+        ...c,
+        turns: c.turns.map(t => ({
+          ...t,
+          attachments: t.attachments?.map(a => {
+            const { preview, ...rest } = a;
+            // Strip data: URLs to keep file storage external to localStorage; retain metadata and server previewUrl
+            if (preview && preview.startsWith('data:')) {
+              return {
+                ...rest,
+                previewUrl: a.previewUrl,
+              };
+            }
+            return a;
+          }),
+        })),
+      }));
+      localStorage.setItem('dam-conversations', JSON.stringify(sanitized));
+    } catch (e) {
+      console.warn('Failed to persist conversations to localStorage', e);
+    }
+  };
+
+  // Save folders
+  const saveFolders = (updated: Folder[]) => {
+    setFolders(updated);
+    localStorage.setItem('dam-folders', JSON.stringify(updated));
+  };
+
+  const handleCreateOrUpdateFolder = (name: string, color: string) => {
+    if (folderToEdit) {
+      const updated = folders.map(f => f.id === folderToEdit.id ? { ...f, name, color } : f);
+      saveFolders(updated);
+      showToast(`Folder "${name}" updated`);
+    } else {
+      const folderId = `f_${folders.length + 1}_${name.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+      const newFolder: Folder = {
+        id: folderId,
+        name,
+        color,
+        createdAt: '2026-01-01T00:00:00.000Z',
+      };
+      saveFolders([...folders, newFolder]);
+      showToast(`Folder "${name}" created`);
+    }
+    setFolderToEdit(null);
+  };
+
+  const handleDeleteFolder = (folderId: string) => {
+    const target = folders.find(f => f.id === folderId);
+    const updatedFolders = folders.filter(f => f.id !== folderId);
+    saveFolders(updatedFolders);
+    // Unfile any conversations in this folder so no data is lost
+    const updatedConversations = conversations.map(c => c.folderId === folderId ? { ...c, folderId: null } : c);
+    saveConversations(updatedConversations);
+    showToast(`Folder "${target?.name || ''}" deleted. Investigations are now unfiled.`);
+  };
+
+  const handleMoveToFolder = (convId: string, folderId: string | null) => {
+    const updated = conversations.map(c => c.id === convId ? { ...c, folderId } : c);
+    saveConversations(updated);
+    const targetFolder = folders.find(f => f.id === folderId);
+    if (targetFolder) {
+      showToast(`Moved to "${targetFolder.name}"`);
+    } else {
+      showToast('Removed from folder (unfiled)');
+    }
   };
 
   const showToast = (msg: string) => {
@@ -212,61 +308,83 @@ export const InvestigationWorkspace: React.FC = () => {
     const promptToSend = (promptOverride || input).trim();
     if (!promptToSend && attachments.length === 0) return;
 
-    let targetConv = activeConversation;
-    let updatedConversations = [...conversations];
-
-    if (!targetConv) {
-      targetConv = {
-        id: 'conv_' + Date.now(),
-        title: promptToSend.slice(0, 52) || 'India Regulatory Investigation',
-        caseId: 'DAM-2026-IND-' + Math.floor(1000 + Math.random() * 9000),
-        createdAt: new Date().toISOString(),
-        turns: [],
-      };
-      updatedConversations = [targetConv, ...conversations];
-      setActiveId(targetConv.id);
-    }
+    const nowIso = new Date().toISOString();
+    const targetId = activeConversation?.id || ('conv_' + Date.now());
+    const caseId = activeConversation?.caseId || ('DAM-2026-IND-' + Math.floor(1000 + Math.random() * 9000));
+    const title = activeConversation?.title || (promptToSend.slice(0, 52) || 'India Regulatory Investigation');
+    const folderId = activeConversation?.folderId || null;
+    const isPinned = activeConversation?.isPinned || false;
+    const priorTurns = activeConversation ? [...activeConversation.turns] : [];
 
     // Add user turn
-    const userTurn = {
+    const userTurn: ChatTurn = {
       id: 'u_' + Date.now(),
-      role: 'user' as const,
+      role: 'user',
       content: promptToSend,
       attachments: [...attachments],
-      createdAt: new Date().toISOString(),
+      createdAt: nowIso,
     };
 
     // Add assistant turn placeholder
-    const assistantTurn: ChatTurn = {
-      id: 'a_' + Date.now(),
+    const assistantTurnId = 'a_' + (Date.now() + 1);
+    const initialAssistantTurn: ChatTurn = {
+      id: assistantTurnId,
       role: 'assistant',
       isLive: true,
       stages: [] as ActivityStage[],
       fullText: '',
       meta: null,
-      createdAt: new Date().toISOString(),
+      createdAt: nowIso,
     };
 
-    targetConv.turns = [...targetConv.turns, userTurn, assistantTurn];
-    saveConversations(updatedConversations);
+    const initialConv: Conversation = {
+      id: targetId,
+      title,
+      caseId,
+      folderId,
+      isPinned,
+      createdAt: activeConversation?.createdAt || nowIso,
+      turns: [...priorTurns, userTurn, initialAssistantTurn],
+    };
+
+    setActiveId(targetId);
+    setConversations(prev => {
+      const exists = prev.some(c => c.id === targetId);
+      const nextList = exists
+        ? prev.map(c => c.id === targetId ? initialConv : c)
+        : [initialConv, ...prev];
+      try {
+        localStorage.setItem('dam-conversations', JSON.stringify(nextList.slice(0, 50)));
+      } catch {
+        // Safe localStorage fallback
+      }
+      return nextList;
+    });
 
     setInput('');
     setAttachments([]);
-    localStorage.removeItem('dam-draft');
+    try {
+      localStorage.removeItem('dam-draft');
+    } catch {
+      // Safe fallback
+    }
     setIsStreaming(true);
 
-    // Reset scroll state so user sees their new question and following response
+    // Reset scroll state and anchor viewport to the new inquiry and thinking pane
     userScrolledUpRef.current = false;
     setIsScrolledUp(false);
-    forceScrollToBottom();
-    requestAnimationFrame(forceScrollToBottom);
-    setTimeout(forceScrollToBottom, 60);
-    setTimeout(forceScrollToBottom, 180);
+    requestAnimationFrame(() => anchorToActiveTurn(true));
+    setTimeout(() => anchorToActiveTurn(true), 60);
+    setTimeout(() => anchorToActiveTurn(false), 220);
 
     abortControllerRef.current = new AbortController();
 
+    const currentStages: ActivityStage[] = [];
+    let accumulatedText = '';
+    let currentMeta: InvestigationMeta | null = null;
+
     try {
-      const historyPayload = targetConv.turns.slice(0, -2).map(t => ({
+      const historyPayload = priorTurns.map(t => ({
         role: t.role,
         content: t.content || t.fullText || '',
       }));
@@ -314,52 +432,89 @@ export const InvestigationWorkspace: React.FC = () => {
           }
 
           if (!eventData) continue;
-          let parsed: any = {};
-          try { parsed = JSON.parse(eventData); } catch (e) { continue; }
+          let parsed: Record<string, unknown> = {};
+          try { parsed = JSON.parse(eventData); } catch { continue; }
 
           if (eventType === 'stage') {
-            if (!assistantTurn.stages) assistantTurn.stages = [];
-            const existing = assistantTurn.stages.find(s => s.id === parsed.id);
-            if (existing) Object.assign(existing, parsed);
-            else assistantTurn.stages.push(parsed);
-            targetConv.turns = [...targetConv.turns];
-            saveConversations([...updatedConversations]);
-            autoScrollIfPinned();
+            const stg = parsed as unknown as ActivityStage;
+            const idx = currentStages.findIndex(s => s.id === stg.id);
+            if (idx >= 0) currentStages[idx] = { ...currentStages[idx], ...stg };
+            else currentStages.push(stg);
+
+            setConversations(prev => prev.map(c => {
+              if (c.id !== targetId) return c;
+              return {
+                ...c,
+                turns: c.turns.map(t => t.id === assistantTurnId ? { ...t, stages: [...currentStages] } : t)
+              };
+            }));
           } else if (eventType === 'token') {
-            assistantTurn.fullText += parsed.text || '';
-            targetConv.turns = [...targetConv.turns];
-            saveConversations([...updatedConversations]);
-            autoScrollIfPinned();
+            const tok = parsed as { text?: string };
+            accumulatedText += tok.text || '';
+
+            setConversations(prev => prev.map(c => {
+              if (c.id !== targetId) return c;
+              return {
+                ...c,
+                turns: c.turns.map(t => t.id === assistantTurnId ? { ...t, fullText: accumulatedText } : t)
+              };
+            }));
           } else if (eventType === 'meta') {
-            assistantTurn.meta = parsed;
-            targetConv.turns = [...targetConv.turns];
-            saveConversations([...updatedConversations]);
-            autoScrollIfPinned();
+            currentMeta = parsed as unknown as InvestigationMeta;
+            setConversations(prev => prev.map(c => {
+              if (c.id !== targetId) return c;
+              return {
+                ...c,
+                turns: c.turns.map(t => t.id === assistantTurnId ? { ...t, meta: currentMeta } : t)
+              };
+            }));
           } else if (eventType === 'done') {
-            assistantTurn.isLive = false;
-            // Auto-rename conversation to clean topic title if currently raw slice
-            const smart = generateSmartTitle(promptToSend, assistantTurn.meta);
-            targetConv.title = smart;
-            targetConv.turns = [...targetConv.turns];
-            saveConversations([...updatedConversations]);
-            autoScrollIfPinned();
+            const smartTitle = generateSmartTitle(promptToSend, currentMeta);
+            setConversations(prev => {
+              const nextList = prev.map(c => {
+                if (c.id !== targetId) return c;
+                return {
+                  ...c,
+                  title: smartTitle,
+                  turns: c.turns.map(t => t.id === assistantTurnId ? { ...t, isLive: false } : t)
+                };
+              });
+              try {
+                localStorage.setItem('dam-conversations', JSON.stringify(nextList.slice(0, 50)));
+              } catch {
+                // Safe storage fallback
+              }
+              return nextList;
+            });
           }
         }
       }
-    } catch (err: any) {
-      if (err.name === 'AbortError') {
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      if (err instanceof Error && err.name === 'AbortError') {
         showToast('Investigation halted by user');
       } else {
-        showToast('Investigation error: ' + err.message);
+        showToast('Investigation error: ' + errMsg);
       }
     } finally {
-      assistantTurn.isLive = false;
-      const smart = generateSmartTitle(promptToSend, assistantTurn.meta);
-      targetConv.title = smart;
-      targetConv.turns = [...targetConv.turns];
-      saveConversations([...updatedConversations]);
-      autoScrollIfPinned();
       setIsStreaming(false);
+      setConversations(prev => {
+        const nextList = prev.map(c => {
+          if (c.id !== targetId) return c;
+          const smartTitle = generateSmartTitle(promptToSend, currentMeta);
+          return {
+            ...c,
+            title: smartTitle,
+            turns: c.turns.map(t => t.id === assistantTurnId ? { ...t, isLive: false } : t)
+          };
+        });
+        try {
+          localStorage.setItem('dam-conversations', JSON.stringify(nextList.slice(0, 50)));
+        } catch {
+          // Safe storage fallback
+        }
+        return nextList;
+      });
     }
   };
 
@@ -390,6 +545,7 @@ export const InvestigationWorkspace: React.FC = () => {
       )}
       <Sidebar
         conversations={conversations}
+        folders={folders}
         activeId={activeId}
         onSelectConversation={id => setActiveId(id)}
         onNewConversation={() => setActiveId(null)}
@@ -403,6 +559,17 @@ export const InvestigationWorkspace: React.FC = () => {
         evidenceCount={caseSources.length > 0 ? caseSources.length : globalSources.length}
         onOpenEvidence={() => setEvidencePanelOpen(true)}
         onTogglePinConversation={handleTogglePin}
+        onOpenCreateFolder={() => {
+          setFolderToEdit(null);
+          setFolderModalOpen(true);
+        }}
+        onEditFolder={folder => {
+          setFolderToEdit(folder);
+          setFolderModalOpen(true);
+        }}
+        onDeleteFolder={handleDeleteFolder}
+        onMoveToFolder={handleMoveToFolder}
+        onOpenMoveToFolderModal={conv => setMoveToFolderConv(conv)}
         onOpenApiKeys={() => setApiKeysModalOpen(true)}
         onOpenMethodology={() => setMethodologyModalOpen(true)}
       />
@@ -523,8 +690,50 @@ export const InvestigationWorkspace: React.FC = () => {
       <UrlModal
         isOpen={urlModalOpen}
         onClose={() => setUrlModalOpen(false)}
-        onConfirm={u => {
-          setAttachments(prev => [...prev, { name: u, type: 'url', size: 0, url: u, isUrl: true }]);
+        onConfirm={async u => {
+          const tempAtt: Attachment = {
+            name: u,
+            type: 'url',
+            size: 0,
+            url: u,
+            isUrl: true,
+            ocrStatus: 'pending',
+          };
+          setAttachments(prev => [...prev, tempAtt]);
+          try {
+            const res = await fetch('/api/ingest-url', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url: u })
+            });
+            const data = await res.json();
+            if (res.ok && data.result) {
+              setAttachments(prev => prev.map(a => a.url === u ? {
+                ...a,
+                name: data.result.title || data.result.domain || u,
+                extractedText: data.result.extractedText || undefined,
+                ocrStatus: data.result.status === 'success' ? 'success' : 'failed',
+                threatEntities: {
+                  phones: [],
+                  urls: [data.result.finalUrl, ...(data.result.downloadLinks || [])],
+                  senderIds: [],
+                  amounts: []
+                },
+                urlAnalysis: data.result
+              } : a));
+              showToast(`Ingested: ${data.result.title || data.result.domain}`);
+            } else {
+              setAttachments(prev => prev.map(a => a.url === u ? {
+                ...a,
+                ocrStatus: 'failed',
+                urlAnalysis: data.result
+              } : a));
+              showToast(data.error || 'Failed to ingest URL');
+            }
+          } catch (e) {
+            console.warn('URL ingestion request failed', e);
+            showToast('Network error while ingesting URL');
+          }
         }}
       />
 
@@ -535,6 +744,28 @@ export const InvestigationWorkspace: React.FC = () => {
           const updated = conversations.map(c => c.id === id ? { ...c, title: newTitle } : c);
           saveConversations(updated);
           showToast('Investigation renamed');
+        }}
+      />
+
+      <FolderModal
+        isOpen={folderModalOpen}
+        folderToEdit={folderToEdit}
+        onClose={() => {
+          setFolderModalOpen(false);
+          setFolderToEdit(null);
+        }}
+        onSave={handleCreateOrUpdateFolder}
+      />
+
+      <MoveToFolderModal
+        isOpen={Boolean(moveToFolderConv)}
+        conversation={moveToFolderConv}
+        folders={folders}
+        onClose={() => setMoveToFolderConv(null)}
+        onMoveToFolder={handleMoveToFolder}
+        onCreateNewFolder={() => {
+          setFolderToEdit(null);
+          setFolderModalOpen(true);
         }}
       />
 

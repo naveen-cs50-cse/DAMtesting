@@ -6,13 +6,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "npx tsx --test tests/verdictEngine.test.ts tests/documentAnalysis.test.ts tests/urlIngestion.test.ts tests/investigationUnits.test.ts tests/routeIntegration.test.ts tests/investigationE2E.test.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.83",
     "@supabase/supabase-js": "^2.117.2",
+    "@types/pdf-parse": "^1.1.5",
     "ai": "^7.0.127",
     "next": "16.3.8",
+    "pdf-parse": "^2.4.5",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
@@ -24,6 +27,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.8",
     "tailwindcss": "^4",
+    "tsx": "^4.19.3",
     "typescript": "^5"
   }
 }

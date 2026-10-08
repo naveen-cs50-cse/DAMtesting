@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 
 interface MethodologyModalProps {
   isOpen: boolean;
@@ -15,7 +16,7 @@ export const MethodologyModal: React.FC<MethodologyModalProps> = ({ isOpen, onCl
       <div className="methodology-modal" role="dialog" aria-modal="true" aria-label="How DAM Verifies Evidence">
         <div className="modal-header">
           <div className="methodology-brand">
-            <img src="/assets/dam-mark-transparent.png" alt="DAM" className="brand-mark-img" style={{ width: 32, height: 32 }} />
+            <Image src="/assets/dam-mark-transparent.png" alt="DAM" width={32} height={32} className="brand-mark-img" />
             <div>
               <h3>How DAM Verifies Evidence</h3>
               <small>India Regulatory &amp; Scam Detection Protocol v2.4</small>

@@ -2,7 +2,7 @@
  * Smart conversation title generator for UseDAM.
  * Derives professional, concise case titles from user queries and investigation metadata.
  */
-export function generateSmartTitle(prompt: string, meta?: any): string {
+export function generateSmartTitle(prompt: string, meta?: import('./types').InvestigationMeta | null): string {
   const p = (prompt || '').trim();
   if (!p) return 'India Regulatory Investigation';
 
@@ -49,7 +49,7 @@ export function generateSmartTitle(prompt: string, meta?: any): string {
   // 3. Fallback: Clean conversational filler words
   let cleaned = p
     .replace(/^["'“”‘’]|["'“”‘’]$/g, '')
-    .replace(/^(?:fact-check|check|verify|assess|investigate|is this genuine|is this real|review|please check)(?:\s+this)?(?:\s+(?:claim|message|forward|notification|notice|order|sms|call|post|link))?[:\s]*/i, '')
+    .replace(/^(?:please\s+)?(?:fact-check|check|verify|assess|investigate|is this genuine|is this real|review)(?:\s+this)?(?:\s+(?:claim|message|forward|notification|notice|order|sms|call|post|link|if this))?[:\s]*/i, '')
     .replace(/^["'“”‘’]|["'“”‘’]$/g, '')
     .trim();
 

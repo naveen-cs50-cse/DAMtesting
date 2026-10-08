@@ -14,7 +14,10 @@ export const RenameModal: React.FC<RenameModalProps> = ({ conversation, onClose,
 
   useEffect(() => {
     if (conversation) {
-      setTitle(conversation.title);
+      const timer = setTimeout(() => {
+        setTitle(conversation.title);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [conversation]);
 

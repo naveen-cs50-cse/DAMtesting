@@ -5,11 +5,11 @@
   color-scheme: dark;
 
   /* Brand and Accent */
-  --dam-red: #f03a3a;
+  --dam-red: #e43d3d;
   --dam-red-hover: #ff4d4d;
-  --dam-red-soft: rgba(240, 58, 58, 0.14);
-  --dam-red-glow: rgba(240, 58, 58, 0.28);
-  --dam-red-border: rgba(240, 58, 58, 0.4);
+  --dam-red-soft: rgba(228, 61, 61, 0.14);
+  --dam-red-glow: rgba(228, 61, 61, 0.28);
+  --dam-red-border: rgba(228, 61, 61, 0.4);
 
   /* Status Colors */
   --dam-green: #34d399;
@@ -25,41 +25,51 @@
   --dam-purple-soft: rgba(192, 132, 252, 0.12);
 
   /* Backgrounds & Surfaces */
-  --dam-bg-root: #060606;
-  --dam-bg-sidebar: #0d0d0f;
-  --dam-bg-panel: #141416;
-  --dam-bg-panel-hover: #1a1a1d;
-  --dam-bg-panel-active: #202023;
-  --dam-bg-input: #141416;
-  --dam-bg-modal: #141416;
+  --dam-bg-root: #09090b;
+  --dam-bg-sidebar: #0e0e11;
+  --dam-bg-panel: #131317;
+  --dam-bg-panel-hover: #19191e;
+  --dam-bg-panel-active: #202026;
+  --dam-bg-input: #151519;
+  --dam-bg-modal: #141418;
   --dam-bg-overlay: rgba(5, 5, 7, 0.75);
 
   /* Borders & Dividers */
-  --dam-border-subtle: #1f1f22;
-  --dam-border-default: #26262a;
+  --dam-border-subtle: #202025;
+  --dam-border-default: #2d2d34;
   --dam-border-hover: #484854;
   --dam-border-focus: #ff6060;
 
   /* High Contrast Typography (WCAG AA Compliant >= 4.5:1 on dark) */
   --dam-text-primary: #f8f8fc;
   --dam-text-secondary: #c5c5cf;
-  --dam-text-muted: #9c9ca8;     /* Contrast ratio > 4.6:1 against the DAM graphite surfaces */
-  --dam-text-subtle: #848490;    /* For secondary meta */
-  --dam-text-inverse: #060606;
+  --dam-text-muted: #9c9ca8;
+  /* Contrast ratio > 4.6:1 against #131317 */
+  --dam-text-subtle: #848490;
+  /* For secondary meta */
+  --dam-text-inverse: #09090b;
 
   /* Typography Scale */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-serif: Georgia, 'Times New Roman', Cambria, serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
 
-  --text-xs: 0.75rem;    /* 12px */
-  --text-sm: 0.84375rem; /* 13.5px */
-  --text-base: 0.9375rem;/* 15px */
-  --text-lg: 1.0625rem;  /* 17px */
-  --text-xl: 1.25rem;    /* 20px */
-  --text-2xl: 1.625rem;  /* 26px */
-  --text-3xl: 2.25rem;   /* 36px */
-  --text-4xl: 3.25rem;   /* 52px */
+  --text-xs: 0.75rem;
+  /* 12px */
+  --text-sm: 0.84375rem;
+  /* 13.5px */
+  --text-base: 0.9375rem;
+  /* 15px */
+  --text-lg: 1.0625rem;
+  /* 17px */
+  --text-xl: 1.25rem;
+  /* 20px */
+  --text-2xl: 1.625rem;
+  /* 26px */
+  --text-3xl: 2.25rem;
+  /* 36px */
+  --text-4xl: 3.25rem;
+  /* 52px */
 
   /* Radius */
   --radius-xs: 4px;
@@ -78,7 +88,6 @@
   /* Spacing */
   --sidebar-width: 290px;
   --sidebar-width-collapsed: 72px;
-  --evidence-panel-width: 380px;
   --header-height: 64px;
   --max-content-width: 860px;
 

@@ -75,9 +75,29 @@ const UserTurnItem: React.FC<{
                     <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" className="text-green-400"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
                   ) : (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={att.preview} alt={att.name} className="user-attachment-thumb" />
+                    <img src={att.preview || att.previewUrl} alt={att.name} className="user-attachment-thumb" />
                   )}
                   <span>{att.name}</span>
+                  {att.documentAnalysis && (
+                    <span className={`doc-tag-pill status-${att.documentAnalysis.status}`}>
+                      {att.documentAnalysis.pageCount}p &bull; {att.documentAnalysis.status}
+                    </span>
+                  )}
+                  {att.urlAnalysis && (
+                    <span className={`doc-tag-pill status-${att.urlAnalysis.domainRisk.riskLevel.toLowerCase()}`}>
+                      {att.urlAnalysis.domain} &bull; {att.urlAnalysis.status}
+                    </span>
+                  )}
+                  {att.previewUrl && (
+                    <a href={att.previewUrl} target="_blank" rel="noopener noreferrer" className="doc-view-link" title="Open file outside localStorage">
+                      ↗
+                    </a>
+                  )}
+                  {att.url && !att.previewUrl && (
+                    <a href={att.url} target="_blank" rel="noopener noreferrer" className="doc-view-link" title="Open source URL in new tab">
+                      ↗
+                    </a>
+                  )}
                 </span>
                 {att.extractedText && (
                   <div className="user-ocr-transcript">
@@ -125,7 +145,6 @@ const AssistantTurnView: React.FC<{
 }> = ({
   turn,
   isStreaming,
-  onCitationClick,
   onOpenEvidence,
   onCopyBriefing,
   onRetry,
@@ -159,42 +178,183 @@ const AssistantTurnView: React.FC<{
   };
 
   return (
-    <div className="chat-turn">
+    <div className={`chat-turn assistant-row${isLive ? ' live-turn' : ''}`} id={`turn-${turn.id}`}>
       <div className="assistant-turn">
-        {/* 1. TOP-LEVEL VERDICT CARDS (Inverted Result Hierarchy — instant executive clarity) */}
+
+        {/* 1. Investigation Audit Trail (Thinking & Stages Loading Pane) - Always on Top */}
+        <details
+          className="investigation-activity"
+          id={`activity-pane-${turn.id}`}
+          open={isAuditOpen}
+          onToggle={e => {
+            if (!isLive) {
+              setUserExpandedAudit((e.currentTarget as HTMLDetailsElement).open);
+            }
+          }}
+        >
+          <summary className="activity-summary-bar">
+            <div className="activity-summary-left">
+              <span className={`activity-pulse-dot ${isLive ? 'running' : ''}`} aria-hidden="true" />
+              <span className="activity-summary-title">
+                {isLive ? 'Live Investigation in Progress…' : 'Investigation Audit Trail & Primary Registries'}
+              </span>
+            </div>
+            <div className="activity-summary-meta">
+              <span>{stages.length ? `${stages.length} stages` : '5 stages'} &bull; {meta?.sources?.length || 0} sources</span>
+              <svg viewBox="0 0 24 24" className="activity-summary-chevron" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </div>
+          </summary>
+
+          <div className="activity-stages-list">
+            {stages.length === 0 ? (
+              <div className="activity-stage-item">
+                <span className={`activity-stage-icon ${isLive ? 'running' : 'completed'}`}>
+                  {isLive ? <SpinnerIcon className="w-3.5 h-3.5" /> : <ShieldIcon className="w-3.5 h-3.5" />}
+                </span>
+                <div className="activity-stage-content">
+                  <div className="activity-stage-name">Analysing Request & Scope</div>
+                  <div className="activity-stage-desc">Cross-referencing entities against official Indian registries...</div>
+                </div>
+              </div>
+            ) : (
+              stages.map(s => (
+                <div key={s.id} className="activity-stage-item">
+                  <span className={`activity-stage-icon ${s.status === 'running' ? 'running' : 'completed'}`}>
+                    {s.status === 'running' ? <SpinnerIcon className="w-3.5 h-3.5" /> : <span style={{ color: 'var(--dam-green)', fontWeight: 'bold' }}>✓</span>}
+                  </span>
+                  <div className="activity-stage-content">
+                    <div className="activity-stage-head">
+                      <span className="activity-stage-name">{s.title}</span>
+                    </div>
+                    <div className="activity-stage-desc">{s.summary}</div>
+                    {s.details?.queries && (
+                      <div className="activity-stage-chips">
+                        {s.details.queries.map((q: string, qIdx: number) => (
+                          <span key={qIdx} className="query-chip">{q}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </details>
+
+        {/* 2. Investigation Briefing Prose - Comes BELOW the loading/thinking pane */}
+        <div className={`answer-prose ${isLive ? 'generating' : ''}`}>
+          {renderMarkdown(turn.fullText || '', isLive)}
+        </div>
+
+        {/* 3. Vernacular Regional Audio Advisory (Phase 4) */}
+        {!isLive && turn.fullText && (
+          <VernacularAudioPlayer
+            text={turn.fullText}
+            verdictSummary={{
+              factualCorrectness: meta?.verdicts?.factualCorrectness,
+              scamRisk: meta?.verdicts?.scamRisk,
+            }}
+          />
+        )}
+
+        {/* 3.5 THREE SEPARATE EVIDENCE VERDICTS */}
         {meta?.verdicts && (
-          <div className="verdicts-grid revealed">
+          <div className="verdicts-grid revealed" aria-label="Investigation Verdicts">
+            {/* 1. Factual Correctness */}
             <div className="verdict-card verdict-card-correctness">
               <span className="verdict-header">Factual Correctness</span>
-              <div className={`verdict-badge verdict-${meta.verdicts.factualCorrectness.toLowerCase()}`}>
+              <div className={`verdict-badge ${meta.verdicts.factualCorrectness.toLowerCase()}`}>
                 <span>{meta.verdicts.factualCorrectness}</span>
               </div>
-              <p className="verdict-notes">Based on published Indian gazettes, RBI, PIB, and official portals.</p>
+              <p className="verdict-notes">
+                {meta.verdicts.explanation?.factualRationale ||
+                  (meta.verdicts.factualCorrectness === 'Supported'
+                    ? 'Substantiated by published primary gazettes.'
+                    : meta.verdicts.factualCorrectness === 'Contradicted'
+                    ? 'Refuted by official regulatory notifications.'
+                    : meta.verdicts.factualCorrectness === 'Mixed'
+                    ? 'Divergent or state-specific regulatory findings.'
+                    : 'Evidence is inadequate to confirm or refute.')}
+              </p>
             </div>
 
+            {/* 2. Threat & Scam Risk */}
             <div className="verdict-card verdict-card-risk">
-              <span className="verdict-header">Scam Risk</span>
+              <span className="verdict-header">Threat & Scam Risk</span>
               <div className={`verdict-badge risk-${meta.verdicts.scamRisk.toLowerCase()}`}>
                 <span>{meta.verdicts.scamRisk} Risk</span>
               </div>
-              <div className="verdict-triggers">
-                {meta.verdicts.riskTriggers.map((t, tIdx) => (
-                  <span key={tIdx} className="trigger-tag">{t}</span>
-                ))}
-              </div>
+              <p className="verdict-notes">
+                {meta.verdicts.explanation?.scamRationale ||
+                  (meta.verdicts.scamRisk === 'High'
+                    ? 'Active extortion or deceptive impersonation signals.'
+                    : meta.verdicts.scamRisk === 'Medium'
+                    ? 'Suspicious communication or viral rumor elements.'
+                    : 'No criminal extortion or cyber fraud indicators.')}
+              </p>
+              {meta.verdicts.riskTriggers && meta.verdicts.riskTriggers.length > 0 && (
+                <div className="verdict-triggers">
+                  {meta.verdicts.riskTriggers.slice(0, 3).map((trig, tIdx) => (
+                    <span key={tIdx} className="trigger-tag">
+                      {trig}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
 
+            {/* 3. Evidence Sufficiency */}
             <div className="verdict-card verdict-card-sufficiency">
               <span className="verdict-header">Evidence Sufficiency</span>
               <div className={`verdict-badge suff-${meta.verdicts.evidenceSufficiency.toLowerCase()}`}>
                 <span>{meta.verdicts.evidenceSufficiency}</span>
               </div>
-              <p className="verdict-notes">Zero-hallucination standard. Honest disclosure when facts are scarce.</p>
+              <p className="verdict-notes">
+                {meta.verdicts.explanation?.sufficiencyRationale ||
+                  (meta.verdicts.evidenceSufficiency === 'Sufficient'
+                    ? 'Corroborated by high-authority primary records.'
+                    : meta.verdicts.evidenceSufficiency === 'Partial'
+                    ? 'Partial records found; pending comprehensive gazette.'
+                    : 'Sparse or absent authoritative documentation.')}
+              </p>
             </div>
           </div>
         )}
 
-        {/* 1.4 PSYCHOLOGICAL MANIPULATION & SOCIAL ENGINEERING RADAR */}
+        {/* 3.6 Structured Evidence Rationale & Source Attribution */}
+        {meta?.verdicts?.explanation && (
+          <details className="verdict-explanation-box revealed" open>
+            <summary className="verdict-explanation-summary">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <path d="m9 12 2 2 4-4" />
+              </svg>
+              <span>Structured Evidence Rationale & Source Attribution</span>
+            </summary>
+            <div className="verdict-explanation-content">
+              {meta.verdicts.explanation.sourceImpacts && meta.verdicts.explanation.sourceImpacts.length > 0 && (
+                <div className="source-impacts-list">
+                  <span className="source-impacts-heading">Source Attribution Breakdown</span>
+                  {meta.verdicts.explanation.sourceImpacts.map(impact => (
+                    <div key={impact.sourceId} className={`source-impact-item role-${impact.impactRole}`}>
+                      <div className="source-impact-header">
+                        <span className="source-impact-domain">[{impact.sourceId}] {impact.domain}</span>
+                        <span className={`source-impact-stance-pill stance-${impact.stance}`}>{impact.stance}</span>
+                        <span className="source-impact-weight">Auth: {Math.round(impact.authorityWeight * 100)}% &bull; Rel: {Math.round(impact.relevanceScore * 100)}%</span>
+                      </div>
+                      <p className="source-impact-detail">{impact.explanation}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </details>
+        )}
+
+        {/* 4. Threat & Forensic Analysis Cards (Revealed once investigation completes) */}
+        {/* 4.1 PSYCHOLOGICAL MANIPULATION & SOCIAL ENGINEERING RADAR */}
         {meta?.manipulationAudit && meta.manipulationAudit.overallIndex > 0 && (
           <div className="manipulation-card revealed" aria-label="Psychological Manipulation Radar">
             <div className="manipulation-head">
@@ -232,7 +392,7 @@ const AssistantTurnView: React.FC<{
                   {vec.detectedTriggers.length > 0 && (
                     <div className="vector-triggers-list">
                       {vec.detectedTriggers.slice(0, 3).map((trig, tIdx) => (
-                        <span key={tIdx} className="vector-trigger-tag">"{trig}"</span>
+                        <span key={tIdx} className="vector-trigger-tag">&quot;{trig}&quot;</span>
                       ))}
                     </div>
                   )}
@@ -253,7 +413,7 @@ const AssistantTurnView: React.FC<{
           </div>
         )}
 
-        {/* 1.5 THREAT ENTITY & URL FORENSICS CARD (Phase 2) */}
+        {/* 4.2 THREAT ENTITY & URL FORENSICS CARD (Phase 2) */}
         {meta?.forensics && (meta.forensics.urls.length > 0 || meta.forensics.phones.length > 0 || meta.forensics.senders.length > 0) && (
           <div className="forensics-card revealed" aria-label="Digital Entity & Link Forensics">
             <div className="forensics-head">
@@ -328,7 +488,7 @@ const AssistantTurnView: React.FC<{
           </div>
         )}
 
-        {/* 1.55 LEGAL & STATUTORY CLAUSE CROSS-EXAMINATION */}
+        {/* 4.3 LEGAL & STATUTORY CLAUSE CROSS-EXAMINATION */}
         {meta?.statutes && meta.statutes.applicableStatutes.length > 0 && (
           <div className="statutes-card revealed" aria-label="Legal & Statutory Clause Cross-Examination">
             <div className="statutes-head">
@@ -371,7 +531,7 @@ const AssistantTurnView: React.FC<{
           </div>
         )}
 
-        {/* 1.6 NATIONAL CYBER CRIME & CHAKSHU INCIDENT KIT (Phase 3) */}
+        {/* 4.4 NATIONAL CYBER CRIME & CHAKSHU INCIDENT KIT (Phase 3) */}
         {meta?.incidentReport && (
           <div className="incident-kit-card revealed" aria-label="National Cyber Crime & Chakshu Incident Kit">
             <div className="incident-kit-head">
@@ -470,111 +630,300 @@ const AssistantTurnView: React.FC<{
           </div>
         )}
 
-        {/* 1.7 VERNACULAR REGIONAL AUDIO ADVISORY (Phase 4) */}
-        {!isLive && turn.fullText && (
-          <VernacularAudioPlayer
-            text={turn.fullText}
-            verdictSummary={{
-              factualCorrectness: meta?.verdicts?.factualCorrectness,
-              scamRisk: meta?.verdicts?.scamRisk,
-            }}
-          />
-        )}
-
-        {/* 2. Investigation Briefing Prose */}
-        <div className={`answer-prose ${isLive ? 'generating' : ''}`}>
-          {renderMarkdown(turn.fullText || '', isLive)}
-        </div>
-
-        {/* 3. Collapsible Investigation Audit Trail (Auto-collapsed when complete, open while streaming) */}
-        <details
-          className="investigation-activity"
-          open={isAuditOpen}
-          onToggle={e => {
-            if (!isLive) {
-              setUserExpandedAudit((e.currentTarget as HTMLDetailsElement).open);
-            }
-          }}
-        >
-          <summary className="activity-summary-bar">
-            <div className="activity-summary-left">
-              <span className={`activity-pulse-dot ${isLive ? 'running' : ''}`} aria-hidden="true" />
-              <span className="activity-summary-title">
-                {isLive ? 'Live Investigation in Progress…' : 'Investigation Audit Trail & Primary Registries'}
-              </span>
-            </div>
-            <div className="activity-summary-meta">
-              <span>{stages.length ? `${stages.length} stages` : '5 stages'} &bull; {meta?.sources?.length || 0} sources</span>
-              <svg viewBox="0 0 24 24" className="activity-summary-chevron" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M6 9l6 6 6-6" />
-              </svg>
-            </div>
-          </summary>
-
-          <div className="activity-stages-list">
-            {stages.length === 0 ? (
-              <div className="activity-stage-item">
-                <span className={`activity-stage-icon ${isLive ? 'running' : 'completed'}`}>
-                  {isLive ? <SpinnerIcon className="w-3.5 h-3.5" /> : <ShieldIcon className="w-3.5 h-3.5" />}
+        {/* 4.5 OFFICIAL DOCUMENT & GAZETTE FORENSICS CARD */}
+        {(meta?.documentAnalysis || turn.attachments?.find(a => a.documentAnalysis)?.documentAnalysis) && (() => {
+          const docAnalysis = meta?.documentAnalysis || turn.attachments?.find(a => a.documentAnalysis)?.documentAnalysis;
+          if (!docAnalysis) return null;
+          return (
+            <div className="document-forensics-card revealed" aria-label="Official Document & Gazette Scrutiny">
+              <div className="document-forensics-head">
+                <div className="document-forensics-title">
+                  <FileIcon className="w-4 h-4 text-sky-400" />
+                  <strong>Official Document & Gazette Scrutiny</strong>
+                </div>
+                <span className={`document-status-pill ${docAnalysis.status}`}>
+                  {docAnalysis.pageCount} Page{docAnalysis.pageCount !== 1 ? 's' : ''} &bull; {docAnalysis.status}
                 </span>
-                <div className="activity-stage-content">
-                  <div className="activity-stage-name">Analysing Request & Scope</div>
-                  <div className="activity-stage-desc">Cross-referencing entities against official Indian registries...</div>
+              </div>
+
+              <div className="document-forensics-body">
+                {/* Safe Failure / Error State Details */}
+                {docAnalysis.errorDetails && (
+                  <div className="doc-anomaly-item" style={{ background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#fca5a5' }}>
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="8" x2="12" y2="12" />
+                      <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                    <span><strong>Processing State:</strong> {docAnalysis.errorDetails}</span>
+                  </div>
+                )}
+
+                {/* Extracted Identifiers Grid */}
+                <div className="doc-identifiers-grid">
+                  <div className="doc-identifier-card">
+                    <span className="doc-identifier-label">Circular / Order Reference</span>
+                    <span className="doc-identifier-val">
+                      {docAnalysis.extractedIdentifiers.circularNumbers.length > 0
+                        ? docAnalysis.extractedIdentifiers.circularNumbers.join(', ')
+                        : 'No standard circular reference found'}
+                    </span>
+                  </div>
+
+                  <div className="doc-identifier-card">
+                    <span className="doc-identifier-label">Issuing Authority</span>
+                    <span className="doc-identifier-val">
+                      {docAnalysis.extractedIdentifiers.issuingAuthorities.length > 0
+                        ? docAnalysis.extractedIdentifiers.issuingAuthorities.join(', ')
+                        : 'Unspecified / Non-standard header'}
+                    </span>
+                  </div>
+
+                  <div className="doc-identifier-card">
+                    <span className="doc-identifier-label">Promulgation Dates</span>
+                    <span className="doc-identifier-val">
+                      {docAnalysis.extractedIdentifiers.dates.length > 0
+                        ? docAnalysis.extractedIdentifiers.dates.join(', ')
+                        : 'No explicit dates found'}
+                    </span>
+                  </div>
+
+                  <div className="doc-identifier-card">
+                    <span className="doc-identifier-label">Signatories & Seals</span>
+                    <span className="doc-identifier-val">
+                      {docAnalysis.extractedIdentifiers.signatoryNames.length > 0 || docAnalysis.extractedIdentifiers.stamps.length > 0
+                        ? [...docAnalysis.extractedIdentifiers.signatoryNames, ...docAnalysis.extractedIdentifiers.stamps].join(', ')
+                        : 'No signatory / seal block detected'}
+                    </span>
+                  </div>
+
+                  {docAnalysis.extractedIdentifiers.monetaryAmounts.length > 0 && (
+                    <div className="doc-identifier-card">
+                      <span className="doc-identifier-label">Monetary Sums Declared</span>
+                      <span className="doc-identifier-val">
+                        {docAnalysis.extractedIdentifiers.monetaryAmounts.join(', ')}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Regulatory Matches Cross-Reference */}
+                {docAnalysis.regulatoryMatches && docAnalysis.regulatoryMatches.length > 0 && (
+                  <div className="forensic-section">
+                    <span className="forensic-section-label">Regulatory Source Cross-Check</span>
+                    <div className="forensic-items-list">
+                      {docAnalysis.regulatoryMatches.map((match, mIdx) => (
+                        <div key={mIdx} className={`forensic-item status-${match.status === 'corroborated' ? 'safe' : match.status === 'deviant' ? 'critical' : 'suspicious'}`}>
+                          <div className="forensic-item-main">
+                            <span className={`forensic-status-pill ${match.status === 'corroborated' ? 'safe' : match.status === 'deviant' ? 'critical' : 'suspicious'}`}>
+                              {match.status === 'corroborated' ? 'Official Gazette Format' : match.status === 'deviant' ? 'Deviant Format Flagged' : 'Unmatched Pattern'}
+                            </span>
+                            <span className="forensic-domain-text">{match.authority} ({match.schemePattern})</span>
+                          </div>
+                          <p className="forensic-reason-text">{match.notes}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Flagged Document Inconsistencies */}
+                {docAnalysis.anomalies.length > 0 && (
+                  <div className="forensic-section">
+                    <span className="forensic-section-label">Flagged Document Inconsistencies ({docAnalysis.anomalies.length})</span>
+                    <div className="doc-anomalies-list">
+                      {docAnalysis.anomalies.map((anom, aIdx) => (
+                        <div key={aIdx} className="doc-anomaly-item">
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0, marginTop: 2 }}>
+                            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                            <line x1="12" y1="9" x2="12" y2="13" />
+                            <line x1="12" y1="17" x2="12.01" y2="17" />
+                          </svg>
+                          <div>
+                            <strong>Page {anom.pageNumber} ({anom.type.replace(/_/g, ' ')}):</strong> {anom.details}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Page-by-Page Forensic Findings Accordion */}
+                {docAnalysis.pages && docAnalysis.pages.length > 0 && (
+                  <details className="doc-pages-accordion">
+                    <summary className="doc-pages-summary">
+                      <span>Page-Level Forensic Findings ({docAnalysis.pages.length} Pages Analyzed)</span>
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                    </summary>
+                    <div className="doc-pages-list">
+                      {docAnalysis.pages.map(page => (
+                        <div key={page.pageNumber} className="doc-page-row">
+                          <div className="doc-page-head">
+                            <span className="doc-page-badge">[Page {page.pageNumber}]</span>
+                            <span className="doc-page-method">
+                              {page.ocrApplied ? 'Scanned Page / OCR Applied' : 'Embedded PDF Text Stream'}
+                            </span>
+                          </div>
+                          <div className="doc-page-body">
+                            {page.circularNumbers.length > 0 && <span><strong>Ref:</strong> {page.circularNumbers.join(', ')} &bull; </span>}
+                            {page.dates.length > 0 && <span><strong>Dates:</strong> {page.dates.join(', ')} &bull; </span>}
+                            {page.signaturesDetected && <span><strong>Signatures/Stamps:</strong> Detected &bull; </span>}
+                            <span><strong>Word Count:</strong> {page.wordCount} words</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+
+                {/* Strict Non-Forgery Disclaimer */}
+                <div className="doc-disclaimer-banner">
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0, marginTop: 1 }}>
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="16" x2="12" y2="12" />
+                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                  </svg>
+                  <span>
+                    <strong>Forensic Notice:</strong> Formatting anomalies, domain mismatches, or layout deviations are highlighted for administrative verification. Visual and typographical heuristics alone do not establish document forgery. Authenticity must be confirmed against primary gazettes at <em>egazette.gov.in</em> or official issuing registries.
+                  </span>
                 </div>
               </div>
-            ) : (
-              stages.map(s => (
-                <div key={s.id} className="activity-stage-item">
-                  <span className={`activity-stage-icon ${s.status === 'running' ? 'running' : 'completed'}`}>
-                    {s.status === 'running' ? <SpinnerIcon className="w-3.5 h-3.5" /> : <span style={{ color: 'var(--dam-green)', fontWeight: 'bold' }}>✓</span>}
+            </div>
+          );
+        })()}
+
+        {/* 4.6 SECURE WEB INGESTION & LINK FORENSICS CARD */}
+        {(meta?.urlAnalysis || turn.attachments?.find(a => a.urlAnalysis)?.urlAnalysis) && (() => {
+          const urlAnalysis = meta?.urlAnalysis || turn.attachments?.find(a => a.urlAnalysis)?.urlAnalysis;
+          if (!urlAnalysis) return null;
+          return (
+            <div className="web-forensics-card revealed" aria-label="Web Source & Link Forensics">
+              <div className="web-forensics-head">
+                <div className="web-forensics-title">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="2" y1="12" x2="22" y2="12" />
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                  </svg>
+                  <strong>Web Ingestion & Link Forensics</strong>
+                </div>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <span className={`forensic-status-pill ${urlAnalysis.domainRisk.riskLevel === 'High' ? 'critical' : urlAnalysis.domainRisk.riskLevel === 'Medium' ? 'suspicious' : 'safe'}`}>
+                    {urlAnalysis.domainRisk.riskLevel} Domain Risk
                   </span>
-                  <div className="activity-stage-content">
-                    <div className="activity-stage-head">
-                      <span className="activity-stage-name">{s.title}</span>
+                  <span className={`document-status-pill ${urlAnalysis.status === 'success' ? 'clean' : 'anomalous'}`}>
+                    {urlAnalysis.status.toUpperCase()}
+                  </span>
+                </div>
+              </div>
+
+              <div className="document-forensics-body">
+                {/* SSRF / Failure / Restriction Notices */}
+                {urlAnalysis.errorDetails && (
+                  <div className="doc-anomaly-item" style={{ background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#fca5a5' }}>
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="8" x2="12" y2="12" />
+                      <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                    <div>
+                      <strong>Ingestion Alert:</strong> {urlAnalysis.errorDetails}
                     </div>
-                    <div className="activity-stage-desc">{s.summary}</div>
-                    {s.details?.queries && (
-                      <div className="activity-stage-chips">
-                        {s.details.queries.map((q: string, qIdx: number) => (
-                          <span key={qIdx} className="query-chip">{q}</span>
-                        ))}
+                  </div>
+                )}
+
+                {/* Domain Warnings */}
+                {urlAnalysis.domainRisk.warnings.length > 0 && (
+                  <div className="doc-anomalies-list">
+                    {urlAnalysis.domainRisk.warnings.map((warn, wIdx) => (
+                      <div key={wIdx} className="doc-anomaly-item">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0, marginTop: 2 }}>
+                          <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                          <line x1="12" y1="9" x2="12" y2="13" />
+                          <line x1="12" y1="17" x2="12.01" y2="17" />
+                        </svg>
+                        <div>{warn}</div>
                       </div>
-                    )}
+                    ))}
+                  </div>
+                )}
+
+                {/* Metadata Grid */}
+                <div className="doc-identifiers-grid">
+                  <div className="doc-identifier-card">
+                    <span className="doc-identifier-label">Resolved Domain</span>
+                    <span className="doc-identifier-val">{urlAnalysis.domain}</span>
+                  </div>
+
+                  <div className="doc-identifier-card">
+                    <span className="doc-identifier-label">Page Title</span>
+                    <span className="doc-identifier-val">{urlAnalysis.title || 'No Title Declared'}</span>
+                  </div>
+
+                  <div className="doc-identifier-card">
+                    <span className="doc-identifier-label">Published / Author</span>
+                    <span className="doc-identifier-val">
+                      {urlAnalysis.publishedDate ? `${urlAnalysis.publishedDate}` : 'Unknown Date'}
+                      {urlAnalysis.author ? ` &bull; By ${urlAnalysis.author}` : ''}
+                    </span>
+                  </div>
+
+                  <div className="doc-identifier-card">
+                    <span className="doc-identifier-label">Extracted Content Scope</span>
+                    <span className="doc-identifier-val">
+                      {urlAnalysis.wordCount} words {urlAnalysis.isSocialPost ? `&bull; ${urlAnalysis.socialPlatform || 'Social'} Post` : ''}
+                    </span>
                   </div>
                 </div>
-              ))
-            )}
-          </div>
-        </details>
 
-        {/* 4. Claim-by-Claim Breakdown Table */}
-        {meta?.claims && meta.claims.length > 0 && (
-          <div className="claim-breakdown revealed">
-            <h4>Claim-by-Claim Breakdown</h4>
-            <div className="claims-table-wrapper">
-              <table className="claims-table">
-                <thead>
-                  <tr>
-                    <th style={{ width: '30%' }}>Claim Assertion</th>
-                    <th style={{ width: '18%' }}>Verdict</th>
-                    <th style={{ width: '26%' }}>Supporting Evidence</th>
-                    <th style={{ width: '26%' }}>Contradicting Evidence</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {meta.claims.map((c, cIdx) => (
-                    <tr key={cIdx}>
-                      <td><strong>{c.claim}</strong></td>
-                      <td><span className={`verdict-badge verdict-${c.label.toLowerCase()}`}>{c.label}</span></td>
-                      <td>{c.supporting}</td>
-                      <td>{c.contradicting}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                {/* Redirect History Trail */}
+                {urlAnalysis.redirectHistory.length > 1 && (
+                  <div className="forensic-section">
+                    <span className="forensic-section-label">Redirect Traversal History ({urlAnalysis.redirectHistory.length} Hops)</span>
+                    <div className="web-redirect-chain">
+                      {urlAnalysis.redirectHistory.map((hop, hIdx) => (
+                        <div key={hIdx} className="web-redirect-hop">
+                          <span className="web-redirect-arrow">{hIdx === 0 ? '▶' : '↳'}</span>
+                          <span>{hop}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Flagged Download Links / APK Payloads */}
+                {urlAnalysis.downloadLinks.length > 0 && (
+                  <div className="forensic-section">
+                    <span className="forensic-section-label" style={{ color: '#f87171' }}>Flagged Download Payloads ({urlAnalysis.downloadLinks.length})</span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {urlAnalysis.downloadLinks.map((dlink, dIdx) => (
+                        <span key={dIdx} className="web-payload-pill">
+                          ⚠️ {dlink}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Extracted Factual Claims */}
+                {urlAnalysis.claims.length > 0 && (
+                  <div className="forensic-section">
+                    <span className="forensic-section-label">Extracted Factual Claims for Cross-Examination ({urlAnalysis.claims.length})</span>
+                    <div className="web-claims-list">
+                      {urlAnalysis.claims.map((claim, cIdx) => (
+                        <div key={cIdx} className="web-claim-card">
+                          &ldquo;{claim}&rdquo;
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* 5. Primary Sources Strip */}
         {meta?.sources && meta.sources.length > 0 && (
@@ -741,8 +1090,32 @@ export const ConversationFeed: React.FC<ConversationFeedProps> = ({
   onStop,
   onFollowUpClick,
 }) => {
+  const renderInlineMarkdown = (str: string) => {
+    const segments = str.split(/(\*\*.*?\*\*|\*[^*]+?\*|`[^`]+?`)/g);
+    return segments.map((seg, idx) => {
+      if (seg.startsWith('**') && seg.endsWith('**') && seg.length >= 4) {
+        return (
+          <strong key={idx} className="answer-bold">
+            {seg.slice(2, -2)}
+          </strong>
+        );
+      }
+      if (seg.startsWith('*') && seg.endsWith('*') && seg.length >= 2 && !seg.startsWith('**')) {
+        return <em key={idx}>{seg.slice(1, -1)}</em>;
+      }
+      if (seg.startsWith('`') && seg.endsWith('`') && seg.length >= 2) {
+        return (
+          <code key={idx} className="inline-code">
+            {seg.slice(1, -1)}
+          </code>
+        );
+      }
+      return seg;
+    });
+  };
+
   const renderMarkdown = (text: string = '', isLive: boolean = false) => {
-    let cleaned = text
+    const cleaned = text
       .replace(/\s+([.,;:!?])/g, '$1')
       .replace(/\]\s+\[/g, '][');
 
@@ -777,15 +1150,15 @@ export const ConversationFeed: React.FC<ConversationFeedProps> = ({
             <span key={i}>
               {lines.map((line, lineIdx) => {
                 if (line.startsWith('### ')) {
-                  return <h3 key={lineIdx}>{line.slice(4)}</h3>;
+                  return <h3 key={lineIdx}>{renderInlineMarkdown(line.slice(4))}</h3>;
                 }
                 if (line.startsWith('## ')) {
-                  return <h2 key={lineIdx}>{line.slice(3)}</h2>;
+                  return <h2 key={lineIdx}>{renderInlineMarkdown(line.slice(3))}</h2>;
                 }
                 return (
                   <React.Fragment key={lineIdx}>
                     {lineIdx > 0 && <br />}
-                    {line.replace(/\*\*(.*?)\*\*/g, '$1')}
+                    {renderInlineMarkdown(line)}
                   </React.Fragment>
                 );
               })}
@@ -809,8 +1182,11 @@ export const ConversationFeed: React.FC<ConversationFeedProps> = ({
           onClick={() => setIsWatchtowerOpen(true)}
           title="Open Live National Regulatory Watchtower (PIB, RBI, TRAI, CERT-In)"
         >
-          <span className="beacon-ping" />
-          <span className="beacon-dot" />
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: '#38bdf8', flexShrink: 0 }} aria-hidden="true">
+            <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z" />
+            <path d="M12 6a6 6 0 1 0 6 6 6 6 0 0 0-6-6z" />
+            <circle cx="12" cy="12" r="2" fill="#38bdf8" />
+          </svg>
           <span className="watchtower-btn-title">Live Regulatory Watchtower</span>
           <span className="watchtower-btn-badge">6 Active Bulletins</span>
         </button>

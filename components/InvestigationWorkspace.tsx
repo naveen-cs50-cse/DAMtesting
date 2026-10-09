@@ -34,9 +34,9 @@ export const InvestigationWorkspace: React.FC = () => {
       const stored = localStorage.getItem('dam-folders');
       if (stored) return JSON.parse(stored);
       const defaultFolders: Folder[] = [
-        { id: 'f_cybercrime', name: 'Cyber Crime & 1930 Cases', color: '#ef4444', createdAt: new Date(0).toISOString() },
-        { id: 'f_banking', name: 'Banking & KYC Verifications', color: '#3b82f6', createdAt: new Date(0).toISOString() },
-        { id: 'f_circulars', name: 'PIB & Regulatory Circulars', color: '#10b981', createdAt: new Date(0).toISOString() },
+        { id: 'f_cybercrime', name: 'Cyber Crime & 1930 Cases', color: '#888888', createdAt: new Date(0).toISOString() },
+        { id: 'f_banking', name: 'Banking & KYC Verifications', color: '#888888', createdAt: new Date(0).toISOString() },
+        { id: 'f_circulars', name: 'PIB & Regulatory Circulars', color: '#888888', createdAt: new Date(0).toISOString() },
       ];
       return defaultFolders;
     } catch {
@@ -77,6 +77,7 @@ export const InvestigationWorkspace: React.FC = () => {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -391,7 +392,10 @@ export const InvestigationWorkspace: React.FC = () => {
 
       const res = await fetch('/api/investigate/stream', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Bypass-Tunnel-Reminder': 'true'
+        },
         signal: abortControllerRef.current.signal,
         body: JSON.stringify({
           prompt: promptToSend,
@@ -534,7 +538,7 @@ export const InvestigationWorkspace: React.FC = () => {
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
   return (
-    <div className={`app-shell${mobileMenuOpen ? ' menu-open' : ''}`} id="appShell">
+    <div className={`app-shell${mobileMenuOpen ? ' menu-open' : ''} ${sidebarOpen ? '' : 'sidebar-closed'}`} id="appShell">
       {/* Mobile backdrop: tapping outside sidebar closes it */}
       {mobileMenuOpen && (
         <div
@@ -572,6 +576,7 @@ export const InvestigationWorkspace: React.FC = () => {
         onOpenMoveToFolderModal={conv => setMoveToFolderConv(conv)}
         onOpenApiKeys={() => setApiKeysModalOpen(true)}
         onOpenMethodology={() => setMethodologyModalOpen(true)}
+        onToggleSidebar={() => setSidebarOpen(prev => !prev)}
       />
 
       <main className="main-area" id="mainArea">
@@ -583,8 +588,15 @@ export const InvestigationWorkspace: React.FC = () => {
           onOpenMethodology={() => setMethodologyModalOpen(true)}
           onToggleEvidence={() => setEvidencePanelOpen(prev => !prev)}
           evidenceCount={caseSources.length > 0 ? caseSources.length : globalSources.length}
-          onMobileMenuToggle={() => setMobileMenuOpen(prev => !prev)}
+          onMobileMenuToggle={() => {
+            if (window.innerWidth < 768) {
+              setMobileMenuOpen(prev => !prev);
+            } else {
+              setSidebarOpen(prev => !prev);
+            }
+          }}
           onOpenShare={() => setShareModalOpen(true)}
+          sidebarOpen={sidebarOpen}
         />
 
         <section className="workspace-fixed-layout" id="workspace">

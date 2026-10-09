@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import { EvidenceIcon } from './icons';
 
 interface TopbarProps {
@@ -13,6 +14,7 @@ interface TopbarProps {
   evidenceCount: number;
   onMobileMenuToggle: () => void;
   onOpenShare?: () => void;
+  sidebarOpen?: boolean;
 }
 
 export const Topbar: React.FC<TopbarProps> = ({
@@ -25,10 +27,12 @@ export const Topbar: React.FC<TopbarProps> = ({
   evidenceCount,
   onMobileMenuToggle,
   onOpenShare,
+  sidebarOpen = true,
 }) => {
   return (
     <header className="topbar">
       <div className="topbar-left">
+        {/* Mobile Hamburger */}
         <button
           className="icon-button mobile-menu"
           id="mobileMenu"
@@ -37,9 +41,45 @@ export const Topbar: React.FC<TopbarProps> = ({
         >
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
         </button>
+
+        {/* Desktop Sidebar Toggle (Only visible when sidebar is closed) */}
+        {!sidebarOpen && (
+          <button
+            className="brand desktop-sidebar-toggle"
+            title="Open sidebar"
+            onClick={onMobileMenuToggle}
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '10px', 
+              marginRight: '24px', 
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '4px',
+              paddingLeft: '0'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', color: '#a3a3a3' }}>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </div>
+            <Image 
+              src="/assets/dam-mark-transparent.png" 
+              alt="DAM" 
+              width={28}
+              height={28}
+              className="brand-mark-img" 
+            />
+            <span className="brand-copy" style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              <strong style={{ fontSize: '15px', color: '#fff', letterSpacing: '0.5px', lineHeight: '1' }}>DAM</strong>
+              <small style={{ fontSize: '10px', color: '#a3a3a3', letterSpacing: '0.2px', lineHeight: '1' }}>DEFENCE AGAINST MISINFORMATION</small>
+            </span>
+          </button>
+        )}
+
         <div className="page-title">
           <span className={`status-pulse ${isLive ? 'live' : ''}`} aria-hidden="true" />
-          <strong>{title}</strong>
+          {title !== 'New investigation' && <strong>{title}</strong>}
           {caseId && (
             <>
               <span className="case-id-badge">CASE #{caseId}</span>

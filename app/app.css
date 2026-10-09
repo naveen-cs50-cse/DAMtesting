@@ -600,6 +600,10 @@ svg {
   font-size: 13px;
   line-height: 1.35;
 }
+.history-item-wrap:hover .history-title-text {
+  padding-right: 75px; /* Pushes the text away from the buttons */
+}
+
 
 .history-time-hint {
   font-size: 10.5px;
@@ -641,6 +645,7 @@ svg {
 
 .history-item-wrap:hover .history-actions {
   display: flex;
+  opacity: 1;
 }
 
 .history-action-btn {
@@ -7138,3 +7143,65 @@ details[open] .activity-summary-chevron {
     border: 1px solid #bbb !important;
   }
 }
+
+/* MONOCHROME AND SIDEBAR ANIMATION OVERRIDE */
+.sidebar-closed .sidebar { margin-left: calc(-1 * var(--sidebar-width)); opacity: 0; visibility: hidden; }
+.sidebar { transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.trend-tag, .starter-icon, .live-dot, .live-blink, .status-pulse, .verdict-badge { color: #fff !important; background-color: rgba(255, 255, 255, 0.05) !important; border-color: #333 !important; }
+.starter-icon.red, .starter-icon.amber, .starter-icon.blue, .starter-icon.green { color: #fff !important; }
+.trend-tag.alert, .trend-tag.warning, .trend-tag.info { color: #fff !important; background: #222 !important; border: 1px solid #333 !important; }
+.trends-label { color: #888 !important; }
+
+
+/* SMOOTH ANIMATIONS OVERRIDE */
+button, a, .history-item { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important; }
+.history-item:hover, .icon-button:hover { background-color: rgba(255, 255, 255, 0.1) !important; }
+.app-shell.sidebar-closed .sidebar { transform: translateX(-10%); margin-left: calc(-1 * var(--sidebar-width)); opacity: 0; visibility: hidden; }
+.sidebar { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important; will-change: transform, margin-left, opacity; }
+.landing-pill { padding: 12px 18px; border: 1px solid #333; border-radius: 100px; font-size: 14px; color: #a3a3a3; background: transparent; cursor: pointer; }
+.landing-pill:hover { background-color: rgba(255, 255, 255, 0.1); transform: scale(1.02); color: #fff; }
+
+
+/* FIX SIDEBAR ANIMATION */
+.app-shell.sidebar-closed .sidebar { transform: translateX(-100%) !important; margin-left: calc(-1 * var(--sidebar-width)) !important; opacity: 0 !important; visibility: visible !important; }
+.sidebar { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important; }
+.desktop-sidebar-toggle:hover { background-color: rgba(255, 255, 255, 0.1) !important; border-radius: 8px; }
+.main-area { transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+
+
+/* GRID ANIMATION FIX */
+.app-shell { transition: grid-template-columns 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important; }
+.app-shell.sidebar-closed { grid-template-columns: 0 1fr !important; }
+
+
+/* CHATGPT HISTORY ICONS FIX */
+.history-actions { background: linear-gradient(to right, transparent, rgba(42,42,42,1) 30%) !important; box-shadow: none !important; padding-right: 8px !important; }
+.history-item-wrap.current .history-actions { background: linear-gradient(to right, transparent, rgba(51,51,51,1) 30%) !important; }
+.history-action-btn:hover { color: #fff !important; }
+
+
+/* CHATGPT NEW CHAT BUTTON FIX */
+.new-investigation-btn { border: none !important; box-shadow: none !important; background: transparent !important; margin: 12px 12px 6px !important; transition: background-color 0.2s ease !important; }
+.new-investigation-btn:hover { background-color: rgba(255, 255, 255, 0.1) !important; transform: none !important; box-shadow: none !important; }
+.new-investigation-btn:hover svg { transform: none !important; }
+.new-investigation-btn svg { color: #ececf1 !important; }
+
+
+.history-action-btn svg { width: 13px !important; height: 13px !important; }
+.history-action-btn.active svg { fill: currentColor !important; }
+
+
+/* CHATGPT HISTORY ITEM SINGLE LINE FIX */
+.history-item { padding: 8px 12px !important; border-radius: 8px !important; margin: 2px 8px !important; }
+.history-item-wrap { margin-bottom: 2px !important; }
+.history-item:hover { background-color: #2a2b32 !important; }
+.history-actions { background: linear-gradient(to right, transparent, #2a2b32 30%) !important; right: 12px !important; }
+.history-item-wrap.current .history-item { background-color: #343541 !important; }
+.history-item-wrap.current .history-actions { background: linear-gradient(to right, transparent, #343541 30%) !important; }
+
+
+/* CHATGPT STYLE FLAT SEND BUTTON */
+.composer-circle-submit-btn.can-send { background: #fff !important; color: #000 !important; box-shadow: none !important; }
+.composer-circle-submit-btn.can-send:hover { background: #e5e5e5 !important; transform: none !important; box-shadow: none !important; }
+.composer-circle-submit-btn.stop-state { background: #fff !important; color: #000 !important; box-shadow: none !important; }
+

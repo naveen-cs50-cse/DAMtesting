@@ -1,7 +1,7 @@
 export type FactualCorrectness = 'Supported' | 'Contradicted' | 'Mixed' | 'Unverified';
 export type ScamRisk = 'Low' | 'Medium' | 'High';
 export type EvidenceSufficiency = 'Sufficient' | 'Partial' | 'Insufficient';
-export type TaskType = 'verification' | 'scam_check' | 'research' | 'document_analysis';
+export type TaskType = 'verification' | 'scam_check' | 'research' | 'document_analysis' | 'conversational';
 
 export interface ThreatEntities {
   phones?: string[];

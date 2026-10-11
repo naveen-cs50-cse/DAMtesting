@@ -298,6 +298,40 @@ const server = http.createServer(async (req, res) => {
       };
 
       const lower = prompt.toLowerCase();
+      const normalized = prompt.trim().toLowerCase().replace(/[?!.,]/g, '');
+
+      // Check conversational intent
+      const isConversational = attachments.length === 0 && (
+        /^(hi|hello|hey|hii|heyy|howdy|hola|greetings|good\s+(morning|afternoon|evening|day|night)|how\s+are\s+you|who\s+are\s+you|what\s+can\s+you\s+do|what\s+is\s+your\s+name|what\s+is\s+this|help|help\s+me|thanks|thank\s+you|cool|ok|okay|bye|goodbye|tell\s+me\s+about\s+yourself)$/i.test(normalized) ||
+        (prompt.trim().length <= 15 && /^(hi|hello|hey|yo|sup)\b/i.test(normalized))
+      );
+
+      if (isConversational) {
+        const fallbackGreeting = `Hello! I'm **UseDAM**, your AI verification and intelligence assistant.
+
+I can help you:
+- **Fact-check viral claims** & social media rumors against official Indian registries.
+- **Verify government circulars** & gazettes (RBI, TRAI, SERC, Ministries).
+- **Inspect suspicious messages, calls, or links** for scams, phishing, and APK malware.
+- **Analyze uploaded documents** (PDFs, screenshots) with forensic OCR scrutiny.
+
+How can I assist your investigation today?`;
+
+        for (const chunk of fallbackGreeting.split(' ')) {
+          sendEvent('token', { text: chunk + ' ' });
+          await new Promise(r => setTimeout(r, 15));
+        }
+
+        sendEvent('meta', {
+          taskType: 'conversational',
+          sources: [],
+          verdicts: null
+        });
+
+        sendEvent('done', { success: true });
+        res.end();
+        return;
+      }
 
       // Determine task type
       let taskType = 'verification';

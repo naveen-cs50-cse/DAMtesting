@@ -13,6 +13,15 @@ import { IndexedSource, DocumentAnalysis, UrlAnalysisResult } from '../lib/inves
 describe('Unit Tests: Core Investigation Modules', () => {
 
   describe('1. Coordinator: Task Planning & Query Formulation', () => {
+    it('should classify conversational greetings and casual chat as conversational without search queries', () => {
+      const greetings = ['hi', 'hello', 'hey there', 'how are you', 'good morning', 'what can you do'];
+      for (const greeting of greetings) {
+        const plan = coordinateInvestigation(greeting);
+        assert.equal(plan.taskType, 'conversational');
+        assert.equal(plan.queries.length, 0);
+      }
+    });
+
     it('should classify prompt as scam_check for coercive urgency and banking keywords', () => {
       const plan = coordinateInvestigation('Dear consumer, your electricity power cut tonight at 9:30 PM. Download APK');
       assert.equal(plan.taskType, 'scam_check');

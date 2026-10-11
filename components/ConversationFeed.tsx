@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { ChatTurn } from '@/lib/investigation/types';
-import { CopyIcon, EvidenceIcon, FileIcon, RetryIcon, ShieldIcon, SpinnerIcon, StopIcon } from './icons';
+import { CopyIcon, EvidenceIcon, FileIcon, GlobeIcon, RetryIcon, ShieldIcon, SpinnerIcon, StopIcon, VolumeIcon } from './icons';
 import { VernacularAudioPlayer } from './VernacularAudioPlayer';
 import { CertificateModal } from './CertificateModal';
 import { WatchtowerDrawer } from './WatchtowerDrawer';
@@ -161,6 +161,11 @@ const AssistantTurnView: React.FC<{
   const [copied, setCopied] = useState(false);
   const [copiedReport, setCopiedReport] = useState(false);
   const [showCertModal, setShowCertModal] = useState(false);
+  const [showAudio, setShowAudio] = useState(false);
+
+  const isConversational = meta?.taskType === 'conversational';
+  const hasSources = Boolean(meta?.sources && meta.sources.length > 0);
+  const hasVerdicts = Boolean(meta?.verdicts && !isConversational);
   const isAuditOpen = isLive ? true : userExpandedAudit;
 
   const handleCopy = () => {
@@ -181,147 +186,174 @@ const AssistantTurnView: React.FC<{
     <div className={`chat-turn assistant-row${isLive ? ' live-turn' : ''}`} id={`turn-${turn.id}`}>
       <div className="assistant-turn">
 
-        {/* 1. Investigation Audit Trail (Thinking & Stages Loading Pane) - Always on Top */}
-        <details
-          className="investigation-activity"
-          id={`activity-pane-${turn.id}`}
-          open={isAuditOpen}
-          onToggle={e => {
-            if (!isLive) {
-              setUserExpandedAudit((e.currentTarget as HTMLDetailsElement).open);
-            }
-          }}
-        >
-          <summary className="activity-summary-bar">
-            <div className="activity-summary-left">
-              <span className={`activity-pulse-dot ${isLive ? 'running' : ''}`} aria-hidden="true" />
-              <span className="activity-summary-title">
-                {isLive ? 'Live Investigation in Progress…' : 'Investigation Audit Trail & Primary Registries'}
-              </span>
-            </div>
-            <div className="activity-summary-meta">
-              <span>{stages.length ? `${stages.length} stages` : '5 stages'} &bull; {meta?.sources?.length || 0} sources</span>
-              <svg viewBox="0 0 24 24" className="activity-summary-chevron" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M6 9l6 6 6-6" />
-              </svg>
-            </div>
-          </summary>
-
-          <div className="activity-stages-list">
-            {stages.length === 0 ? (
-              <div className="activity-stage-item">
-                <span className={`activity-stage-icon ${isLive ? 'running' : 'completed'}`}>
-                  {isLive ? <SpinnerIcon className="w-3.5 h-3.5" /> : <ShieldIcon className="w-3.5 h-3.5" />}
+        {/* 1. Investigation Audit Trail (Only for non-conversational queries) */}
+        {!isConversational && (
+          <details
+            className="investigation-activity"
+            id={`activity-pane-${turn.id}`}
+            open={isAuditOpen}
+            onToggle={e => {
+              if (!isLive) {
+                setUserExpandedAudit((e.currentTarget as HTMLDetailsElement).open);
+              }
+            }}
+          >
+            <summary className="activity-summary-bar">
+              <div className="activity-summary-left">
+                <span className={`activity-pulse-dot ${isLive ? 'running' : ''}`} aria-hidden="true" />
+                <span className="activity-summary-title">
+                  {isLive ? 'Live Investigation in Progress…' : 'Investigation Audit Trail & Primary Registries'}
                 </span>
-                <div className="activity-stage-content">
-                  <div className="activity-stage-name">Analysing Request & Scope</div>
-                  <div className="activity-stage-desc">Cross-referencing entities against official Indian registries...</div>
-                </div>
               </div>
-            ) : (
-              stages.map(s => (
-                <div key={s.id} className="activity-stage-item">
-                  <span className={`activity-stage-icon ${s.status === 'running' ? 'running' : 'completed'}`}>
-                    {s.status === 'running' ? <SpinnerIcon className="w-3.5 h-3.5" /> : <span style={{ color: 'var(--dam-green)', fontWeight: 'bold' }}>✓</span>}
+              <div className="activity-summary-meta">
+                <span>{stages.length ? `${stages.length} stages` : '5 stages'} &bull; {meta?.sources?.length || 0} sources</span>
+                <svg viewBox="0 0 24 24" className="activity-summary-chevron" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </div>
+            </summary>
+
+            <div className="activity-stages-list">
+              {stages.length === 0 ? (
+                <div className="activity-stage-item">
+                  <span className={`activity-stage-icon ${isLive ? 'running' : 'completed'}`}>
+                    {isLive ? <SpinnerIcon className="w-3.5 h-3.5" /> : <ShieldIcon className="w-3.5 h-3.5" />}
                   </span>
                   <div className="activity-stage-content">
-                    <div className="activity-stage-head">
-                      <span className="activity-stage-name">{s.title}</span>
-                    </div>
-                    <div className="activity-stage-desc">{s.summary}</div>
-                    {s.details?.queries && (
-                      <div className="activity-stage-chips">
-                        {s.details.queries.map((q: string, qIdx: number) => (
-                          <span key={qIdx} className="query-chip">{q}</span>
-                        ))}
-                      </div>
-                    )}
+                    <div className="activity-stage-name">Analysing Request & Scope</div>
+                    <div className="activity-stage-desc">Cross-referencing entities against official Indian registries...</div>
                   </div>
                 </div>
-              ))
+              ) : (
+                stages.map(s => (
+                  <div key={s.id} className="activity-stage-item">
+                    <span className={`activity-stage-icon ${s.status === 'running' ? 'running' : 'completed'}`}>
+                      {s.status === 'running' ? <SpinnerIcon className="w-3.5 h-3.5" /> : <span style={{ color: 'var(--dam-green)', fontWeight: 'bold' }}>✓</span>}
+                    </span>
+                    <div className="activity-stage-content">
+                      <div className="activity-stage-head">
+                        <span className="activity-stage-name">{s.title}</span>
+                      </div>
+                      <div className="activity-stage-desc">{s.summary}</div>
+                      {s.details?.queries && (
+                        <div className="activity-stage-chips">
+                          {s.details.queries.map((q: string, qIdx: number) => (
+                            <span key={qIdx} className="query-chip">{q}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </details>
+        )}
+
+        {/* 2. GenSpark Top Sources Strip */}
+        {hasSources && (
+          <div className="genspark-sources-tray" aria-label="Referenced Sources">
+            <div className="genspark-sources-header">
+              <span className="sources-count-label">
+                <GlobeIcon className="w-3.5 h-3.5" />
+                <span>Sources ({meta!.sources!.length})</span>
+              </span>
+              <button
+                type="button"
+                className="sources-explorer-btn"
+                onClick={onOpenEvidence}
+                title="Open full Evidence Explorer panel"
+              >
+                <EvidenceIcon className="w-3 h-3" />
+                <span>Evidence Explorer &rarr;</span>
+              </button>
+            </div>
+            <div className="genspark-sources-scroll">
+              {meta!.sources!.map(src => (
+                <a
+                  key={src.id}
+                  href={src.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="genspark-source-chip"
+                  title={`${src.title} (${src.domain})`}
+                >
+                  <span className="source-chip-favicon">
+                    <img
+                      src={`https://www.google.com/s2/favicons?domain=${src.domain}&sz=32`}
+                      alt=""
+                      width={14}
+                      height={14}
+                      onError={e => {
+                        (e.currentTarget as HTMLElement).style.display = 'none';
+                      }}
+                    />
+                  </span>
+                  <span className="source-chip-domain">{src.domain}</span>
+                  <span className="source-chip-idx">[{src.id}]</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 3. Sleek Contextual Verdict Banner (Replaces bulky 3-card grid) */}
+        {hasVerdicts && meta?.verdicts && (
+          <div className={`sleek-verdict-banner correctness-${meta.verdicts.factualCorrectness.toLowerCase()}`}>
+            <div className="verdict-banner-badge">
+              {meta.verdicts.factualCorrectness === 'Contradicted' && '❌ Debunked / Contradicted'}
+              {meta.verdicts.factualCorrectness === 'Supported' && '✅ Officially Verified'}
+              {meta.verdicts.factualCorrectness === 'Mixed' && '⚠️ Mixed / State-Specific'}
+              {meta.verdicts.factualCorrectness === 'Unverified' && 'ℹ️ Unverified Claim'}
+            </div>
+            <div className="verdict-banner-summary">
+              {meta.verdicts.explanation?.factualRationale ||
+                (meta.verdicts.factualCorrectness === 'Contradicted'
+                  ? 'Refuted by official government notices and published gazettes.'
+                  : meta.verdicts.factualCorrectness === 'Supported'
+                  ? 'Substantiated by active statutory circulars.'
+                  : 'Evidence is insufficient to confirm or refute.')}
+            </div>
+            {meta.verdicts.scamRisk === 'High' && (
+              <span className="verdict-scam-tag">🚨 High Scam Threat</span>
+            )}
+            {meta.verdicts.scamRisk === 'Medium' && meta.verdicts.riskTriggers?.includes('Viral Misinformation Rumor') && (
+              <span className="verdict-scam-tag medium">⚠️ Viral Rumor</span>
             )}
           </div>
-        </details>
+        )}
 
-        {/* 2. Investigation Briefing Prose - Comes BELOW the loading/thinking pane */}
+        {/* 4. Investigation Briefing Prose */}
         <div className={`answer-prose ${isLive ? 'generating' : ''}`}>
           {renderMarkdown(turn.fullText || '', isLive)}
         </div>
 
-        {/* 3. Vernacular Regional Audio Advisory (Phase 4) */}
-        {!isLive && turn.fullText && (
-          <VernacularAudioPlayer
-            text={turn.fullText}
-            verdictSummary={{
-              factualCorrectness: meta?.verdicts?.factualCorrectness,
-              scamRisk: meta?.verdicts?.scamRisk,
-            }}
-          />
-        )}
-
-        {/* 3.5 THREE SEPARATE EVIDENCE VERDICTS */}
-        {meta?.verdicts && (
-          <div className="verdicts-grid revealed" aria-label="Investigation Verdicts">
-            {/* 1. Factual Correctness */}
-            <div className="verdict-card verdict-card-correctness">
-              <span className="verdict-header">Factual Correctness</span>
-              <div className={`verdict-badge ${meta.verdicts.factualCorrectness.toLowerCase()}`}>
-                <span>{meta.verdicts.factualCorrectness}</span>
-              </div>
-              <p className="verdict-notes">
-                {meta.verdicts.explanation?.factualRationale ||
-                  (meta.verdicts.factualCorrectness === 'Supported'
-                    ? 'Substantiated by published primary gazettes.'
-                    : meta.verdicts.factualCorrectness === 'Contradicted'
-                    ? 'Refuted by official regulatory notifications.'
-                    : meta.verdicts.factualCorrectness === 'Mixed'
-                    ? 'Divergent or state-specific regulatory findings.'
-                    : 'Evidence is inadequate to confirm or refute.')}
-              </p>
-            </div>
-
-            {/* 2. Threat & Scam Risk */}
-            <div className="verdict-card verdict-card-risk">
-              <span className="verdict-header">Threat & Scam Risk</span>
-              <div className={`verdict-badge risk-${meta.verdicts.scamRisk.toLowerCase()}`}>
-                <span>{meta.verdicts.scamRisk} Risk</span>
-              </div>
-              <p className="verdict-notes">
-                {meta.verdicts.explanation?.scamRationale ||
-                  (meta.verdicts.scamRisk === 'High'
-                    ? 'Active extortion or deceptive impersonation signals.'
-                    : meta.verdicts.scamRisk === 'Medium'
-                    ? 'Suspicious communication or viral rumor elements.'
-                    : 'No criminal extortion or cyber fraud indicators.')}
-              </p>
-              {meta.verdicts.riskTriggers && meta.verdicts.riskTriggers.length > 0 && (
-                <div className="verdict-triggers">
-                  {meta.verdicts.riskTriggers.slice(0, 3).map((trig, tIdx) => (
-                    <span key={tIdx} className="trigger-tag">
-                      {trig}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* 3. Evidence Sufficiency */}
-            <div className="verdict-card verdict-card-sufficiency">
-              <span className="verdict-header">Evidence Sufficiency</span>
-              <div className={`verdict-badge suff-${meta.verdicts.evidenceSufficiency.toLowerCase()}`}>
-                <span>{meta.verdicts.evidenceSufficiency}</span>
-              </div>
-              <p className="verdict-notes">
-                {meta.verdicts.explanation?.sufficiencyRationale ||
-                  (meta.verdicts.evidenceSufficiency === 'Sufficient'
-                    ? 'Corroborated by high-authority primary records.'
-                    : meta.verdicts.evidenceSufficiency === 'Partial'
-                    ? 'Partial records found; pending comprehensive gazette.'
-                    : 'Sparse or absent authoritative documentation.')}
-              </p>
-            </div>
+        {/* 5. Vernacular Audio Advisory (Expanded on user click) */}
+        {showAudio && turn.fullText && (
+          <div className="audio-player-wrapper revealed">
+            <VernacularAudioPlayer
+              text={turn.fullText}
+              verdictSummary={{
+                factualCorrectness: meta?.verdicts?.factualCorrectness,
+                scamRisk: meta?.verdicts?.scamRisk,
+              }}
+            />
           </div>
         )}
+
+        {/* 6. Deep Forensic Dossier & Regulatory Tools (Collapsible Inspector) */}
+        {!isConversational && (Boolean(meta?.statutes?.applicableStatutes?.length) || Boolean(meta?.forensics) || Boolean(meta?.incidentReport) || Boolean(meta?.documentAnalysis) || Boolean(meta?.manipulationAudit?.overallIndex) || Boolean(meta?.challengerAudit?.length) || Boolean(meta?.verdicts?.explanation)) && (
+          <details className="forensic-dossier-accordion">
+            <summary className="forensic-dossier-summary">
+              <div className="dossier-summary-left">
+                <ShieldIcon className="w-3.5 h-3.5" />
+                <strong>Forensic Dossier & Regulatory Tools</strong>
+              </div>
+              <span className="dossier-summary-hint">
+                Inspect legal clauses, Chakshu grievance kit & forensics ▾
+              </span>
+            </summary>
+            <div className="forensic-dossier-body">
 
         {/* 3.6 Structured Evidence Rationale & Source Attribution */}
         {meta?.verdicts?.explanation && (
@@ -925,38 +957,6 @@ const AssistantTurnView: React.FC<{
           );
         })()}
 
-        {/* 5. Primary Sources Strip */}
-        {meta?.sources && meta.sources.length > 0 && (
-          <div className="sources-section revealed">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <h4>Indexed Primary Sources ({meta.sources.length})</h4>
-              <button
-                type="button"
-                className="quiet-button text-link"
-                onClick={onOpenEvidence}
-              >
-                <EvidenceIcon className="w-3.5 h-3.5" />
-                <span>Open Evidence Explorer &rarr;</span>
-              </button>
-            </div>
-
-            <div className="sources-grid">
-              {meta.sources.map(src => (
-                <div key={src.id} className="source-card">
-                  <div className="source-card-head">
-                    <span className="source-domain">[{src.id}] {src.domain}</span>
-                    <span className={`source-badge ${src.type.toLowerCase().replace(/[^a-z]/g, '')}`}>{src.type}</span>
-                  </div>
-                  <a href={src.url} target="_blank" rel="noopener noreferrer" className="source-title">
-                    {src.title}
-                  </a>
-                  <div className="source-date">Published {src.date} &bull; Direct Link ↗</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* 6. Challenger Agent Audit */}
         {meta?.challengerAudit && meta.challengerAudit.length > 0 && (
           <details className="challenger-box revealed" open>
@@ -971,6 +971,10 @@ const AssistantTurnView: React.FC<{
                   <li key={ptIdx}>{pt}</li>
                 ))}
               </ul>
+            </div>
+          </details>
+        )}
+
             </div>
           </details>
         )}
@@ -1031,6 +1035,17 @@ const AssistantTurnView: React.FC<{
                 <button className="control-btn" onClick={onRetry} title="Re-evaluate investigation">
                   <RetryIcon className="w-3.5 h-3.5" /> <span>Re-evaluate</span>
                 </button>
+                {!isLive && turn.fullText && (
+                  <button
+                    type="button"
+                    className={`control-btn ${showAudio ? 'active' : ''}`}
+                    onClick={() => setShowAudio(prev => !prev)}
+                    title={showAudio ? 'Hide audio advisory' : 'Listen to regional audio advisory'}
+                  >
+                    <VolumeIcon className="w-3.5 h-3.5" />
+                    <span>{showAudio ? 'Hide Audio' : 'Listen'}</span>
+                  </button>
+                )}
                 {meta?.certificate && (
                   <button
                     type="button"

@@ -133,6 +133,66 @@ export async function POST(req: NextRequest) {
             });
           }
 
+          const plan = coordinateInvestigation(prompt, attachments);
+
+          // Handle Conversational Intent (Greetings, pleasantries, general chat)
+          if (plan.taskType === 'conversational') {
+            let streamed = false;
+            if (openaiKey) {
+              try {
+                const openai = createOpenAI({ apiKey: openaiKey });
+                const systemPrompt = `You are UseDAM, an intelligent and friendly AI verification & intelligence assistant for India.
+You specialize in fact-checking viral claims, investigating fake government circulars or gazettes (RBI, TRAI, Ministries), and detecting cyber fraud or scam communications.
+The user is having a casual conversation, greeting you, or asking general questions.
+Respond warmly, concisely, and helpfully like ChatGPT. Introduce what you can do (fact-check viral news, inspect suspicious SMS/calls, analyze circular PDFs or links), and ask how you can help them today.`;
+
+                const result = streamText({
+                  model: openai('gpt-4o-mini'),
+                  system: systemPrompt,
+                  messages: [
+                    ...history.slice(-4).map(h => ({ role: h.role, content: h.content || '' })),
+                    { role: 'user', content: prompt }
+                  ],
+                  temperature: 0.6,
+                  abortSignal: req.signal,
+                });
+
+                for await (const delta of result.textStream) {
+                  streamed = true;
+                  sendEvent('token', { text: delta });
+                }
+              } catch (err) {
+                console.warn('Conversational streaming fallback:', err);
+              }
+            }
+
+            if (!streamed) {
+              const fallbackGreeting = `Hello! I'm **UseDAM**, your AI verification and intelligence assistant.
+
+I can help you:
+- **Fact-check viral claims** & social media rumors against official Indian registries.
+- **Verify government circulars** & gazettes (RBI, TRAI, SERC, Ministries).
+- **Inspect suspicious messages, calls, or links** for scams, phishing, and APK malware.
+- **Analyze uploaded documents** (PDFs, screenshots) with forensic OCR scrutiny.
+
+How can I assist your investigation today?`;
+              for (const chunk of fallbackGreeting.split(' ')) {
+                sendEvent('token', { text: chunk + ' ' });
+                await new Promise(r => setTimeout(r, 15));
+              }
+            }
+
+            sendEvent('meta', {
+              taskType: 'conversational',
+              sources: [],
+              verdicts: null
+            });
+
+            sendEvent('done', { success: true });
+            controller.close();
+            return;
+          }
+
           // STAGE 1: Analysing Request
           sendEvent('stage', {
             id: 'analyze',
@@ -141,7 +201,6 @@ export async function POST(req: NextRequest) {
             summary: 'Decomposing assertions, regulatory entities, and jurisdictional scope...',
           });
 
-          const plan = coordinateInvestigation(prompt, attachments);
           await new Promise(r => setTimeout(r, 200));
 
           sendEvent('stage', {
@@ -275,30 +334,18 @@ export async function POST(req: NextRequest) {
           if (openaiKey) {
             try {
               const openai = createOpenAI({ apiKey: openaiKey });
-              const systemPrompt = `You are UseDAM, an evidence-first verification and intelligence assistant.
-Your goal is to provide a rigorous, objective briefing answering the user's inquiry based strictly on the provided indexed sources.
-Rules:
-1. Always cite sources inline using [1], [2], etc., matching the provided indexed sources.
-2. If evidence is inadequate, state "Unverified" and "Insufficient Evidence" honestly. Never fabricate or default unknown claims to contradicted or high risk.
-3. Structure your briefing using Markdown with:
-   ### Primary Finding
-   (Clear 2-3 sentence executive verdict citing sources, reflecting determination: ${verdicts.factualCorrectness})
-   
-   ### Evidence & Regulatory Analysis
-   (Detailed breakdown cross-referencing published notifications vs claims)
-   
-   ### Citizen Protocol & Recommended Action
-   (Actionable steps: what should the user do or avoid, where to report)
-4. ESSENTIAL FORMATTING REQUIREMENT: **Bold** all critical information that is important for the person to know immediately. Specifically, bold:
-   - The definitive verdict or threat status (e.g., **Factually Contradicted**, **Factually Supported**, **Unverified (Insufficient Evidence)**, **High-Risk Scam**)
-   - Important statutory sections or legal mandates (e.g., **Section 56 of the Indian Electricity Act**)
-   - Warning signs and red flags (e.g., **Never share OTP**, **Do not click links**, **Personal 10-digit mobile number**)
-   - Official portals, verified numbers, and contact channels (e.g., **1930 Cybercrime Helpline**, **sancharsaathi.gov.in**)
-   - Exact mandatory actions or prohibitions for the citizen.
-5. If language is specified (${lang}), respond in that language; otherwise use English.
-6. Never hallucinate. If evidence is missing, state it honestly.
-7. CRITICAL RULE FOR DOCUMENTS: Provide page-level findings and citations where relevant (e.g., [Page 1]). Never declare or conclude that a document is forged or counterfeit based solely on visual heuristics or formatting anomalies. Describe inconsistencies neutrally as anomalies requiring registry verification.
-8. CRITICAL RULE FOR WEB LINKS: If analyzing a submitted URL or web article, evaluate its factual claims, domain credibility, and security flags. Clearly state if content is private, blocked, or deleted. Warn against suspicious download payloads (.apk/.exe) or deceptive subdomains.`;
+              const systemPrompt = `You are UseDAM, an evidence-first verification and intelligence assistant for India.
+Your goal is to provide a comprehensive, objective, and beautifully synthesized intelligence briefing answering the user's inquiry based strictly on the provided indexed sources.
+
+Formatting & Tone Guidelines (Inspired by GenSpark & ChatGPT Search):
+1. Synthesize information naturally and authoritatively. Do NOT force rigid generic boilerplate headers like "Primary Finding".
+2. Start directly with the core truth, conclusion, or verification status in clear, definitive language.
+3. Organize the explanation with natural, topic-appropriate subheadings and bullet points.
+4. Always cite sources inline using [1], [2], etc., corresponding to the provided indexed sources.
+5. **Bold** critical conclusions, official regulatory portals (e.g. **rbi.org.in**, **pib.gov.in**, **1930 Cybercrime Helpline**), and key directives.
+6. If evidence is inadequate, state "Unverified" and "Insufficient Evidence" honestly. Never fabricate.
+7. If language is specified (${lang}), respond in that language; otherwise use English.
+8. For documents: note page-level circular identifiers neutrally. For web links: evaluate domain credibility and warn against APK/malware payloads.`;
 
               const sourcesText = evaluatedSources.length > 0
                 ? evaluatedSources.map(s => `[${s.id}] Domain: ${s.domain}\nTitle: ${s.title}\nDate: ${s.date}\nPassage: ${s.passage}`).join('\n\n')
@@ -352,56 +399,58 @@ Rules:
 
             if (verdicts.factualCorrectness === 'Contradicted') {
               const citations = evaluatedSources.length > 0 ? evaluatedSources.map(s => `[${s.id}]`).join('') : '';
-              fallbackMarkdown = `
-### Primary Finding
-The assertion in question is **Factually Contradicted** ${citations}. Authoritative regulatory directives and published notifications refute the claim. ${explanation?.factualRationale || ''}
+              fallbackMarkdown = `### Verification Verdict: Factually Contradicted ${citations}
 
-### Evidence & Regulatory Analysis
-DAM cross-examined the assertions against indexed regulatory records ${citations}. The evidence indicates that **official communication protocols were violated**, and the claim **does not match published government gazettes or regulatory directives**. 
+The claim in question is **refuted by authoritative regulatory directives and official records** ${citations}. ${explanation?.factualRationale ? `\n\n${explanation.factualRationale}` : ''}
 
-### Citizen Protocol & Recommended Action
+**Key Findings:**
+- Official records confirm that **no such order or policy has been issued** by the relevant government ministry or regulator ${citations}.
+- Published regulatory notifications contradict the assertions disseminated in this message.
+
+**Recommended Guidance:**
 ${verdicts.scamRisk === 'High'
-  ? '**Do not call numbers or click links in the message.** Report any suspicious sender numbers immediately to the national **Chakshu portal (sancharsaathi.gov.in)** or the **1930 Cybercrime Helpline**.'
-  : '**Do not forward rumors** or unverified third-party claims. For genuine regulatory directives, consult exclusively primary government press releases at **pib.gov.in**.'}
+  ? '⚠️ **Do not call unknown contact numbers or download links** associated with this message. Report suspicious senders immediately to the national **Chakshu portal (sancharsaathi.gov.in)** or call the **1930 Cybercrime Helpline**.'
+  : '⚠️ **Do not forward unverified social media forwards.** Always verify regulatory claims directly through primary government notifications at **pib.gov.in**.'}
               `.trim();
             } else if (verdicts.factualCorrectness === 'Supported') {
               const citations = evaluatedSources.length > 0 ? evaluatedSources.map(s => `[${s.id}]`).join('') : '';
-              fallbackMarkdown = `
-### Primary Finding
-The assertion is **Factually Supported** ${citations}. Primary published records and government notifications substantiate the claim. ${explanation?.factualRationale || ''}
+              fallbackMarkdown = `### Verification Verdict: Factually Supported ${citations}
 
-### Evidence & Regulatory Analysis
-DAM verified published circulars and official press releases from primary authorities ${citations}. The published directives confirm the specified provisions and policy terms.
+The assertion is **substantiated by published primary gazettes and official circulars** ${citations}. ${explanation?.factualRationale ? `\n\n${explanation.factualRationale}` : ''}
 
-### Citizen Protocol & Recommended Action
-**Review official gazette guidelines** and proceed in accordance with standard statutory procedures. Refer directly to official ministry portals for implementation schedules and application instructions.
+**Key Findings:**
+- Official circulars and statutory notifications substantiate the provisions mentioned ${citations}.
+- Directives have been verified against active regulatory gazette records.
+
+**Recommended Guidance:**
+Review official gazette guidelines and proceed according to standard statutory procedures on official ministry portals.
               `.trim();
             } else if (verdicts.factualCorrectness === 'Mixed') {
               const citations = evaluatedSources.length > 0 ? evaluatedSources.map(s => `[${s.id}]`).join('') : '';
-              fallbackMarkdown = `
-### Primary Finding
-The inquiry reflects **Conflicting / Mixed Evidence** ${citations}. Published records indicate differing rules, exceptions, or regional variances. ${explanation?.factualRationale || ''}
+              fallbackMarkdown = `### Verification Verdict: Mixed / State-Specific Evidence ${citations}
 
-### Evidence & Regulatory Analysis
-Cross-examination across indexed authorities reveals divergent perspectives or evolving statutory timelines ${citations}. Certain provisions remain disputed, state-specific, or under administrative review.
+The inquiry reflects **divergent or state-specific regulatory findings** ${citations}. ${explanation?.factualRationale ? `\n\n${explanation.factualRationale}` : ''}
 
-### Citizen Protocol & Recommended Action
-**Exercise caution before relying on broad interpretations.** Verify whether state-specific discom/department circulars supersede general union advisories for your specific jurisdiction.
+**Key Findings:**
+- Cross-examination shows varying enforcement timelines or state-level variances across authorities ${citations}.
+- Certain provisions are subject to local distribution company (DISCOM) or department rules.
+
+**Recommended Guidance:**
+Verify whether state-specific regulations apply to your jurisdiction before relying on general interpretations.
               `.trim();
             } else {
               // UNVERIFIED / INSUFFICIENT EVIDENCE
-              fallbackMarkdown = `
-### Primary Finding
-This claim is **Currently Unverified due to Insufficient Evidence**. No primary government gazette, statutory circular, or verified fact-check was identified to definitively substantiate or contradict this assertion.
+              fallbackMarkdown = `### Verification Finding: Factually Inconclusive (Insufficient Evidence)
 
-### Evidence & Regulatory Analysis
-${explanation?.sufficiencyRationale || 'No authoritative primary records or direct gazette publications matching this claim were identified.'}
-DAM strictly enforces **evidence-driven verification without overclaiming**: absence of direct records in indexed feeds does not establish falsehood, but prevents unwarranted certainty.
+No primary government gazette, statutory circular, or official notification was identified to substantiate or refute this specific claim.
 
-### Citizen Protocol & Recommended Action
-1. **Do not forward or treat as verified** until an official circular number or ministry notification is published.
+**Key Findings:**
+- ${explanation?.sufficiencyRationale || 'No authoritative statutory circular matching this claim was found in indexed records.'}
+- Under strict evidence-first verification, absence of official records prevents declaring certainty without authoritative confirmation.
+
+**Recommended Guidance:**
+1. **Do not treat as verified** until an official circular number is cited.
 2. Search primary portals directly at **pib.gov.in** or **india.gov.in**.
-3. If this pertains to an administrative entitlement, file an enquiry with the respective department or submit a **Right to Information (RTI)** application.
               `.trim();
             }
 

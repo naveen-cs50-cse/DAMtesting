@@ -15,6 +15,23 @@ export function coordinateInvestigation(prompt: string, attachments: Attachment[
 
   const combinedContent = `${prompt} ${extractedPieces}`.trim();
   const lower = combinedContent.toLowerCase();
+  const normalized = prompt.trim().toLowerCase().replace(/[?!.,]/g, '');
+
+  // Conversational Intent Detection (greetings, general chat, pleasantries)
+  const CONVERSATIONAL_REGEX = /^(hi|hello|hey|hii|heyy|howdy|hola|greetings|good\s+(morning|afternoon|evening|day|night)|how\s+are\s+you|who\s+are\s+you|what\s+can\s+you\s+do|what\s+is\s+your\s+name|what\s+is\s+this|help|help\s+me|thanks|thank\s+you|cool|ok|okay|bye|goodbye|tell\s+me\s+about\s+yourself)$/i;
+
+  const isConversational = attachments.length === 0 && (
+    CONVERSATIONAL_REGEX.test(normalized) ||
+    (prompt.trim().length <= 15 && /^(hi|hello|hey|yo|sup)\b/i.test(normalized))
+  );
+
+  if (isConversational) {
+    return {
+      taskType: 'conversational',
+      queries: [],
+      assertions: []
+    };
+  }
 
   let taskType: TaskType = 'verification';
   if (lower.includes('scheme') || lower.includes('policy') || lower.includes('research') || lower.includes('cert-in') || lower.includes('overview') || lower.includes('explain')) {
@@ -84,9 +101,12 @@ export function coordinateInvestigation(prompt: string, attachments: Attachment[
     queries.push('TRAI public notice fake mobile number blocking robocall');
     queries.push('Sanchar Saathi DoT cyber crime digital arrest advisory');
   } else {
-    const keySubject = prompt.trim() || extractedPieces.slice(0, 70);
-    queries.push(`${keySubject.slice(0, 70)} India fact check official circular`);
-    queries.push(`${keySubject.slice(0, 50)} PIB fact check government notification`);
+    const rawSubject = prompt.trim() || extractedPieces.slice(0, 70);
+    const cleanedSubject = rawSubject.replace(/[?!.]/g, '').trim();
+    if (cleanedSubject) {
+      queries.push(`${cleanedSubject.slice(0, 60)} India official notification`);
+      queries.push(`${cleanedSubject.slice(0, 50)} PIB fact check verification`);
+    }
   }
 
   const assertions = [

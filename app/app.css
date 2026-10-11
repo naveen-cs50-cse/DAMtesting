@@ -7205,3 +7205,251 @@ button, a, .history-item { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !im
 .composer-circle-submit-btn.can-send:hover { background: #e5e5e5 !important; transform: none !important; box-shadow: none !important; }
 .composer-circle-submit-btn.stop-state { background: #fff !important; color: #000 !important; box-shadow: none !important; }
 
+/* =====================================================================
+   GENSPARK / CHATGPT MODERN SOURCE TRAY & SLEEK VERDICT BANNER
+   ===================================================================== */
+.genspark-sources-tray {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+}
+
+.genspark-sources-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--dam-text-muted);
+}
+
+.sources-count-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sources-explorer-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  color: var(--dam-text-muted);
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: color 0.15s ease;
+  padding: 0;
+}
+
+.sources-explorer-btn:hover {
+  color: var(--dam-text);
+}
+
+.genspark-sources-scroll {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+.genspark-sources-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+
+.genspark-sources-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+.genspark-source-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--dam-text);
+  text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.15s ease;
+}
+
+.genspark-source-chip:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.source-chip-favicon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.source-chip-favicon img {
+  width: 14px;
+  height: 14px;
+  object-fit: cover;
+}
+
+.source-chip-domain {
+  font-weight: 500;
+  color: var(--dam-text);
+}
+
+.source-chip-idx {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--dam-text-muted);
+}
+
+/* Sleek Contextual Verdict Banner */
+.sleek-verdict-banner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  margin-bottom: 14px;
+  font-size: 12.5px;
+}
+
+.sleek-verdict-banner.correctness-contradicted {
+  border-left: 3px solid #ef4444;
+  background: rgba(239, 68, 68, 0.04);
+}
+
+.sleek-verdict-banner.correctness-supported {
+  border-left: 3px solid #22c55e;
+  background: rgba(34, 197, 94, 0.04);
+}
+
+.sleek-verdict-banner.correctness-mixed {
+  border-left: 3px solid #f59e0b;
+  background: rgba(245, 158, 11, 0.04);
+}
+
+.sleek-verdict-banner.correctness-unverified {
+  border-left: 3px solid #71717a;
+  background: rgba(113, 113, 122, 0.04);
+}
+
+.verdict-banner-badge {
+  font-size: 12px;
+  font-weight: 650;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--dam-text);
+  white-space: nowrap;
+}
+
+.verdict-banner-summary {
+  flex: 1;
+  min-width: 200px;
+  color: var(--dam-text-muted);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.verdict-scam-tag {
+  font-size: 11px;
+  font-weight: 650;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.verdict-scam-tag.medium {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fcd34d;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+/* Audio Player Wrapper */
+.audio-player-wrapper {
+  margin-top: 12px;
+  margin-bottom: 12px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(20, 20, 25, 0.7);
+}
+
+/* Collapsible Forensic Dossier Accordion */
+.forensic-dossier-accordion {
+  margin-top: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  background: rgba(18, 18, 22, 0.4);
+  overflow: hidden;
+  transition: border-color 0.2s ease;
+}
+
+.forensic-dossier-accordion:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.forensic-dossier-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+  color: var(--dam-text-muted);
+  background: rgba(255, 255, 255, 0.02);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.forensic-dossier-summary:hover {
+  color: var(--dam-text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.dossier-summary-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--dam-text);
+}
+
+.dossier-summary-hint {
+  font-size: 11.5px;
+  color: var(--dam-text-muted);
+}
+
+.forensic-dossier-body {
+  padding: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+

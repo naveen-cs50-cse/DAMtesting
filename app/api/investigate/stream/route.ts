@@ -16,6 +16,47 @@ import { createStructuredErrorResponse, ERROR_CODES } from '@/lib/security/error
 import { createRequestLogger } from '@/lib/security/logger';
 import { createOpenAI } from '@ai-sdk/openai';
 import { streamText } from 'ai';
+import { evaluateClaimWithAI } from '@/lib/investigation/aiChallenger';
+import fs from 'fs';
+import path from 'path';
+
+function getEffectiveOpenAIKey(explicitKey?: string): string {
+  let key = explicitKey?.trim() || process.env.OPENAI_API_KEY?.trim() || '';
+  if (!key.startsWith('sk-')) {
+    try {
+      const envPath = path.resolve(process.cwd(), '.env');
+      if (fs.existsSync(envPath)) {
+        const content = fs.readFileSync(envPath, 'utf-8');
+        const match = content.match(/^OPENAI_API_KEY=(.+)$/m);
+        if (match && match[1]?.trim().startsWith('sk-')) {
+          key = match[1].trim();
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return key;
+}
+
+function getEffectiveTavilyKey(explicitKey?: string): string {
+  let key = explicitKey?.trim() || process.env.TAVILY_API_KEY?.trim() || '';
+  if (!key || !key.startsWith('tvly-')) {
+    try {
+      const envPath = path.resolve(process.cwd(), '.env');
+      if (fs.existsSync(envPath)) {
+        const content = fs.readFileSync(envPath, 'utf-8');
+        const match = content.match(/^TAVILY_API_KEY=(.+)$/m);
+        if (match && match[1]?.trim()) {
+          key = match[1].trim();
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return key;
+}
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -81,8 +122,8 @@ export async function POST(req: NextRequest) {
     const attachments: Attachment[] = (validation.data.attachments as Attachment[]) || [];
     const lang = (data.lang as string) || 'auto';
     const history: ChatTurn[] = (data.history as ChatTurn[]) || [];
-    const openaiKey = (data.apiKey as string) || process.env.OPENAI_API_KEY;
-    const tavilyKey = (data.tavilyKey as string) || process.env.TAVILY_API_KEY;
+    const openaiKey = getEffectiveOpenAIKey((data.apiKey as string) || undefined);
+    const tavilyKey = getEffectiveTavilyKey((data.tavilyKey as string) || undefined);
 
     // Record estimated token spend
     recordProviderSpend(clientIdentity.clientId, clientIdentity.tier, 2500);
@@ -311,13 +352,61 @@ How can I assist your investigation today?`;
             urlAnalysis: primaryUrlAnalysis,
           });
 
-          await new Promise(r => setTimeout(r, 250));
+          // AI Adversarial Fact-Checking Challenger using OpenAI API
+          if (openaiKey && prompt.trim()) {
+            try {
+              const aiVerdict = await evaluateClaimWithAI(prompt, openaiKey, {
+                extractedAttachmentText: extractedTextFromAttachments,
+                existingSourcesCount: evaluatedSources.length,
+                sourcesSummary: evaluatedSources.slice(0, 3).map(s => `${s.domain}: ${s.passage.slice(0, 100)}`).join('; ')
+              });
+
+              if (aiVerdict) {
+                verdicts.verdictStatus = aiVerdict.verdictStatus;
+                verdicts.factualCorrectness = aiVerdict.factualCorrectness;
+
+                if (aiVerdict.scamRisk === 'High') {
+                  verdicts.scamRisk = 'High';
+                  if (!verdicts.riskTriggers.includes('Active Phishing / Extortion Scam')) {
+                    verdicts.riskTriggers.push('Active Phishing / Extortion Scam');
+                  }
+                } else if (aiVerdict.verdictStatus === 'false' && verdicts.scamRisk === 'Low') {
+                  verdicts.scamRisk = 'Medium';
+                  if (!verdicts.riskTriggers.includes('Viral Misinformation Rumor')) {
+                    verdicts.riskTriggers.push('Viral Misinformation Rumor');
+                  }
+                }
+
+                if (aiVerdict.explanation) {
+                  if (explanation) {
+                    explanation.factualRationale = aiVerdict.explanation;
+                    explanation.summary = `Determination: ${aiVerdict.factualCorrectness} (Threat: ${verdicts.scamRisk} Risk). ${aiVerdict.explanation}`;
+                  }
+                }
+
+                if (claims && claims.length > 0) {
+                  claims[0].label = aiVerdict.factualCorrectness;
+                  if (aiVerdict.verdictStatus === 'false') {
+                    claims[0].contradicting = aiVerdict.explanation;
+                  } else if (aiVerdict.verdictStatus === 'right') {
+                    claims[0].supporting = aiVerdict.explanation;
+                  }
+                }
+
+                challengerAudit.unshift(`AI Fact-Check: ${aiVerdict.explanation}`);
+              }
+            } catch (aiErr) {
+              console.warn('AI Challenger evaluation skipped:', aiErr);
+            }
+          }
+
+          await new Promise(r => setTimeout(r, 200));
 
           sendEvent('stage', {
             id: 'challenger',
             title: 'Adversarial Challenger Verification',
             status: 'completed',
-            summary: `Evidence-driven audit complete: ${verdicts.factualCorrectness} (Sufficiency: ${verdicts.evidenceSufficiency}, Threat: ${verdicts.scamRisk} Risk).`,
+            summary: `Audit complete: ${verdicts.factualCorrectness} (${verdicts.verdictStatus === 'right' ? '✔ Verified' : verdicts.verdictStatus === 'false' ? '✖ False' : '⚪ Unverified'}, Threat: ${verdicts.scamRisk} Risk).`,
             details: { challengerAudit, explanation },
           });
 
@@ -335,17 +424,19 @@ How can I assist your investigation today?`;
             try {
               const openai = createOpenAI({ apiKey: openaiKey });
               const systemPrompt = `You are UseDAM, an evidence-first verification and intelligence assistant for India.
-Your goal is to provide a comprehensive, objective, and beautifully synthesized intelligence briefing answering the user's inquiry based strictly on the provided indexed sources.
+Your goal is to provide a comprehensive, objective, and beautifully synthesized intelligence briefing answering the user's inquiry based on authoritative facts.
 
-Formatting & Tone Guidelines (Inspired by GenSpark & ChatGPT Search):
-1. Synthesize information naturally and authoritatively. Do NOT force rigid generic boilerplate headers like "Primary Finding".
-2. Start directly with the core truth, conclusion, or verification status in clear, definitive language.
-3. Organize the explanation with natural, topic-appropriate subheadings and bullet points.
-4. Always cite sources inline using [1], [2], etc., corresponding to the provided indexed sources.
+CRITICAL DIRECTIVES:
+1. Start directly with the core truth, conclusion, or verification status in clear, decisive language:
+   - If the claim is factually false or debunked (e.g. death rumors of living leaders like PM Modi, false currency bans, extortion scams), declare decisively in the very first sentence that the claim is **FALSE / A RUMOR / A FRAUDULENT SCAM**. Explain the real facts immediately.
+   - If the claim is factually true, confirm decisively in the first sentence that the assertion is **TRUE / OFFICIALLY VERIFIED**.
+   - If evidence is genuinely unverified or inconclusive, state "Unverified" and "Pending Official Notice" honestly.
+2. Synthesize information naturally and authoritatively. Do NOT force rigid generic boilerplate headers like "Primary Finding".
+3. Organize the explanation with natural, topic-appropriate subheadings and bullet points (e.g. "Current Regulatory Status", "Official Facts", "Actionable Guidance").
+4. Always cite sources inline using [1], [2], etc., corresponding to indexed sources where available.
 5. **Bold** critical conclusions, official regulatory portals (e.g. **rbi.org.in**, **pib.gov.in**, **1930 Cybercrime Helpline**), and key directives.
-6. If evidence is inadequate, state "Unverified" and "Insufficient Evidence" honestly. Never fabricate.
-7. If language is specified (${lang}), respond in that language; otherwise use English.
-8. For documents: note page-level circular identifiers neutrally. For web links: evaluate domain credibility and warn against APK/malware payloads.`;
+6. If language is specified (${lang}), respond in that language; otherwise use English.
+7. For documents: note page-level circular identifiers neutrally. For web links: evaluate domain credibility and warn against APK/malware payloads.`;
 
               const sourcesText = evaluatedSources.length > 0
                 ? evaluatedSources.map(s => `[${s.id}] Domain: ${s.domain}\nTitle: ${s.title}\nDate: ${s.date}\nPassage: ${s.passage}`).join('\n\n')
@@ -364,8 +455,9 @@ Formatting & Tone Guidelines (Inspired by GenSpark & ChatGPT Search):
                 urlText,
                 `\nTask Type: ${plan.taskType}`,
                 `\nAssessed Factual Correctness: ${verdicts.factualCorrectness}`,
-                `\nAssessed Evidence Sufficiency: ${verdicts.evidenceSufficiency}`,
+                `\nAssessed Verdict Status: ${verdicts.verdictStatus || 'evaluated'}`,
                 `\nAssessed Threat Level: ${verdicts.scamRisk} Risk`,
+                `\nCore Truth / Fact-Check Finding: ${explanation?.factualRationale || 'See sources'}`,
                 `\n\nIndexed Sources:\n${sourcesText}`,
                 `\n\nDraft the comprehensive evidence briefing:`
               ].join('');

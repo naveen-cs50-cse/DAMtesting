@@ -14,7 +14,7 @@ import { RenameModal } from './modals/RenameModal';
 import { ShareModal } from './modals/ShareModal';
 import { FolderModal } from './modals/FolderModal';
 import { MoveToFolderModal } from './modals/MoveToFolderModal';
-import { Attachment, Conversation, Folder, IndexedSource, ChatTurn, ActivityStage, InvestigationMeta } from '@/lib/investigation/types';
+import { Attachment, Conversation, Folder, IndexedSource, ChatTurn, ActivityStage, InvestigationMeta, getQueryVerdictStatus } from '@/lib/investigation/types';
 import { generateSmartTitle } from '@/lib/investigation/naming';
 
 export const InvestigationWorkspace: React.FC = () => {
@@ -403,8 +403,8 @@ export const InvestigationWorkspace: React.FC = () => {
           mode: activeMode,
           lang: activeLang,
           history: historyPayload,
-          apiKey: localStorage.getItem('dam-openai-key') || undefined,
-          tavilyKey: localStorage.getItem('dam-tavily-key') || undefined,
+          // apiKey: localStorage.getItem('dam-openai-key') || undefined,
+          // tavilyKey: localStorage.getItem('dam-tavily-key') || undefined,
         }),
       });
 
@@ -472,6 +472,13 @@ export const InvestigationWorkspace: React.FC = () => {
                 turns: c.turns.map(t => t.id === assistantTurnId ? { ...t, meta: currentMeta } : t)
               };
             }));
+
+            // Immediately trigger ambient backlight flash upon verdict determination
+            const status = currentMeta?.verdicts?.verdictStatus || getQueryVerdictStatus(currentMeta);
+            if (status) {
+              setAmbientGlow(status);
+              setTimeout(() => setAmbientGlow(null), 3200);
+            }
           } else if (eventType === 'done') {
             const smartTitle = generateSmartTitle(promptToSend, currentMeta);
             setConversations(prev => {
@@ -537,8 +544,32 @@ export const InvestigationWorkspace: React.FC = () => {
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
+  const latestAssistantTurn = activeConversation?.turns?.filter(t => t.role === 'assistant').slice(-1)[0];
+  const activeVerdictStatus = latestAssistantTurn?.meta?.verdicts?.verdictStatus || getQueryVerdictStatus(latestAssistantTurn?.meta);
+
+  // Ambient background flash when a verdict (right / false / unverified) is decided
+  const [ambientGlow, setAmbientGlow] = useState<'right' | 'false' | 'unverified' | null>(null);
+
+  useEffect(() => {
+    if (activeVerdictStatus) {
+      setAmbientGlow(activeVerdictStatus);
+      const timer = setTimeout(() => {
+        setAmbientGlow(null);
+      }, 3200); // Ambient backlight blooms for 3.2 seconds then fades
+      return () => clearTimeout(timer);
+    }
+  }, [activeId, activeVerdictStatus]);
+
   return (
     <div className={`app-shell${mobileMenuOpen ? ' menu-open' : ''} ${sidebarOpen ? '' : 'sidebar-closed'}`} id="appShell">
+      {/* Ambient backlight glow overlay that flashes across the entire screen and background when a verdict arrives */}
+      {ambientGlow && (
+        <div
+          className={`ambient-verdict-backdrop active glow-${ambientGlow}`}
+          aria-hidden="true"
+        />
+      )}
+
       {/* Mobile backdrop: tapping outside sidebar closes it */}
       {mobileMenuOpen && (
         <div
@@ -597,6 +628,7 @@ export const InvestigationWorkspace: React.FC = () => {
           }}
           onOpenShare={() => setShareModalOpen(true)}
           sidebarOpen={sidebarOpen}
+          verdictStatus={activeVerdictStatus}
         />
 
         <section className="workspace-fixed-layout" id="workspace">

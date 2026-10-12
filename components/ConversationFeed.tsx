@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ChatTurn } from '@/lib/investigation/types';
+import { ChatTurn, getQueryVerdictStatus } from '@/lib/investigation/types';
 import { CopyIcon, EvidenceIcon, FileIcon, GlobeIcon, RetryIcon, ShieldIcon, SpinnerIcon, StopIcon, VolumeIcon } from './icons';
 import { VernacularAudioPlayer } from './VernacularAudioPlayer';
 import { CertificateModal } from './CertificateModal';
@@ -166,6 +166,7 @@ const AssistantTurnView: React.FC<{
   const isConversational = meta?.taskType === 'conversational';
   const hasSources = Boolean(meta?.sources && meta.sources.length > 0);
   const hasVerdicts = Boolean(meta?.verdicts && !isConversational);
+  const turnVerdictStatus = meta?.verdicts?.verdictStatus || getQueryVerdictStatus(meta);
   const isAuditOpen = isLive ? true : userExpandedAudit;
 
   const handleCopy = () => {
@@ -184,7 +185,7 @@ const AssistantTurnView: React.FC<{
 
   return (
     <div className={`chat-turn assistant-row${isLive ? ' live-turn' : ''}`} id={`turn-${turn.id}`}>
-      <div className="assistant-turn">
+      <div className={`assistant-turn${turnVerdictStatus ? ` turn-verdict-${turnVerdictStatus}` : ''}`}>
 
         {/* 1. Investigation Audit Trail (Only for non-conversational queries) */}
         {!isConversational && (
@@ -250,6 +251,36 @@ const AssistantTurnView: React.FC<{
           </details>
         )}
 
+        {/* 1.5 Top Chat Decision Indicator (✔ Tick / ✖ Cross / ⚪ White Dot) */}
+        {hasVerdicts && turnVerdictStatus && (
+          <div className={`top-chat-decision-bar status-${turnVerdictStatus}`}>
+            <div className="decision-bar-left">
+              <span className={`decision-icon-badge ${turnVerdictStatus}`}>
+                {turnVerdictStatus === 'right' && '✔'}
+                {turnVerdictStatus === 'false' && '✖'}
+                {turnVerdictStatus === 'unverified' && <span className="decision-white-dot" />}
+              </span>
+              <div className="decision-bar-texts">
+                <span className="decision-bar-title">
+                  {turnVerdictStatus === 'right' && 'Verified Correct'}
+                  {turnVerdictStatus === 'false' && (meta?.verdicts?.scamRisk === 'High' ? 'Malicious Scam Threat' : 'False / Debunked Rumor')}
+                  {turnVerdictStatus === 'unverified' && 'Needs Verification'}
+                </span>
+                <span className="decision-bar-desc">
+                  {turnVerdictStatus === 'right' && 'Substantiated by active statutory circulars & official gazettes.'}
+                  {turnVerdictStatus === 'false' && (meta?.verdicts?.scamRisk === 'High' ? 'Flagged as high-risk unauthorized threat / cyber extortion vector.' : 'Refuted by official government fact-checks and regulatory notices.')}
+                  {turnVerdictStatus === 'unverified' && 'Pending primary regulatory gazette notice; evidence remains inconclusive.'}
+                </span>
+              </div>
+            </div>
+            <div className={`decision-pill-tag ${turnVerdictStatus}`}>
+              {turnVerdictStatus === 'right' && 'AUTHENTIC'}
+              {turnVerdictStatus === 'false' && (meta?.verdicts?.scamRisk === 'High' ? 'SCAM' : 'DEBUNKED')}
+              {turnVerdictStatus === 'unverified' && 'INCONCLUSIVE'}
+            </div>
+          </div>
+        )}
+
         {/* 2. GenSpark Top Sources Strip */}
         {hasSources && (
           <div className="genspark-sources-tray" aria-label="Referenced Sources">
@@ -301,10 +332,14 @@ const AssistantTurnView: React.FC<{
         {hasVerdicts && meta?.verdicts && (
           <div className={`sleek-verdict-banner correctness-${meta.verdicts.factualCorrectness.toLowerCase()}`}>
             <div className="verdict-banner-badge">
-              {meta.verdicts.factualCorrectness === 'Contradicted' && '❌ Debunked / Contradicted'}
-              {meta.verdicts.factualCorrectness === 'Supported' && '✅ Officially Verified'}
-              {meta.verdicts.factualCorrectness === 'Mixed' && '⚠️ Mixed / State-Specific'}
-              {meta.verdicts.factualCorrectness === 'Unverified' && 'ℹ️ Unverified Claim'}
+              {turnVerdictStatus === 'right' && '✔ Officially Verified'}
+              {turnVerdictStatus === 'false' && (meta.verdicts.scamRisk === 'High' ? '✖ High Scam Threat' : '✖ Debunked / Contradicted')}
+              {turnVerdictStatus === 'unverified' && (
+                <>
+                  <span className="verdict-white-dot-inline" />
+                  <span>Needs Verification</span>
+                </>
+              )}
             </div>
             <div className="verdict-banner-summary">
               {meta.verdicts.explanation?.factualRationale ||

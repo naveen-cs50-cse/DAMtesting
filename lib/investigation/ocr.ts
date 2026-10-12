@@ -1,6 +1,8 @@
 import { generateText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { ThreatEntities } from './types';
+import fs from 'fs';
+import path from 'path';
 
 export interface OcrResult {
   text: string;
@@ -40,7 +42,21 @@ export async function performOcr(
   mimeType: string,
   apiKey?: string
 ): Promise<OcrResult> {
-  const key = apiKey || process.env.OPENAI_API_KEY;
+  let key = apiKey?.trim() || process.env.OPENAI_API_KEY?.trim() || '';
+  if (!key.startsWith('sk-')) {
+    try {
+      const envPath = path.resolve(process.cwd(), '.env');
+      if (fs.existsSync(envPath)) {
+        const content = fs.readFileSync(envPath, 'utf-8');
+        const match = content.match(/^OPENAI_API_KEY=(.+)$/m);
+        if (match && match[1]?.trim().startsWith('sk-')) {
+          key = match[1].trim();
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
 
   if (!key) {
     return {

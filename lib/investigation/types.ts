@@ -190,6 +190,7 @@ export interface InvestigationVerdicts {
   evidenceSufficiency: EvidenceSufficiency;
   riskTriggers: string[];
   explanation?: VerdictExplanation;
+  verdictStatus?: QueryVerdictStatus;
 }
 
 export interface ActivityStage {
@@ -253,4 +254,26 @@ export interface Conversation {
   turns: ChatTurn[];
   isPinned?: boolean;
   folderId?: string | null;
+}
+
+export type QueryVerdictStatus = 'right' | 'false' | 'unverified';
+
+export function getQueryVerdictStatus(meta?: InvestigationMeta | null): QueryVerdictStatus | null {
+  if (!meta || meta.taskType === 'conversational' || !meta.verdicts) return null;
+  if (meta.verdicts.verdictStatus) return meta.verdicts.verdictStatus;
+  const { factualCorrectness, scamRisk, riskTriggers } = meta.verdicts;
+
+  if (
+    factualCorrectness === 'Contradicted' ||
+    scamRisk === 'High' ||
+    (riskTriggers && riskTriggers.length > 0 && scamRisk === 'Medium' && riskTriggers.includes('Viral Misinformation Rumor'))
+  ) {
+    return 'false';
+  }
+
+  if (factualCorrectness === 'Supported') {
+    return 'right';
+  }
+
+  return 'unverified';
 }

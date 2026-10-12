@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Conversation, Folder } from '@/lib/investigation/types';
+import { Conversation, Folder, getQueryVerdictStatus } from '@/lib/investigation/types';
 import { EvidenceIcon, ShieldIcon } from './icons';
 
 interface SidebarProps {
@@ -154,6 +154,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   });
 
   const renderConversationItem = (item: Conversation) => {
+    const latestAssistant = item.turns?.filter(t => t.role === 'assistant').slice(-1)[0];
+    const status = getQueryVerdictStatus(latestAssistant?.meta);
+
     return (
       <div
         key={item.id}
@@ -167,9 +170,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={() => onSelectConversation(item.id)}
           title={item.title}
         >
-          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" className="history-item-icon" aria-hidden="true">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-          </svg>
+          {status === 'right' && (
+            <span className="sidebar-verdict-tag right" title="Verified Correct">✔</span>
+          )}
+          {status === 'false' && (
+            <span className="sidebar-verdict-tag false" title="False / Debunked / Scam">✖</span>
+          )}
+          {status === 'unverified' && (
+            <span className="sidebar-verdict-tag unverified" title="Needs Verification">
+              <span className="sidebar-white-dot" />
+            </span>
+          )}
+          {!status && (
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" className="history-item-icon" aria-hidden="true">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+          )}
           <div className="history-text-col" style={{ width: '100%', overflow: 'hidden' }}>
             <span className="history-title-text" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', fontSize: '13px', lineHeight: '1.2' }}>
               {item.title}

@@ -44,8 +44,12 @@ export const Composer: React.FC<ComposerProps> = ({
   const screenshotInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const attachMenuRef = useRef<HTMLDivElement>(null);
+  const modeMenuRef = useRef<HTMLDivElement>(null);
+  const langMenuRef = useRef<HTMLDivElement>(null);
 
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
+  const [modeMenuOpen, setModeMenuOpen] = useState(false);
+  const [langMenuOpen, setLangMenuOpen] = useState(false);
   const [isListening, setIsListening] = useState(false);
 
   // Auto-resize textarea to fit text (min 28px, max 160px)
@@ -57,20 +61,27 @@ export const Composer: React.FC<ComposerProps> = ({
     }
   }, [input]);
 
-  // Close attachment menu when clicking outside
+  // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (attachMenuRef.current && !attachMenuRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (attachMenuRef.current && !attachMenuRef.current.contains(target)) {
         setAttachMenuOpen(false);
       }
+      if (modeMenuRef.current && !modeMenuRef.current.contains(target)) {
+        setModeMenuOpen(false);
+      }
+      if (langMenuRef.current && !langMenuRef.current.contains(target)) {
+        setLangMenuOpen(false);
+      }
     };
-    if (attachMenuOpen) {
+    if (attachMenuOpen || modeMenuOpen || langMenuOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [attachMenuOpen]);
+  }, [attachMenuOpen, modeMenuOpen, langMenuOpen]);
 
   const handleFileUpload = (files: FileList | null) => {
     if (!files) return;
@@ -205,6 +216,58 @@ export const Composer: React.FC<ComposerProps> = ({
   };
 
   const canSend = (input.trim().length > 0 || attachments.length > 0) && !isStreaming;
+
+  const modeOptions = [
+    {
+      value: 'evidence',
+      title: 'Evidence Mode (Strict)',
+      badge: 'Strict',
+      badgeColor: '#3b82f6',
+      icon: (
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-400">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+      ),
+      description: 'Gazettes, official circulars & primary Indian registries only'
+    },
+    {
+      value: 'quick',
+      title: 'Quick Check (Triage)',
+      badge: 'Fast',
+      badgeColor: '#eab308',
+      icon: (
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+      ),
+      description: 'Rapid threat classification & immediate scam triage'
+    },
+    {
+      value: 'deep',
+      title: 'Deep Investigation',
+      badge: 'Forensic',
+      badgeColor: '#a855f7',
+      icon: (
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" className="text-purple-400">
+          <circle cx="11" cy="11" r="8"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          <line x1="11" y1="8" x2="11" y2="14"/>
+          <line x1="8" y1="11" x2="14" y2="11"/>
+        </svg>
+      ),
+      description: 'Multi-source forensic audit with legal certificate & dossier'
+    }
+  ];
+
+  const languageOptions = [
+    { value: 'auto', label: 'Auto-detect', native: 'Default / Match Input', icon: '🌐' },
+    { value: 'en', label: 'English', native: 'Official English Briefing', icon: '🇬🇧' },
+    { value: 'hi', label: 'हिन्दी', native: 'हिंदी में विस्तृत जांच ब्रीफिंग', icon: '🇮🇳' },
+    { value: 'mr', label: 'मराठी', native: 'मराठीत कायदेशीर स्पष्टीकरण', icon: '🇮🇳' },
+    { value: 'ta', label: 'தமிழ்', native: 'தமிழில் சரிபார்ப்பு அறிக்கை', icon: '🇮🇳' },
+    { value: 'bn', label: 'বাংলা', native: 'বাংলায় সত্যতা যাচাই ও বিশ্লেষণ', icon: '🇮🇳' },
+    { value: 'te', label: 'తెలుగు', native: 'తెలుగులో అధికారిక నివేదిక', icon: '🇮🇳' },
+  ];
 
   const modeLabels: Record<string, string> = {
     evidence: 'Evidence Mode (Strict)',
@@ -408,44 +471,149 @@ export const Composer: React.FC<ComposerProps> = ({
 
           {/* Right: Model selector pill, Language pill, Mic, Send */}
           <div className="composer-right-actions">
-            {/* Model / Mode Selector Pill */}
-            <div className="composer-model-pill" title="Investigation reasoning mode">
-              <span>{modeLabels[activeMode] || 'Evidence Mode'}</span>
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="m6 9 6 6 6-6"/>
-              </svg>
-              <select
-                value={activeMode}
-                onChange={e => setActiveMode(e.target.value)}
-                className="composer-pill-select"
-                aria-label="Investigation mode"
+            {/* Custom Animated Model / Mode Selector Pill */}
+            <div className="composer-menu-wrapper" ref={modeMenuRef}>
+              <button
+                type="button"
+                className={`composer-model-pill ${modeMenuOpen ? 'open' : ''}`}
+                title="Investigation reasoning mode"
+                onClick={() => {
+                  setModeMenuOpen(prev => !prev);
+                  setLangMenuOpen(false);
+                  setAttachMenuOpen(false);
+                }}
               >
-                <option value="evidence">Evidence Mode (Strict)</option>
-                <option value="quick">Quick Check (Triage)</option>
-                <option value="deep">Deep Investigation</option>
-              </select>
+                <span className="pill-dot" />
+                <span>{modeLabels[activeMode] || 'Evidence Mode'}</span>
+                <svg
+                  viewBox="0 0 24 24"
+                  width="12"
+                  height="12"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  className={`pill-chevron ${modeMenuOpen ? 'chevron-rotated' : ''}`}
+                >
+                  <path d="m6 9 6 6 6-6"/>
+                </svg>
+              </button>
+
+              {modeMenuOpen && (
+                <div className="custom-dropdown-popover mode-dropdown-popover">
+                  <div className="dropdown-popover-header">
+                    <span>REASONING MODE</span>
+                    <span className="dropdown-popover-tag">AI CORE</span>
+                  </div>
+                  <div className="dropdown-options-list">
+                    {modeOptions.map(opt => {
+                      const isSelected = activeMode === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          className={`custom-dropdown-item ${isSelected ? 'selected' : ''}`}
+                          onClick={() => {
+                            setActiveMode(opt.value);
+                            setModeMenuOpen(false);
+                          }}
+                        >
+                          <div className="dropdown-item-icon-wrap">
+                            {opt.icon}
+                          </div>
+                          <div className="dropdown-item-text">
+                            <div className="dropdown-item-title-row">
+                              <span className="dropdown-item-title">{opt.title}</span>
+                              <span
+                                className="dropdown-item-badge"
+                                style={{
+                                  borderColor: `${opt.badgeColor}40`,
+                                  color: opt.badgeColor,
+                                  backgroundColor: `${opt.badgeColor}15`
+                                }}
+                              >
+                                {opt.badge}
+                              </span>
+                            </div>
+                            <span className="dropdown-item-desc">{opt.description}</span>
+                          </div>
+                          {isSelected && (
+                            <div className="dropdown-item-check">
+                              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <polyline points="20 6 9 17 4 12"/>
+                              </svg>
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Language Selector Pill */}
-            <div className="composer-lang-pill" title="Output language">
-              <span>{activeLang === 'auto' ? 'Auto' : activeLang.toUpperCase()}</span>
-              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="m6 9 6 6 6-6"/>
-              </svg>
-              <select
-                value={activeLang}
-                onChange={e => setActiveLang(e.target.value)}
-                className="composer-pill-select"
-                aria-label="Output language"
+            {/* Custom Animated Language Selector Pill */}
+            <div className="composer-menu-wrapper" ref={langMenuRef}>
+              <button
+                type="button"
+                className={`composer-lang-pill ${langMenuOpen ? 'open' : ''}`}
+                title="Output language"
+                onClick={() => {
+                  setLangMenuOpen(prev => !prev);
+                  setModeMenuOpen(false);
+                  setAttachMenuOpen(false);
+                }}
               >
-                <option value="auto">Auto-detect</option>
-                <option value="en">English</option>
-                <option value="hi">हिन्दी (Hindi)</option>
-                <option value="mr">मराठी (Marathi)</option>
-                <option value="ta">தமிழ் (Tamil)</option>
-                <option value="bn">বাংলা (Bengali)</option>
-                <option value="te">తెలుగు (Telugu)</option>
-              </select>
+                <span>{languageOptions.find(l => l.value === activeLang)?.label || 'Auto'}</span>
+                <svg
+                  viewBox="0 0 24 24"
+                  width="12"
+                  height="12"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  className={`pill-chevron ${langMenuOpen ? 'chevron-rotated' : ''}`}
+                >
+                  <path d="m6 9 6 6 6-6"/>
+                </svg>
+              </button>
+
+              {langMenuOpen && (
+                <div className="custom-dropdown-popover lang-dropdown-popover">
+                  <div className="dropdown-popover-header">
+                    <span>OUTPUT VERNACULAR</span>
+                    <span className="dropdown-popover-tag">MULTI-LINGUAL</span>
+                  </div>
+                  <div className="dropdown-options-list">
+                    {languageOptions.map(l => {
+                      const isSelected = activeLang === l.value;
+                      return (
+                        <button
+                          key={l.value}
+                          type="button"
+                          className={`custom-dropdown-item lang-item ${isSelected ? 'selected' : ''}`}
+                          onClick={() => {
+                            setActiveLang(l.value);
+                            setLangMenuOpen(false);
+                          }}
+                        >
+                          <span className="lang-flag">{l.icon}</span>
+                          <div className="dropdown-item-text">
+                            <span className="dropdown-item-title">{l.label}</span>
+                            <span className="dropdown-item-desc">{l.native}</span>
+                          </div>
+                          {isSelected && (
+                            <div className="dropdown-item-check">
+                              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <polyline points="20 6 9 17 4 12"/>
+                              </svg>
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Microphone / Voice Input Button */}

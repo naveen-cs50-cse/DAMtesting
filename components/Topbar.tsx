@@ -1,8 +1,9 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { EvidenceIcon } from './icons';
+import { QueryVerdictStatus } from '@/lib/investigation/types';
 
 interface TopbarProps {
   title: string;
@@ -15,6 +16,7 @@ interface TopbarProps {
   onMobileMenuToggle: () => void;
   onOpenShare?: () => void;
   sidebarOpen?: boolean;
+  verdictStatus?: QueryVerdictStatus | null;
 }
 
 export const Topbar: React.FC<TopbarProps> = ({
@@ -28,7 +30,13 @@ export const Topbar: React.FC<TopbarProps> = ({
   onMobileMenuToggle,
   onOpenShare,
   sidebarOpen = true,
+  verdictStatus,
 }) => {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   return (
     <header className="topbar">
       <div className="topbar-left">
@@ -88,6 +96,26 @@ export const Topbar: React.FC<TopbarProps> = ({
               </span>
             </>
           )}
+
+          {/* Top chat verdict indicator */}
+          {verdictStatus === 'right' && (
+            <span className="topbar-verdict-pill right" title="Query Verified: Correct & Authentic">
+              <span className="verdict-symbol">✔</span>
+              <span>Correct</span>
+            </span>
+          )}
+          {verdictStatus === 'false' && (
+            <span className="topbar-verdict-pill false" title="Query Debunked: False / Scam Threat">
+              <span className="verdict-symbol">✖</span>
+              <span>False</span>
+            </span>
+          )}
+          {verdictStatus === 'unverified' && (
+            <span className="topbar-verdict-pill unverified" title="Status: Needs Primary Verification">
+              <span className="verdict-symbol-dot" />
+              <span>Need Verification</span>
+            </span>
+          )}
         </div>
       </div>
 
@@ -105,10 +133,11 @@ export const Topbar: React.FC<TopbarProps> = ({
           className="quiet-button"
           onClick={onToggleEvidence}
           title="Toggle Evidence Explorer (Alt+E)"
+          suppressHydrationWarning
         >
           <EvidenceIcon className="w-3.5 h-3.5" />
           <span>Evidence</span>
-          {evidenceCount > 0 && <span className="nav-badge">{evidenceCount}</span>}
+          {mounted && evidenceCount > 0 && <span className="nav-badge">{evidenceCount}</span>}
         </button>
 
         {onOpenShare && (

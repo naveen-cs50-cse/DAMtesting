@@ -79,6 +79,7 @@ export const UrlModal: React.FC<UrlModalProps> = ({ isOpen, onClose, onConfirm }
           <button
             type="button"
             className="primary-btn"
+            disabled={!url.trim()}
             onClick={handleSubmit}
           >
             Attach & Ingest URL

@@ -9,7 +9,7 @@ interface TopbarProps {
   title: string;
   caseId?: string;
   isLive?: boolean;
-  onOpenApiKeys: () => void;
+  hasQuery?: boolean;
   onOpenMethodology: () => void;
   onToggleEvidence: () => void;
   evidenceCount: number;
@@ -23,7 +23,7 @@ export const Topbar: React.FC<TopbarProps> = ({
   title,
   caseId,
   isLive = false,
-  onOpenApiKeys,
+  hasQuery = false,
   onOpenMethodology,
   onToggleEvidence,
   evidenceCount,
@@ -86,61 +86,43 @@ export const Topbar: React.FC<TopbarProps> = ({
         )}
 
         <div className="page-title">
-          <span className={`status-pulse ${isLive ? 'live' : ''}`} aria-hidden="true" />
-          {title !== 'New investigation' && <strong>{title}</strong>}
-          {caseId && (
-            <>
-              <span className="case-id-badge">CASE #{caseId}</span>
-              <span className="case-id-mini" title={`Case #${caseId}`} aria-label={`Case ${caseId}`}>
-                #{caseId.split('-').pop() || caseId}
-              </span>
-            </>
-          )}
-
-          {/* Top chat verdict indicator */}
-          {verdictStatus === 'right' && (
-            <span className="topbar-verdict-pill right" title="Query Verified: Correct & Authentic">
-              <span className="verdict-symbol">✔</span>
-              <span>Correct</span>
+          {isLive && <span className="status-pulse live" aria-hidden="true" />}
+          {hasQuery && title !== 'New investigation' && <strong>{title}</strong>}
+          {/* Simple basic text verdict indicator: True / False in light green / red */}
+          {hasQuery && verdictStatus === 'right' && (
+            <span className="topbar-verdict-text true" title="Verified: True">
+              True
             </span>
           )}
-          {verdictStatus === 'false' && (
-            <span className="topbar-verdict-pill false" title="Query Debunked: False / Scam Threat">
-              <span className="verdict-symbol">✖</span>
-              <span>False</span>
+          {hasQuery && verdictStatus === 'false' && (
+            <span className="topbar-verdict-text false" title="Verified: False">
+              False
             </span>
           )}
-          {verdictStatus === 'unverified' && (
-            <span className="topbar-verdict-pill unverified" title="Status: Needs Primary Verification">
-              <span className="verdict-symbol-dot" />
-              <span>Need Verification</span>
+          {hasQuery && verdictStatus === 'unverified' && (
+            <span className="topbar-verdict-text unverified" title="Unverified">
+              Unverified
             </span>
           )}
         </div>
       </div>
 
       <div className="topbar-actions">
-        <button
-          className="quiet-button"
-          onClick={onOpenApiKeys}
-          title="Configure API Keys & LLM Provider"
-        >
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          <span>API Keys</span>
-        </button>
+        {/* Evidence button: Only displayed when an active query exists with verified evidence */}
+        {hasQuery && mounted && evidenceCount > 0 && (
+          <button
+            className="quiet-button"
+            onClick={onToggleEvidence}
+            title="Toggle Evidence Explorer (Alt+E)"
+            suppressHydrationWarning
+          >
+            <EvidenceIcon className="w-3.5 h-3.5" />
+            <span>Evidence</span>
+            <span className="nav-badge">{evidenceCount}</span>
+          </button>
+        )}
 
-        <button
-          className="quiet-button"
-          onClick={onToggleEvidence}
-          title="Toggle Evidence Explorer (Alt+E)"
-          suppressHydrationWarning
-        >
-          <EvidenceIcon className="w-3.5 h-3.5" />
-          <span>Evidence</span>
-          {mounted && evidenceCount > 0 && <span className="nav-badge">{evidenceCount}</span>}
-        </button>
-
-        {onOpenShare && (
+        {hasQuery && onOpenShare && (
           <button
             className="quiet-button"
             onClick={onOpenShare}
@@ -153,7 +135,6 @@ export const Topbar: React.FC<TopbarProps> = ({
             <span>Share</span>
           </button>
         )}
-
 
         <button
           className="quiet-button text-link"

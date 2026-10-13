@@ -39,7 +39,7 @@
   --dam-border-subtle: #1a1a1a;
   --dam-border-default: #222222;
   --dam-border-hover: #333333;
-  --dam-border-focus: #10a37f;
+  --dam-border-focus: rgba(255, 255, 255, 0.4);
 
   /* High Contrast Typography */
   --dam-text-primary: #ffffff;

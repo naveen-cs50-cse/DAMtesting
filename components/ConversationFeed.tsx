@@ -5,7 +5,6 @@ import { ChatTurn, getQueryVerdictStatus } from '@/lib/investigation/types';
 import { CopyIcon, EvidenceIcon, FileIcon, GlobeIcon, RetryIcon, ShieldIcon, SpinnerIcon, StopIcon, VolumeIcon } from './icons';
 import { VernacularAudioPlayer } from './VernacularAudioPlayer';
 import { CertificateModal } from './CertificateModal';
-import { WatchtowerDrawer } from './WatchtowerDrawer';
 
 interface ConversationFeedProps {
   turns: ChatTurn[];
@@ -70,9 +69,9 @@ const UserTurnItem: React.FC<{
               <div key={idx} className="user-attachment-group">
                 <span className="attachment-pill">
                   {att.type === 'application/pdf' ? (
-                    <FileIcon className="w-3.5 h-3.5 text-blue-400" />
+                    <FileIcon className="w-3.5 h-3.5 text-zinc-300" />
                   ) : att.isUrl ? (
-                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" className="text-green-400"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" className="text-zinc-300"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
                   ) : (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={att.preview || att.previewUrl} alt={att.name} className="user-attachment-thumb" />
@@ -120,7 +119,7 @@ const UserTurnItem: React.FC<{
           aria-label={copied ? 'Copied prompt' : 'Copy prompt'}
         >
           {copied ? (
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: 'var(--dam-green)' }}>
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: '#ffffff' }}>
               <path d="M20 6L9 17l-5-5" />
             </svg>
           ) : (
@@ -187,101 +186,64 @@ const AssistantTurnView: React.FC<{
     <div className={`chat-turn assistant-row${isLive ? ' live-turn' : ''}`} id={`turn-${turn.id}`}>
       <div className={`assistant-turn${turnVerdictStatus ? ` turn-verdict-${turnVerdictStatus}` : ''}`}>
 
-        {/* 1. Investigation Audit Trail (Only for non-conversational queries) */}
+        {/* 1. ChatGPT-Style Clean Background Checking Phase (No boxes, no corners, loads one after another) */}
         {!isConversational && (
-          <details
-            className="investigation-activity"
-            id={`activity-pane-${turn.id}`}
-            open={isAuditOpen}
-            onToggle={e => {
-              if (!isLive) {
-                setUserExpandedAudit((e.currentTarget as HTMLDetailsElement).open);
-              }
-            }}
-          >
-            <summary className="activity-summary-bar">
-              <div className="activity-summary-left">
-                <span className={`activity-pulse-dot ${isLive ? 'running' : ''}`} aria-hidden="true" />
-                <span className="activity-summary-title">
-                  {isLive ? 'Live Investigation in Progress…' : 'Investigation Audit Trail & Primary Registries'}
-                </span>
-              </div>
-              <div className="activity-summary-meta">
-                <span>{stages.length ? `${stages.length} stages` : '5 stages'} &bull; {meta?.sources?.length || 0} sources</span>
-                <svg viewBox="0 0 24 24" className="activity-summary-chevron" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M6 9l6 6 6-6" />
-                </svg>
-              </div>
-            </summary>
-
-            <div className="activity-stages-list">
-              {stages.length === 0 ? (
-                <div className="activity-stage-item">
-                  <span className={`activity-stage-icon ${isLive ? 'running' : 'completed'}`}>
-                    {isLive ? <SpinnerIcon className="w-3.5 h-3.5" /> : <ShieldIcon className="w-3.5 h-3.5" />}
-                  </span>
-                  <div className="activity-stage-content">
-                    <div className="activity-stage-name">Analysing Request & Scope</div>
-                    <div className="activity-stage-desc">Cross-referencing entities against official Indian registries...</div>
-                  </div>
-                </div>
+          <div className="chatgpt-checking-phase">
+            <button
+              type="button"
+              className="checking-phase-btn"
+              onClick={() => setUserExpandedAudit(prev => !prev)}
+              title="Toggle background checks"
+            >
+              {isLive ? (
+                <span className="checking-pulse-spinner" />
               ) : (
-                stages.map(s => (
-                  <div key={s.id} className="activity-stage-item">
-                    <span className={`activity-stage-icon ${s.status === 'running' ? 'running' : 'completed'}`}>
-                      {s.status === 'running' ? <SpinnerIcon className="w-3.5 h-3.5" /> : <span style={{ color: 'var(--dam-green)', fontWeight: 'bold' }}>✓</span>}
-                    </span>
-                    <div className="activity-stage-content">
-                      <div className="activity-stage-head">
-                        <span className="activity-stage-name">{s.title}</span>
-                      </div>
-                      <div className="activity-stage-desc">{s.summary}</div>
-                      {s.details?.queries && (
-                        <div className="activity-stage-chips">
-                          {s.details.queries.map((q: string, qIdx: number) => (
-                            <span key={qIdx} className="query-chip">{q}</span>
-                          ))}
-                        </div>
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" className="checking-icon">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              )}
+              <span className="checking-label">
+                {isLive
+                  ? (stages.find(s => s.status === 'running')?.title || 'Checking background sources...')
+                  : `Checked ${stages.length || 5} sources & registries`}
+              </span>
+              <svg
+                viewBox="0 0 24 24"
+                width="12"
+                height="12"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                className={`checking-chevron ${isAuditOpen ? 'open' : ''}`}
+              >
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
+
+            {isAuditOpen && (
+              <div className="checking-steps-flow">
+                {stages.length === 0 ? (
+                  <div className="checking-step-row">
+                    <span className="step-dot">•</span>
+                    <span className="step-name">Searching PIB Fact Check and official regulatory gazettes...</span>
+                  </div>
+                ) : (
+                  stages.map((s, idx) => (
+                    <div key={s.id || idx} className={`checking-step-row ${s.status === 'running' ? 'running' : 'done'}`}>
+                      <span className="step-dot">{s.status === 'running' ? '◦' : '•'}</span>
+                      <span className="step-name">{s.title}</span>
+                      {s.summary && s.summary !== s.title && (
+                        <span className="step-desc">— {s.summary}</span>
                       )}
                     </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </details>
-        )}
-
-        {/* 1.5 Top Chat Decision Indicator (✔ Tick / ✖ Cross / ⚪ White Dot) */}
-        {hasVerdicts && turnVerdictStatus && (
-          <div className={`top-chat-decision-bar status-${turnVerdictStatus}`}>
-            <div className="decision-bar-left">
-              <span className={`decision-icon-badge ${turnVerdictStatus}`}>
-                {turnVerdictStatus === 'right' && '✔'}
-                {turnVerdictStatus === 'false' && '✖'}
-                {turnVerdictStatus === 'unverified' && <span className="decision-white-dot" />}
-              </span>
-              <div className="decision-bar-texts">
-                <span className="decision-bar-title">
-                  {turnVerdictStatus === 'right' && 'Verified Correct'}
-                  {turnVerdictStatus === 'false' && (meta?.verdicts?.scamRisk === 'High' ? 'Malicious Scam Threat' : 'False / Debunked Rumor')}
-                  {turnVerdictStatus === 'unverified' && 'Needs Verification'}
-                </span>
-                <span className="decision-bar-desc">
-                  {turnVerdictStatus === 'right' && 'Substantiated by active statutory circulars & official gazettes.'}
-                  {turnVerdictStatus === 'false' && (meta?.verdicts?.scamRisk === 'High' ? 'Flagged as high-risk unauthorized threat / cyber extortion vector.' : 'Refuted by official government fact-checks and regulatory notices.')}
-                  {turnVerdictStatus === 'unverified' && 'Pending primary regulatory gazette notice; evidence remains inconclusive.'}
-                </span>
+                  ))
+                )}
               </div>
-            </div>
-            <div className={`decision-pill-tag ${turnVerdictStatus}`}>
-              {turnVerdictStatus === 'right' && 'AUTHENTIC'}
-              {turnVerdictStatus === 'false' && (meta?.verdicts?.scamRisk === 'High' ? 'SCAM' : 'DEBUNKED')}
-              {turnVerdictStatus === 'unverified' && 'INCONCLUSIVE'}
-            </div>
+            )}
           </div>
         )}
 
-        {/* 2. GenSpark Top Sources Strip */}
+        {/* 2. Referenced Sources (Clean Minimal Row) */}
         {hasSources && (
           <div className="genspark-sources-tray" aria-label="Referenced Sources">
             <div className="genspark-sources-header">
@@ -325,36 +287,6 @@ const AssistantTurnView: React.FC<{
                 </a>
               ))}
             </div>
-          </div>
-        )}
-
-        {/* 3. Sleek Contextual Verdict Banner (Replaces bulky 3-card grid) */}
-        {hasVerdicts && meta?.verdicts && (
-          <div className={`sleek-verdict-banner correctness-${meta.verdicts.factualCorrectness.toLowerCase()}`}>
-            <div className="verdict-banner-badge">
-              {turnVerdictStatus === 'right' && '✔ Officially Verified'}
-              {turnVerdictStatus === 'false' && (meta.verdicts.scamRisk === 'High' ? '✖ High Scam Threat' : '✖ Debunked / Contradicted')}
-              {turnVerdictStatus === 'unverified' && (
-                <>
-                  <span className="verdict-white-dot-inline" />
-                  <span>Needs Verification</span>
-                </>
-              )}
-            </div>
-            <div className="verdict-banner-summary">
-              {meta.verdicts.explanation?.factualRationale ||
-                (meta.verdicts.factualCorrectness === 'Contradicted'
-                  ? 'Refuted by official government notices and published gazettes.'
-                  : meta.verdicts.factualCorrectness === 'Supported'
-                  ? 'Substantiated by active statutory circulars.'
-                  : 'Evidence is insufficient to confirm or refute.')}
-            </div>
-            {meta.verdicts.scamRisk === 'High' && (
-              <span className="verdict-scam-tag">🚨 High Scam Threat</span>
-            )}
-            {meta.verdicts.scamRisk === 'Medium' && meta.verdicts.riskTriggers?.includes('Viral Misinformation Rumor') && (
-              <span className="verdict-scam-tag medium">⚠️ Viral Rumor</span>
-            )}
           </div>
         )}
 
@@ -1220,32 +1152,8 @@ export const ConversationFeed: React.FC<ConversationFeedProps> = ({
     );
   };
 
-  const [isWatchtowerOpen, setIsWatchtowerOpen] = useState(false);
-
   return (
     <div className="conversation" id="conversation">
-      {/* Live Regulatory Watchtower Banner */}
-      <div className="feed-watchtower-bar">
-        <button
-          type="button"
-          className="watchtower-trigger-btn"
-          onClick={() => setIsWatchtowerOpen(true)}
-          title="Open Live National Regulatory Watchtower (PIB, RBI, TRAI, CERT-In)"
-        >
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: '#38bdf8', flexShrink: 0 }} aria-hidden="true">
-            <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z" />
-            <path d="M12 6a6 6 0 1 0 6 6 6 6 0 0 0-6-6z" />
-            <circle cx="12" cy="12" r="2" fill="#38bdf8" />
-          </svg>
-          <span className="watchtower-btn-title">Live Regulatory Watchtower</span>
-          <span className="watchtower-btn-badge">6 Active Bulletins</span>
-        </button>
-      </div>
-
-      <WatchtowerDrawer
-        isOpen={isWatchtowerOpen}
-        onClose={() => setIsWatchtowerOpen(false)}
-      />
 
       {turns.map(turn => {
         if (turn.role === 'user') {

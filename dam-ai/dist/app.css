@@ -2229,16 +2229,34 @@ details[open] .timeline-chevron {
 .primary-btn {
   height: 36px;
   padding: 0 16px;
-  background: var(--dam-red);
-  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: var(--radius-sm);
   font-size: 13.5px;
-  font-weight: 600;
-  transition: background var(--transition-fast);
+  font-weight: 550;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: all var(--transition-fast);
+  box-shadow: none;
 }
 
-.primary-btn:hover {
-  background: var(--dam-red-hover);
+.primary-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+}
+
+.primary-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.35);
+  pointer-events: none;
 }
 
 .methodology-section {

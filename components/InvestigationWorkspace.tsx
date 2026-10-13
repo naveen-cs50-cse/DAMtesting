@@ -7,7 +7,6 @@ import { LandingBlock } from './LandingBlock';
 import { Composer } from './Composer';
 import { ConversationFeed } from './ConversationFeed';
 import { EvidencePanel } from './EvidencePanel';
-import { ApiKeysModal } from './modals/ApiKeysModal';
 import { MethodologyModal } from './modals/MethodologyModal';
 import { UrlModal } from './modals/UrlModal';
 import { RenameModal } from './modals/RenameModal';
@@ -66,7 +65,6 @@ export const InvestigationWorkspace: React.FC = () => {
   const [highlightCitation, setHighlightCitation] = useState<number | null>(null);
 
   // Modals state
-  const [apiKeysModalOpen, setApiKeysModalOpen] = useState(false);
   const [methodologyModalOpen, setMethodologyModalOpen] = useState(false);
   const [urlModalOpen, setUrlModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
@@ -282,7 +280,6 @@ export const InvestigationWorkspace: React.FC = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setEvidencePanelOpen(false);
-        setApiKeysModalOpen(false);
         setMethodologyModalOpen(false);
         setUrlModalOpen(false);
         setRenamingConversation(null);
@@ -591,7 +588,8 @@ export const InvestigationWorkspace: React.FC = () => {
           if (activeId === id) setActiveId(null);
           showToast('Investigation deleted');
         }}
-        evidenceCount={caseSources.length > 0 ? caseSources.length : globalSources.length}
+        evidenceCount={caseSources.length}
+        hasQuery={Boolean(activeConversation && activeConversation.turns.length > 0)}
         onOpenEvidence={() => setEvidencePanelOpen(true)}
         onTogglePinConversation={handleTogglePin}
         onOpenCreateFolder={() => {
@@ -605,7 +603,6 @@ export const InvestigationWorkspace: React.FC = () => {
         onDeleteFolder={handleDeleteFolder}
         onMoveToFolder={handleMoveToFolder}
         onOpenMoveToFolderModal={conv => setMoveToFolderConv(conv)}
-        onOpenApiKeys={() => setApiKeysModalOpen(true)}
         onOpenMethodology={() => setMethodologyModalOpen(true)}
         onToggleSidebar={() => setSidebarOpen(prev => !prev)}
       />
@@ -615,10 +612,10 @@ export const InvestigationWorkspace: React.FC = () => {
           title={activeConversation ? activeConversation.title : 'New investigation'}
           caseId={activeConversation?.caseId}
           isLive={isStreaming}
-          onOpenApiKeys={() => setApiKeysModalOpen(true)}
+          hasQuery={Boolean(activeConversation && activeConversation.turns.length > 0)}
           onOpenMethodology={() => setMethodologyModalOpen(true)}
           onToggleEvidence={() => setEvidencePanelOpen(prev => !prev)}
-          evidenceCount={caseSources.length > 0 ? caseSources.length : globalSources.length}
+          evidenceCount={caseSources.length}
           onMobileMenuToggle={() => {
             if (window.innerWidth < 768) {
               setMobileMenuOpen(prev => !prev);
@@ -708,7 +705,6 @@ export const InvestigationWorkspace: React.FC = () => {
         isOpen={evidencePanelOpen}
         onClose={() => setEvidencePanelOpen(false)}
         sources={caseSources}
-        allSources={globalSources}
         highlightIndex={highlightCitation}
       />
 
@@ -720,12 +716,6 @@ export const InvestigationWorkspace: React.FC = () => {
       />
 
       {/* Modals */}
-      <ApiKeysModal
-        isOpen={apiKeysModalOpen}
-        onClose={() => setApiKeysModalOpen(false)}
-        onSave={() => showToast('API configuration updated')}
-      />
-
       <MethodologyModal
         isOpen={methodologyModalOpen}
         onClose={() => setMethodologyModalOpen(false)}

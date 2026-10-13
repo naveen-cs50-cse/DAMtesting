@@ -83,7 +83,7 @@ _Zero-hallucination verification by UseDAM India Desk_`.trim();
             <pre className="share-preview-box">{whatsappText}</pre>
             <button
               type="button"
-              className={`primary-button share-action-btn ${copiedType === 'whatsapp' ? 'copied' : ''}`}
+              className={`primary-btn share-action-btn ${copiedType === 'whatsapp' ? 'copied' : ''}`}
               onClick={() => handleCopy(whatsappText, 'whatsapp')}
             >
               {copiedType === 'whatsapp' ? (

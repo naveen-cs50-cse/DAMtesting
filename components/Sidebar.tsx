@@ -21,27 +21,10 @@ interface SidebarProps {
   onMoveToFolder: (convId: string, folderId: string | null) => void;
   onOpenMoveToFolderModal: (conv: Conversation) => void;
   evidenceCount: number;
+  hasQuery?: boolean;
   onOpenEvidence: () => void;
-  onOpenApiKeys?: () => void;
   onOpenMethodology?: () => void;
   onToggleSidebar?: () => void;
-}
-
-function formatRelativeTime(dateInput?: string | number | Date): string {
-  if (!dateInput) return '';
-  const date = new Date(dateInput);
-  const diffMs = Date.now() - date.getTime();
-  if (diffMs < 0 || isNaN(diffMs)) return '';
-  const diffSec = Math.floor(diffMs / 1000);
-  if (diffSec < 60) return 'just now';
-  const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
-  const diffDays = Math.floor(diffHr / 24);
-  if (diffDays === 1) return 'yesterday';
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -59,14 +42,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onMoveToFolder,
   onOpenMoveToFolderModal,
   evidenceCount,
+  hasQuery = false,
   onOpenEvidence,
-  onOpenApiKeys,
   onOpenMethodology,
   onToggleSidebar,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
-  const [bookmarksOpen, setBookmarksOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -74,31 +56,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }, []);
 
   const [isMac] = useState(() => typeof navigator !== 'undefined' && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform || navigator.userAgent));
-  const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>(() => {
-    if (typeof window === 'undefined') return {};
-    try {
-      const stored = localStorage.getItem('dam-expanded-folders');
-      return stored ? JSON.parse(stored) : {};
-    } catch {
-      return {};
-    }
-  });
-  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
 
   const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-
-  const handleToggleFolder = (folderId: string) => {
-    setExpandedFolders(prev => {
-      const updated = { ...prev, [folderId]: prev[folderId] === false ? true : false };
-      try {
-        localStorage.setItem('dam-expanded-folders', JSON.stringify(updated));
-      } catch {
-        // Ignored
-      }
-      return updated;
-    });
-  };
 
   // Close profile menu on outside click or Escape key
   useEffect(() => {
@@ -128,10 +88,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     !searchQuery || c.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Unfiled conversations (not assigned to any folder)
+  // Separate pinned conversations from regular unfiled
   const unfiled = filtered.filter(c => !c.folderId);
-  const pinnedUnfiled = unfiled.filter(c => c.isPinned);
-  const unpinnedUnfiled = unfiled.filter(c => !c.isPinned);
+  const pinnedList = unfiled.filter(c => c.isPinned);
+  const regularList = unfiled.filter(c => !c.isPinned);
 
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -145,7 +105,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     older: [],
   };
 
-  unfiled.forEach(c => {
+  regularList.forEach(c => {
     const time = new Date(c.createdAt || 0).getTime();
     if (time >= today) groups.today.push(c);
     else if (time >= yesterday) groups.yesterday.push(c);
@@ -174,7 +134,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span className="sidebar-verdict-tag right" title="Verified Correct">✔</span>
           )}
           {status === 'false' && (
-            <span className="sidebar-verdict-tag false" title="False / Debunked / Scam">✖</span>
+            <span className="sidebar-verdict-tag false" title="False / Debunked">✖</span>
           )}
           {status === 'unverified' && (
             <span className="sidebar-verdict-tag unverified" title="Needs Verification">
@@ -196,8 +156,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             type="button"
             className={`history-action-btn ${item.isPinned ? 'active' : ''}`}
-            title={item.isPinned ? "Remove bookmark" : "Bookmark"}
-            aria-label="Bookmark"
+            title={item.isPinned ? "Unpin" : "Pin to top"}
+            aria-label="Pin"
             onClick={e => {
               e.stopPropagation();
               onTogglePinConversation(item.id);
@@ -240,7 +200,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className={`history-group ${isPinnedGroup ? 'pinned-history-group' : ''}`}>
         <div className="history-group-title">
           {isPinnedGroup && (
-            <svg viewBox="0 0 24 24" width="12" height="12" fill="var(--dam-amber)" stroke="none" className="mr-1">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" stroke="none" className="mr-1" style={{ color: '#a1a1aa' }}>
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
             </svg>
           )}
@@ -253,6 +213,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside className="sidebar" id="sidebar" aria-label="Investigation Workspace Sidebar">
+      {/* Brand Header */}
       <div className="sidebar-head">
         <Link 
           className="brand" 
@@ -289,49 +250,65 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </button>
       </div>
 
-      <button className="new-investigation-btn" onClick={onNewConversation} title={`Start a fresh investigation (${isMac ? 'Cmd+K' : 'Ctrl+K'})`}>
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 5v14M5 12h14"/></svg>
-        <span>New investigation</span>
-        <kbd aria-label="Keyboard shortcut">{isMac ? '⌘K' : 'Ctrl K'}</kbd>
-      </button>
+      {/* New Investigation Button */}
+      <div style={{ padding: '12px 12px 6px' }}>
+        <button 
+          className="new-investigation-btn" 
+          onClick={onNewConversation} 
+          title={`Start a fresh investigation (${isMac ? 'Cmd+K' : 'Ctrl+K'})`}
+          style={{ width: '100%', margin: 0 }}
+        >
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 5v14M5 12h14"/></svg>
+          <span>New investigation</span>
+          <kbd aria-label="Keyboard shortcut">{isMac ? '⌘K' : 'Ctrl K'}</kbd>
+        </button>
+      </div>
 
-      <button className="new-investigation-btn" style={{ margin: '0 12px 6px' }} onClick={() => setBookmarksOpen(!bookmarksOpen)} title="View Bookmarks">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-        <span>Bookmarks</span>
-      </button>
-
-      {bookmarksOpen && (
-        <div style={{
-          position: 'absolute',
-          left: '100%',
-          top: 0,
-          width: '260px',
-          height: '100%',
-          backgroundColor: '#171717',
-          borderLeft: '1px solid #333',
-          zIndex: 50,
-          display: 'flex',
-          flexDirection: 'column',
-          boxShadow: '4px 0 24px rgba(0,0,0,0.5)',
-        }}>
-          <div className="sidebar-head" style={{ padding: '0 16px' }}>
-            <strong style={{ color: '#fff', fontSize: '15px' }}>Bookmarks</strong>
-            <button className="icon-button" onClick={() => setBookmarksOpen(false)} style={{ color: '#a3a3a3' }}>
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-            </button>
-          </div>
-          <div className="history-list" style={{ flex: 1, overflowY: 'auto' }}>
-            {pinnedUnfiled.length === 0 ? (
-              <div style={{ padding: '24px 16px', color: '#888', fontSize: '13px', textAlign: 'center' }}>No bookmarked chats.</div>
-            ) : (
-              pinnedUnfiled.map(item => renderConversationItem(item))
-            )}
-          </div>
+      {/* Active Evidence Quick Access Button: ONLY visible when an active query exists with indexed evidence */}
+      {hasQuery && evidenceCount > 0 && (
+        <div style={{ padding: '0 12px 8px' }}>
+          <button
+            type="button"
+            className="sidebar-evidence-nav-btn"
+            onClick={onOpenEvidence}
+            title="Open verified evidence explorer"
+          >
+            <EvidenceIcon className="w-3.5 h-3.5" />
+            <span style={{ flex: 1, textAlign: 'left', fontWeight: 500 }}>Evidence Records</span>
+            <span className="sidebar-evidence-pill">{evidenceCount}</span>
+          </button>
         </div>
       )}
 
-      <div className="history-section">
+      {/* Search Input Filter for Past Investigations */}
+      {conversations.length > 3 && (
+        <div className="sidebar-search-box" style={{ margin: '0 12px 8px' }}>
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" className="sidebar-search-icon" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-3.5-3.5" />
+          </svg>
+          <input
+            type="text"
+            className="sidebar-search-input"
+            placeholder="Search history..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              className="sidebar-search-clear"
+              onClick={() => setSearchQuery('')}
+              aria-label="Clear search"
+            >
+              &times;
+            </button>
+          )}
+        </div>
+      )}
 
+      {/* Conversation History List */}
+      <div className="history-section">
         <div className="history-list" role="region" aria-label="Investigation History">
           {isMounted ? (
             conversations.length === 0 ? (
@@ -356,6 +333,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             ) : (
               <>
+                {/* Pinned / Bookmarked investigations appear cleanly at the top */}
+                {renderGroup('Pinned', pinnedList, true)}
                 {renderGroup('Today', groups.today)}
                 {renderGroup('Yesterday', groups.yesterday)}
                 {renderGroup('Previous 7 Days', groups.last7)}
@@ -366,6 +345,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
+      {/* Clean User Profile Foot */}
       <div className="sidebar-foot" style={{ padding: '8px 12px' }}>
         <button
           ref={triggerRef}
@@ -375,53 +355,41 @@ export const Sidebar: React.FC<SidebarProps> = ({
           aria-haspopup="true"
           aria-expanded={menuOpen}
         >
-          <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#fff', color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 600 }}>
+          <div style={{ width: '26px', height: '26px', borderRadius: '50%', backgroundColor: '#ffffff', color: '#000000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>
             HK
           </div>
-          <span style={{ fontSize: '14px', fontWeight: 500 }}>Hitesh Kumar</span>
+          <span style={{ fontSize: '13px', fontWeight: 500, color: '#e4e4e7' }}>Hitesh Kumar</span>
         </button>
 
         {menuOpen && (
           <div className="workspace-menu-popover" ref={menuRef} role="menu" style={{ 
             position: 'absolute', bottom: '60px', left: '12px', width: 'calc(100% - 24px)', 
-            backgroundColor: '#202123', borderRadius: '8px', border: '1px solid #333', 
-            padding: '4px 0', zIndex: 100, boxShadow: '0 4px 12px rgba(0,0,0,0.5)' 
+            backgroundColor: '#111114', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.1)', 
+            padding: '4px 0', zIndex: 100, boxShadow: '0 8px 24px rgba(0,0,0,0.8)' 
           }}>
             <button
               type="button"
               className="menu-item"
-              style={{ display: 'flex', width: '100%', padding: '10px 16px', color: '#ececf1', background: 'transparent', border: 'none', gap: '10px', fontSize: '14px', cursor: 'pointer', alignItems: 'center' }}
-              onClick={() => {
-                setMenuOpen(false);
-                if (onOpenApiKeys) onOpenApiKeys();
-              }}
-            >
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-              <span>API Settings</span>
-            </button>
-            <button
-              type="button"
-              className="menu-item"
-              style={{ display: 'flex', width: '100%', padding: '10px 16px', color: '#ececf1', background: 'transparent', border: 'none', gap: '10px', fontSize: '14px', cursor: 'pointer', alignItems: 'center' }}
+              style={{ display: 'flex', width: '100%', padding: '10px 14px', color: '#d4d4d8', background: 'transparent', border: 'none', gap: '10px', fontSize: '13px', cursor: 'pointer', alignItems: 'center' }}
               onClick={() => {
                 setMenuOpen(false);
                 if (onOpenMethodology) onOpenMethodology();
               }}
             >
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
               <span>Methodology</span>
             </button>
-            <div style={{ height: '1px', backgroundColor: '#333', margin: '4px 0' }} />
+            <div style={{ height: '1px', backgroundColor: 'rgba(255, 255, 255, 0.08)', margin: '4px 0' }} />
             <button
               type="button"
               className="menu-item"
-              style={{ display: 'flex', width: '100%', padding: '10px 16px', color: '#ececf1', background: 'transparent', border: 'none', gap: '10px', fontSize: '14px', cursor: 'pointer', alignItems: 'center' }}
+              style={{ display: 'flex', width: '100%', padding: '10px 14px', color: '#d4d4d8', background: 'transparent', border: 'none', gap: '10px', fontSize: '13px', cursor: 'pointer', alignItems: 'center' }}
               onClick={() => {
                 setMenuOpen(false);
                 window.open('https://github.com/DAM-Technologys-Private-Limited/Usedam-Main-Webapp', '_blank');
               }}
             >
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
               <span>GitHub Repository</span>
             </button>
           </div>

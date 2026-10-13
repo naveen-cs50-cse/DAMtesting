@@ -218,62 +218,90 @@ export const Composer: React.FC<ComposerProps> = ({
   const canSend = (input.trim().length > 0 || attachments.length > 0) && !isStreaming;
 
   const modeOptions = [
-    {
-      value: 'evidence',
-      title: 'Evidence Mode (Strict)',
-      badge: 'Strict',
-      badgeColor: '#3b82f6',
-      icon: (
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-400">
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-        </svg>
-      ),
-      description: 'Gazettes, official circulars & primary Indian registries only'
-    },
-    {
-      value: 'quick',
-      title: 'Quick Check (Triage)',
-      badge: 'Fast',
-      badgeColor: '#eab308',
-      icon: (
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400">
-          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-        </svg>
-      ),
-      description: 'Rapid threat classification & immediate scam triage'
-    },
-    {
-      value: 'deep',
-      title: 'Deep Investigation',
-      badge: 'Forensic',
-      badgeColor: '#a855f7',
-      icon: (
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" className="text-purple-400">
-          <circle cx="11" cy="11" r="8"/>
-          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-          <line x1="11" y1="8" x2="11" y2="14"/>
-          <line x1="8" y1="11" x2="14" y2="11"/>
-        </svg>
-      ),
-      description: 'Multi-source forensic audit with legal certificate & dossier'
-    }
+    { value: 'evidence', label: 'Evidence' },
+    { value: 'quick', label: 'Quick Check' },
+    { value: 'deep', label: 'Deep Investigation' },
   ];
+
+  const modeValues = ['evidence', 'quick', 'deep'];
+  const modeIndex = Math.max(0, modeValues.indexOf(activeMode));
+
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragPercent, setDragPercent] = useState<number | null>(null);
+  const sliderTrackRef = useRef<HTMLDivElement>(null);
+
+  const currentPercent = isDragging && dragPercent !== null ? dragPercent : (modeIndex / 2) * 100;
+  const previewIndex = isDragging && dragPercent !== null
+    ? (dragPercent >= 66.6 ? 2 : dragPercent >= 33.3 ? 1 : 0)
+    : modeIndex;
+
+  const lastWheelTimeRef = useRef(0);
+  const handleSliderWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const now = Date.now();
+    if (now - lastWheelTimeRef.current < 160) return;
+    const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+    if (delta > 8) {
+      if (modeIndex < 2) {
+        setActiveMode(modeValues[modeIndex + 1]);
+        lastWheelTimeRef.current = now;
+      }
+    } else if (delta < -8) {
+      if (modeIndex > 0) {
+        setActiveMode(modeValues[modeIndex - 1]);
+        lastWheelTimeRef.current = now;
+      }
+    }
+  };
+
+  const handleTrackPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const track = sliderTrackRef.current || e.currentTarget;
+    const rect = track.getBoundingClientRect();
+
+    const calcPercent = (clientX: number) => {
+      const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
+      return rect.width > 0 ? (x / rect.width) * 100 : 0;
+    };
+
+    const initialPercent = calcPercent(e.clientX);
+    setIsDragging(true);
+    setDragPercent(initialPercent);
+
+    const onPointerMove = (ev: PointerEvent) => {
+      setDragPercent(calcPercent(ev.clientX));
+    };
+
+    const onPointerUp = (ev: PointerEvent) => {
+      const finalPct = calcPercent(ev.clientX);
+      let snapIdx = 0;
+      if (finalPct >= 66.6) snapIdx = 2;
+      else if (finalPct >= 33.3) snapIdx = 1;
+      else snapIdx = 0;
+
+      setIsDragging(false);
+      setDragPercent(null);
+      setActiveMode(modeValues[snapIdx]);
+
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
+    };
+
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
+  };
 
   const languageOptions = [
-    { value: 'auto', label: 'Auto-detect', native: 'Default / Match Input', icon: '🌐' },
-    { value: 'en', label: 'English', native: 'Official English Briefing', icon: '🇬🇧' },
-    { value: 'hi', label: 'हिन्दी', native: 'हिंदी में विस्तृत जांच ब्रीफिंग', icon: '🇮🇳' },
-    { value: 'mr', label: 'मराठी', native: 'मराठीत कायदेशीर स्पष्टीकरण', icon: '🇮🇳' },
-    { value: 'ta', label: 'தமிழ்', native: 'தமிழில் சரிபார்ப்பு அறிக்கை', icon: '🇮🇳' },
-    { value: 'bn', label: 'বাংলা', native: 'বাংলায় সত্যতা যাচাই ও বিশ্লেষণ', icon: '🇮🇳' },
-    { value: 'te', label: 'తెలుగు', native: 'తెలుగులో అధికారిక నివేదిక', icon: '🇮🇳' },
+    { value: 'auto', label: 'Auto-detect' },
+    { value: 'en', label: 'English' },
+    { value: 'hi', label: 'हिन्दी' },
+    { value: 'mr', label: 'मराठी' },
+    { value: 'ta', label: 'தமிழ்' },
+    { value: 'bn', label: 'বাংলা' },
+    { value: 'te', label: 'తెలుగు' },
   ];
-
-  const modeLabels: Record<string, string> = {
-    evidence: 'Evidence Mode (Strict)',
-    quick: 'Quick Check (Triage)',
-    deep: 'Deep Investigation',
-  };
 
   return (
     <div className="fixed-composer-wrapper" id="fixedComposerWrapper">
@@ -418,7 +446,7 @@ export const Composer: React.FC<ComposerProps> = ({
                   className="attach-popover-item"
                   onClick={() => screenshotInputRef.current?.click()}
                 >
-                  <ImageIcon className="w-4 h-4 text-amber-400" />
+                  <ImageIcon className="w-4 h-4 text-zinc-300" />
                   <div className="attach-item-text">
                     <strong>Screenshot</strong>
                     <small>PNG, JPEG, WebP</small>
@@ -430,7 +458,7 @@ export const Composer: React.FC<ComposerProps> = ({
                   className="attach-popover-item"
                   onClick={() => pdfInputRef.current?.click()}
                 >
-                  <FileIcon className="w-4 h-4 text-blue-400" />
+                  <FileIcon className="w-4 h-4 text-zinc-300" />
                   <div className="attach-item-text">
                     <strong>PDF Notice</strong>
                     <small>Official circulars up to 10MB</small>
@@ -445,7 +473,7 @@ export const Composer: React.FC<ComposerProps> = ({
                     onOpenUrlModal();
                   }}
                 >
-                  <LinkIcon className="w-4 h-4 text-green-400" />
+                  <LinkIcon className="w-4 h-4 text-zinc-300" />
                   <div className="attach-item-text">
                     <strong>URL or Tweet</strong>
                     <small>Web page or post</small>
@@ -457,7 +485,7 @@ export const Composer: React.FC<ComposerProps> = ({
                   className="attach-popover-item"
                   onClick={handlePasteClipboard}
                 >
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" className="text-purple-400">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" className="text-zinc-300">
                     <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/>
                   </svg>
                   <div className="attach-item-text">
@@ -471,20 +499,19 @@ export const Composer: React.FC<ComposerProps> = ({
 
           {/* Right: Model selector pill, Language pill, Mic, Send */}
           <div className="composer-right-actions">
-            {/* Custom Animated Model / Mode Selector Pill */}
+            {/* Reasoning Mode Pill (Press to open horizontal 3-point scrollable/movable slider) */}
             <div className="composer-menu-wrapper" ref={modeMenuRef}>
               <button
                 type="button"
-                className={`composer-model-pill ${modeMenuOpen ? 'open' : ''}`}
-                title="Investigation reasoning mode"
+                className={`composer-lang-pill ${modeMenuOpen ? 'open' : ''}`}
+                title="Reasoning mode"
                 onClick={() => {
                   setModeMenuOpen(prev => !prev);
                   setLangMenuOpen(false);
                   setAttachMenuOpen(false);
                 }}
               >
-                <span className="pill-dot" />
-                <span>{modeLabels[activeMode] || 'Evidence Mode'}</span>
+                <span>{modeOptions.find(m => m.value === activeMode)?.label || 'Evidence'}</span>
                 <svg
                   viewBox="0 0 24 24"
                   width="12"
@@ -499,59 +526,77 @@ export const Composer: React.FC<ComposerProps> = ({
               </button>
 
               {modeMenuOpen && (
-                <div className="custom-dropdown-popover mode-dropdown-popover">
-                  <div className="dropdown-popover-header">
-                    <span>REASONING MODE</span>
-                    <span className="dropdown-popover-tag">AI CORE</span>
+                <div className="simple-slider-popover" onWheel={handleSliderWheel}>
+                  <div className="simple-slider-header">
+                    <div className="simple-slider-title-tag">
+                      <span>Reasoning Mode</span>
+                    </div>
+                    <span className="simple-slider-active-badge">
+                      {modeOptions[previewIndex]?.label}
+                    </span>
                   </div>
-                  <div className="dropdown-options-list">
-                    {modeOptions.map(opt => {
-                      const isSelected = activeMode === opt.value;
-                      return (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          className={`custom-dropdown-item ${isSelected ? 'selected' : ''}`}
-                          onClick={() => {
-                            setActiveMode(opt.value);
-                            setModeMenuOpen(false);
+
+                  <div className="simple-slider-body">
+                    {/* Interactive Horizontal Track with real-time cursor dragging */}
+                    <div
+                      ref={sliderTrackRef}
+                      className={`simple-slider-track-area ${isDragging ? 'dragging' : ''}`}
+                      onPointerDown={handleTrackPointerDown}
+                    >
+                      <div className="simple-slider-track">
+                        <div
+                          className="simple-slider-fill"
+                          style={{
+                            width: `${currentPercent}%`,
+                            transition: isDragging ? 'none' : undefined,
                           }}
-                        >
-                          <div className="dropdown-item-icon-wrap">
-                            {opt.icon}
-                          </div>
-                          <div className="dropdown-item-text">
-                            <div className="dropdown-item-title-row">
-                              <span className="dropdown-item-title">{opt.title}</span>
-                              <span
-                                className="dropdown-item-badge"
-                                style={{
-                                  borderColor: `${opt.badgeColor}40`,
-                                  color: opt.badgeColor,
-                                  backgroundColor: `${opt.badgeColor}15`
-                                }}
-                              >
-                                {opt.badge}
-                              </span>
-                            </div>
-                            <span className="dropdown-item-desc">{opt.description}</span>
-                          </div>
-                          {isSelected && (
-                            <div className="dropdown-item-check">
-                              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                <polyline points="20 6 9 17 4 12"/>
-                              </svg>
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
+                        />
+                      </div>
+
+                      {/* 3 Tick notches along the track */}
+                      <div className="simple-slider-ticks">
+                        <span className={`slider-tick ${currentPercent >= 0 ? 'active' : ''}`} style={{ left: '0%' }} />
+                        <span className={`slider-tick ${currentPercent >= 48 ? 'active' : ''}`} style={{ left: '50%' }} />
+                        <span className={`slider-tick ${currentPercent >= 98 ? 'active' : ''}`} style={{ left: '100%' }} />
+                      </div>
+
+                      {/* Movable Slider Thumb that moves with cursor */}
+                      <div
+                        className={`simple-slider-thumb ${isDragging ? 'dragging' : ''}`}
+                        style={{
+                          left: `${currentPercent}%`,
+                          transition: isDragging ? 'none' : undefined,
+                        }}
+                      >
+                        <span className="slider-thumb-inner" />
+                      </div>
+                    </div>
+
+                    {/* 3 Clickable point labels below the track - spaced far apart with no overlap */}
+                    <div className="simple-slider-labels-row">
+                      {modeOptions.map((opt, i) => {
+                        const isSelected = previewIndex === i;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            className={`slider-label-item pos-${i} ${isSelected ? 'active' : ''}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveMode(opt.value);
+                            }}
+                          >
+                            <span className="slider-label-text">{opt.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Custom Animated Language Selector Pill */}
+            {/* Beside Language Selector: Simple UI, No Colors, Clean Heading, Just Language Names */}
             <div className="composer-menu-wrapper" ref={langMenuRef}>
               <button
                 type="button"
@@ -559,11 +604,10 @@ export const Composer: React.FC<ComposerProps> = ({
                 title="Output language"
                 onClick={() => {
                   setLangMenuOpen(prev => !prev);
-                  setModeMenuOpen(false);
                   setAttachMenuOpen(false);
                 }}
               >
-                <span>{languageOptions.find(l => l.value === activeLang)?.label || 'Auto'}</span>
+                <span>{languageOptions.find(l => l.value === activeLang)?.label || 'Auto-detect'}</span>
                 <svg
                   viewBox="0 0 24 24"
                   width="12"
@@ -578,35 +622,28 @@ export const Composer: React.FC<ComposerProps> = ({
               </button>
 
               {langMenuOpen && (
-                <div className="custom-dropdown-popover lang-dropdown-popover">
-                  <div className="dropdown-popover-header">
-                    <span>OUTPUT VERNACULAR</span>
-                    <span className="dropdown-popover-tag">MULTI-LINGUAL</span>
+                <div className="simple-lang-popover">
+                  <div className="simple-lang-header">
+                    <span>Languages</span>
                   </div>
-                  <div className="dropdown-options-list">
+                  <div className="simple-lang-list">
                     {languageOptions.map(l => {
                       const isSelected = activeLang === l.value;
                       return (
                         <button
                           key={l.value}
                           type="button"
-                          className={`custom-dropdown-item lang-item ${isSelected ? 'selected' : ''}`}
+                          className={`simple-lang-item ${isSelected ? 'selected' : ''}`}
                           onClick={() => {
                             setActiveLang(l.value);
                             setLangMenuOpen(false);
                           }}
                         >
-                          <span className="lang-flag">{l.icon}</span>
-                          <div className="dropdown-item-text">
-                            <span className="dropdown-item-title">{l.label}</span>
-                            <span className="dropdown-item-desc">{l.native}</span>
-                          </div>
+                          <span className="simple-lang-name">{l.label}</span>
                           {isSelected && (
-                            <div className="dropdown-item-check">
-                              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                <polyline points="20 6 9 17 4 12"/>
-                              </svg>
-                            </div>
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" className="simple-lang-check">
+                              <polyline points="20 6 9 17 4 12"/>
+                            </svg>
                           )}
                         </button>
                       );

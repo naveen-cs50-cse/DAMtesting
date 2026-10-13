@@ -50,6 +50,7 @@ export const RenameModal: React.FC<RenameModalProps> = ({ conversation, onClose,
           <button
             type="button"
             className="primary-btn"
+            disabled={!title.trim()}
             onClick={() => {
               if (title.trim()) {
                 onSave(conversation.id, title.trim());

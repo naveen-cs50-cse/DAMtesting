@@ -79,7 +79,7 @@ export const ApiKeysModal: React.FC<ApiKeysModalProps> = ({ isOpen, onClose, onS
           <button
             type="button"
             className="quiet-button"
-            style={{ color: 'var(--dam-red)' }}
+            style={{ color: '#ef4444' }}
             onClick={() => {
               localStorage.removeItem('dam-openai-key');
               localStorage.removeItem('dam-tavily-key');

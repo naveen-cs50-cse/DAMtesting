@@ -682,58 +682,59 @@ CRITICAL DIRECTIVES:
 
             if (verdicts.factualCorrectness === 'Contradicted') {
               const citations = evaluatedSources.length > 0 ? evaluatedSources.map(s => `[${s.id}]`).join('') : '';
-              fallbackMarkdown = `### Verification Verdict: Factually Contradicted ${citations}
+              const isExtortion = verdicts.scamRisk === 'High';
+              fallbackMarkdown = `This communication is **${isExtortion ? 'a fraudulent scam' : 'factually false and contradicted'}** ${citations}.
 
-The claim in question is **refuted by authoritative regulatory directives and official records** ${citations}. ${explanation?.factualRationale ? `\n\n${explanation.factualRationale}` : ''}
+${explanation?.factualRationale || (isExtortion ? 'Legitimate utility providers, banks, and government authorities never demand urgent contact via personal 10-digit mobile numbers or issue immediate disconnection threats without formal written notice.' : 'Official regulatory records confirm that no such notification or policy has been issued.')}
 
-**Key Findings:**
-- Official records confirm that **no such order or policy has been issued** by the relevant government ministry or regulator ${citations}.
-- Published regulatory notifications contradict the assertions disseminated in this message.
+**Key Facts:**
+- **Statutory Standard**: Official directives contradict the claims in this message.
+- **Verification Status**: Direct checks against primary regulatory records refute this assertion ${citations}.
 
-**Recommended Guidance:**
-${verdicts.scamRisk === 'High'
-  ? '⚠️ **Do not call unknown contact numbers or download links** associated with this message. Report suspicious senders immediately to the national **Chakshu portal (sancharsaathi.gov.in)** or call the **1930 Cybercrime Helpline**.'
-  : '⚠️ **Do not forward unverified social media forwards.** Always verify regulatory claims directly through primary government notifications at **pib.gov.in**.'}
+**Actionable Guidance:**
+${isExtortion
+  ? '⚠️ **Do not call the provided number, click any links, or share OTPs / personal details.** You can report this fraud immediately to the **1930 Cybercrime Helpline** or through the **Chakshu portal (sancharsaathi.gov.in)**.'
+  : '⚠️ **Do not forward unverified messages.** Always confirm policy claims directly through official portals such as **pib.gov.in**.'}
               `.trim();
             } else if (verdicts.factualCorrectness === 'Supported') {
               const citations = evaluatedSources.length > 0 ? evaluatedSources.map(s => `[${s.id}]`).join('') : '';
-              fallbackMarkdown = `### Verification Verdict: Factually Supported ${citations}
+              fallbackMarkdown = `This assertion is **factually verified and officially confirmed** ${citations}.
 
-The assertion is **substantiated by published primary gazettes and official circulars** ${citations}. ${explanation?.factualRationale ? `\n\n${explanation.factualRationale}` : ''}
+${explanation?.factualRationale || 'Published primary gazettes and official regulatory circulars substantiate the provisions mentioned.'}
 
-**Key Findings:**
-- Official circulars and statutory notifications substantiate the provisions mentioned ${citations}.
-- Directives have been verified against active regulatory gazette records.
+**Key Facts:**
+- Official circulars and statutory notifications substantiate this claim ${citations}.
+- Directives have been verified against active government records.
 
-**Recommended Guidance:**
-Review official gazette guidelines and proceed according to standard statutory procedures on official ministry portals.
+**Actionable Guidance:**
+Refer directly to official ministry portals or the referenced circular for implementation details.
               `.trim();
             } else if (verdicts.factualCorrectness === 'Mixed') {
               const citations = evaluatedSources.length > 0 ? evaluatedSources.map(s => `[${s.id}]`).join('') : '';
-              fallbackMarkdown = `### Verification Verdict: Mixed / State-Specific Evidence ${citations}
+              fallbackMarkdown = `This inquiry reflects **state-specific or mixed regulatory findings** ${citations}.
 
-The inquiry reflects **divergent or state-specific regulatory findings** ${citations}. ${explanation?.factualRationale ? `\n\n${explanation.factualRationale}` : ''}
+${explanation?.factualRationale || 'Provisions vary depending on state-level electricity distribution companies (DISCOMs) or local jurisdictions.'}
 
-**Key Findings:**
-- Cross-examination shows varying enforcement timelines or state-level variances across authorities ${citations}.
-- Certain provisions are subject to local distribution company (DISCOM) or department rules.
+**Key Facts:**
+- Cross-examination shows differing enforcement timelines or local rules across regions ${citations}.
+- Certain provisions are subject to local distribution company or department guidelines.
 
-**Recommended Guidance:**
-Verify whether state-specific regulations apply to your jurisdiction before relying on general interpretations.
+**Actionable Guidance:**
+Check with your specific state utility or regional department before relying on general interpretations.
               `.trim();
             } else {
               // UNVERIFIED / INSUFFICIENT EVIDENCE
-              fallbackMarkdown = `### Verification Finding: Factually Inconclusive (Insufficient Evidence)
+              fallbackMarkdown = `This claim is currently **unverified (insufficient evidence)**.
 
-No primary government gazette, statutory circular, or official notification was identified to substantiate or refute this specific claim.
+No primary government gazette, statutory circular, or official notification was identified to substantiate or refute this claim.
 
-**Key Findings:**
-- ${explanation?.sufficiencyRationale || 'No authoritative statutory circular matching this claim was found in indexed records.'}
-- Under strict evidence-first verification, absence of official records prevents declaring certainty without authoritative confirmation.
+**Key Facts:**
+- ${explanation?.sufficiencyRationale || 'No authoritative official notification matching this claim was found in indexed records.'}
+- Under strict evidence-first standards, absence of official records prevents declaring certainty.
 
-**Recommended Guidance:**
-1. **Do not treat as verified** until an official circular number is cited.
-2. Search primary portals directly at **pib.gov.in** or **india.gov.in**.
+**Actionable Guidance:**
+1. **Do not treat as verified** until an official circular or gazette number is provided.
+2. Verify directly through primary portals such as **pib.gov.in** or **india.gov.in**.
               `.trim();
             }
 

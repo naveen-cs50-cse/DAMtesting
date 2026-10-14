@@ -352,11 +352,11 @@ function renderConversationFeed() {
                     ${icons.stop} <span>Stop</span>
                   </button>
                 ` : `
-                  <button class="control-btn copy-turn-btn" data-turn="${turn.id}" title="Copy briefing">
-                    ${icons.copy} <span>Copy Briefing</span>
+                  <button class="control-btn icon-only-btn copy-turn-btn" data-turn="${turn.id}" title="Copy briefing" aria-label="Copy">
+                    📋
                   </button>
-                  <button class="control-btn retry-turn-btn" data-turn="${turn.id}" title="Re-evaluate investigation">
-                    ${icons.retry} <span>Re-evaluate</span>
+                  <button class="control-btn icon-only-btn retry-turn-btn" data-turn="${turn.id}" title="Re-evaluate investigation" aria-label="Re-evaluate">
+                    🔄
                   </button>
                 `}
               </div>
@@ -364,8 +364,8 @@ function renderConversationFeed() {
                 <button class="control-btn export-pdf-btn" data-turn="${turn.id}" title="Export as PDF Document">
                   ${icons.file} <span>Export PDF</span>
                 </button>
-                <button class="control-btn export-md-btn" data-turn="${turn.id}" title="Download Markdown Briefing">
-                  ${icons.file} <span>Markdown</span>
+                <button class="control-btn export-md-btn" data-turn="${turn.id}" title="Download Briefing">
+                  ${icons.file} <span>Download</span>
                 </button>
               </div>
             </div>

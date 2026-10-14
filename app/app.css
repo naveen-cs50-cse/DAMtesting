@@ -5099,6 +5099,17 @@ details[open] .timeline-chevron {
   box-shadow: 0 0 12px rgba(34, 197, 94, 0.15);
 }
 
+.control-btn.icon-only-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+}
+
 .control-btn svg {
   width: 14px;
   height: 14px;

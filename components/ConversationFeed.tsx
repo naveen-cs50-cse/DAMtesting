@@ -611,35 +611,30 @@ const AssistantTurnView: React.FC<{
             ) : (
               <>
                 <button
-                  className={`control-btn ${copied ? 'copied' : ''}`}
+                  className={`control-btn icon-only-btn ${copied ? 'copied' : ''}`}
                   onClick={handleCopy}
-                  title={copied ? 'Copied briefing to clipboard!' : 'Copy briefing'}
+                  title={copied ? 'Copied!' : 'Copy'}
+                  aria-label="Copy"
                 >
-                  {copied ? (
-                    <>
-                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: 'var(--dam-green)' }}>
-                        <path d="M20 6L9 17l-5-5" />
-                      </svg>
-                      <span style={{ color: 'var(--dam-green)', fontWeight: 650 }}>Copied!</span>
-                    </>
-                  ) : (
-                    <>
-                      <CopyIcon className="w-3.5 h-3.5" /> <span>Copy Briefing</span>
-                    </>
-                  )}
+                  {copied ? '✅' : '📋'}
                 </button>
-                <button className="control-btn" onClick={onRetry} title="Re-evaluate investigation">
-                  <RetryIcon className="w-3.5 h-3.5" /> <span>Re-evaluate</span>
+                <button
+                  className="control-btn icon-only-btn"
+                  onClick={onRetry}
+                  title="Re-evaluate"
+                  aria-label="Re-evaluate"
+                >
+                  🔄
                 </button>
                 {!isLive && turn.fullText && (
                   <button
                     type="button"
-                    className={`control-btn ${showAudio ? 'active' : ''}`}
+                    className={`control-btn icon-only-btn ${showAudio ? 'active' : ''}`}
                     onClick={() => setShowAudio(prev => !prev)}
-                    title={showAudio ? 'Hide audio advisory' : 'Listen to regional audio advisory'}
+                    title={showAudio ? 'Hide Audio' : 'Listen'}
+                    aria-label={showAudio ? 'Hide Audio' : 'Listen'}
                   >
-                    <VolumeIcon className="w-3.5 h-3.5" />
-                    <span>{showAudio ? 'Hide Audio' : 'Listen'}</span>
+                    🔊
                   </button>
                 )}
                 {meta?.certificate && (
@@ -671,9 +666,14 @@ const AssistantTurnView: React.FC<{
                 a.click();
                 URL.revokeObjectURL(url);
               }}
-              title="Download Markdown"
+              title="Download Briefing"
             >
-              <FileIcon className="w-3.5 h-3.5" /> <span>Markdown</span>
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              <span>Download</span>
             </button>
           </div>
         </div>

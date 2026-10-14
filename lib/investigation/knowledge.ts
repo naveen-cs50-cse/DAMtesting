@@ -168,5 +168,89 @@ export const REGULATORY_FIXTURES: Record<string, RegulatoryFixture> = {
       'Telecom operators notify customers through official billing channels, never via robocalls demanding bank transfers.',
       'Confirmed that Cybercrime Helpline 1930 is the designated response channel for reporting digital arrest extortion.'
     ]
+  },
+  sbi_yono_apk: {
+    domain: 'sbi.co.in',
+    title: 'State Bank of India & CERT-In: Security Advisory on Malicious Banking APK Phishing',
+    date: 'Oct 2026',
+    type: 'Government',
+    url: 'https://sbi.co.in/web/customer-care/security-tips',
+    passage: 'State Bank of India (SBI) never sends APK files, direct download links, or SMS asking customers to update PAN or unblock YONO via third-party websites. Legitimate YONO updates are exclusively distributed through Google Play Store and Apple App Store.',
+    stance: 'contradicts',
+    isFixture: true,
+    verdict: {
+      factualCorrectness: 'Contradicted',
+      scamRisk: 'High',
+      evidenceSufficiency: 'Sufficient',
+      riskTriggers: ['Sideloaded Malicious APK', 'Credential & OTP Stealer', 'Fake Suspension Threat', 'Typosquatted Banking Domain']
+    },
+    challenger: [
+      'Verified RBI Master Directions on Customer Protection — banks are prohibited from mandating APK downloads over SMS/WhatsApp.',
+      'Confirmed that banking apps require Google Play Protect signing and are never delivered as bare .apk files over text.',
+      'Evaluated permissions requested by fake YONO APKs: SMS sniffing (RECEIVE_SMS), screen mirroring, and accessibility abuse.'
+    ]
+  },
+  digital_arrest: {
+    domain: 'cybercrime.gov.in',
+    title: 'Indian Cyber Crime Coordination Centre (I4C) & MHA: Nationwide Advisory on Digital Arrest Extortion',
+    date: 'Oct 2026',
+    type: 'Government',
+    url: 'https://cybercrime.gov.in/advisories/digital-arrest-warning',
+    passage: 'Indian Law, Criminal Procedure Code (CrPC / BNSS), and statutory police protocol have NO PROVISION for Digital Arrest. Neither the CBI, Enforcement Directorate (ED), nor state police departments conduct interrogations or issue arrest warrants over Skype, WhatsApp, or video calls.',
+    stance: 'contradicts',
+    isFixture: true,
+    verdict: {
+      factualCorrectness: 'Contradicted',
+      scamRisk: 'High',
+      evidenceSufficiency: 'Sufficient',
+      riskTriggers: ['Fabricated Legal Authority', 'Extortion Video Call', 'Fake Police Uniform/Studio', 'Demands Immediate RTGS Transfer']
+    },
+    challenger: [
+      'Section 41A CrPC / Bharatiya Nagarik Suraksha Sanhita requires formal written summon served in person or via registered post, never over video call.',
+      'No law enforcement agency ever asks citizens to transfer money to "RBI verification accounts" to prove innocence.',
+      'Citizen directive: Disconnect immediately, do not pay, and report to 1930 and local police station.'
+    ]
+  },
+  wedding_card_apk: {
+    domain: 'cert-in.org.in',
+    title: 'CERT-In Vulnerability & Threat Note: Trojanized WhatsApp Wedding Invitation APKs',
+    date: 'Oct 2026',
+    type: 'Government',
+    url: 'https://www.cert-in.org.in/advisories',
+    passage: 'Cyber criminals are circulating malicious Android APK files disguised as wedding invitation cards (.apk extension, e.g. Wedding_Card.apk, Invitation.apk). Once installed, the malware captures SMS OTPs, contacts, and banking keystrokes.',
+    stance: 'contradicts',
+    isFixture: true,
+    verdict: {
+      factualCorrectness: 'Contradicted',
+      scamRisk: 'High',
+      evidenceSufficiency: 'Sufficient',
+      riskTriggers: ['Social Engineering Camouflage', 'Stealth Trojan Dropper', 'Steals SMS OTPs & Contacts', 'Forwards Itself Automatically']
+    },
+    challenger: [
+      'Digital invitation cards are always standard image (JPEG/PNG) or PDF files, never executable application packages (.apk).',
+      'The payload requests Accessibility Service permissions to read on-screen text and intercept two-factor SMS authentication.',
+      'Urgent guidance: Do not install, uninstall if opened, reboot into Safe Mode, and inform bank if credentials entered.'
+    ]
+  },
+  income_tax_phishing: {
+    domain: 'incometax.gov.in',
+    title: 'Income Tax Department: Public Warning Regarding Phishing SMS & Fake Refund Approval Notices',
+    date: 'Sep 2026',
+    type: 'Government',
+    url: 'https://incometax.gov.in/iec/foportal/taxpayer-advisory',
+    passage: 'The Income Tax Department never requests taxpayers to confirm credit card numbers, CVVs, or internet banking passwords over SMS or third-party links to process refunds. Legitimate refunds are credited directly via bank account validation on e-Filing portal.',
+    stance: 'contradicts',
+    isFixture: true,
+    verdict: {
+      factualCorrectness: 'Contradicted',
+      scamRisk: 'High',
+      evidenceSufficiency: 'Sufficient',
+      riskTriggers: ['Financial Bait Scam', 'CVV/PIN Harvesting', 'Phishing Landing Page', 'Impersonating Tax Directorate']
+    },
+    challenger: [
+      'Verified refund processing workflow: Income Tax refunds are transferred via ECS/NEFT through SBI NECS, never requiring card numbers.',
+      'Official communications are exclusively transmitted through verified shortcode headers (e.g. IT-ITAX, VK-ITAX).'
+    ]
   }
 };
+

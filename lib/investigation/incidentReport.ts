@@ -22,13 +22,14 @@ export function generateIncidentReport(
   forensics?: import('./forensics').EntityForensics,
   extractedOcrText: string = ''
 ): IncidentReport | null {
-  // Only generate incident reports if there is medium/high risk or detected suspect entities
-  const hasRisk = verdicts.scamRisk === 'High' || verdicts.scamRisk === 'Medium';
-  const hasSuspectUrls = forensics?.urls && forensics.urls.some(u => u.status === 'critical' || u.status === 'suspicious');
-  const hasSuspectPhones = forensics?.phones && forensics.phones.length > 0;
+  // Only generate incident reports if there are actual cyber threats or high scam risk vectors
+  const isCyberThreatTask = taskType === 'apk' || taskType === 'caller' || taskType === 'threat' || taskType === 'scam';
+  const hasHighScam = verdicts.scamRisk === 'High' && (isCyberThreatTask || verdicts.riskTriggers.length > 0);
+  const hasSuspectUrls = forensics?.urls && forensics.urls.some(u => u.status === 'critical');
+  const hasSuspectPhones = forensics?.phones && forensics.phones.some(p => p.risk === 'High');
   const hasSuspectSenders = forensics?.senders && forensics.senders.length > 0;
 
-  if (!hasRisk && !hasSuspectUrls && !hasSuspectPhones && !hasSuspectSenders) {
+  if (!hasHighScam && !hasSuspectUrls && !hasSuspectPhones && !hasSuspectSenders) {
     return null;
   }
 

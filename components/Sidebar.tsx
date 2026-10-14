@@ -49,6 +49,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [bookmarksOpen, setBookmarksOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -59,22 +60,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const bookmarksRef = useRef<HTMLDivElement>(null);
+  const bookmarksTriggerRef = useRef<HTMLButtonElement>(null);
 
-  // Close profile menu on outside click or Escape key
+  // Close profile menu and bookmarks drawer on outside click or Escape key
   useEffect(() => {
-    if (!menuOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
       if (
+        menuOpen &&
         menuRef.current &&
-        !menuRef.current.contains(e.target as Node) &&
+        !menuRef.current.contains(target) &&
         triggerRef.current &&
-        !triggerRef.current.contains(e.target as Node)
+        !triggerRef.current.contains(target)
       ) {
         setMenuOpen(false);
       }
+      if (
+        bookmarksOpen &&
+        bookmarksRef.current &&
+        !bookmarksRef.current.contains(target) &&
+        bookmarksTriggerRef.current &&
+        !bookmarksTriggerRef.current.contains(target)
+      ) {
+        setBookmarksOpen(false);
+      }
     };
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMenuOpen(false);
+      if (e.key === 'Escape') {
+        setMenuOpen(false);
+        setBookmarksOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleKeyDown);
@@ -82,16 +98,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [menuOpen]);
+  }, [menuOpen, bookmarksOpen]);
 
   const filtered = conversations.filter(c => 
     !searchQuery || c.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Separate pinned conversations from regular unfiled
+  // Conversations in bookmarks (marked with isPinned)
+  const bookmarkedList = filtered.filter(c => c.isPinned);
   const unfiled = filtered.filter(c => !c.folderId);
-  const pinnedList = unfiled.filter(c => c.isPinned);
-  const regularList = unfiled.filter(c => !c.isPinned);
 
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -105,7 +120,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     older: [],
   };
 
-  regularList.forEach(c => {
+  unfiled.forEach(c => {
     const time = new Date(c.createdAt || 0).getTime();
     if (time >= today) groups.today.push(c);
     else if (time >= yesterday) groups.yesterday.push(c);
@@ -156,8 +171,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             type="button"
             className={`history-action-btn ${item.isPinned ? 'active' : ''}`}
-            title={item.isPinned ? "Unpin" : "Pin to top"}
-            aria-label="Pin"
+            title={item.isPinned ? "Remove from Bookmarks" : "Bookmark investigation"}
+            aria-label={item.isPinned ? "Remove from Bookmarks" : "Bookmark investigation"}
             onClick={e => {
               e.stopPropagation();
               onTogglePinConversation(item.id);
@@ -194,16 +209,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     );
   };
 
-  const renderGroup = (label: string, items: Conversation[], isPinnedGroup: boolean = false) => {
+  const renderGroup = (label: string, items: Conversation[]) => {
     if (!items.length) return null;
     return (
-      <div className={`history-group ${isPinnedGroup ? 'pinned-history-group' : ''}`}>
+      <div className="history-group">
         <div className="history-group-title">
-          {isPinnedGroup && (
-            <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" stroke="none" className="mr-1" style={{ color: '#a1a1aa' }}>
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-            </svg>
-          )}
           <span>{label}</span>
         </div>
         {items.map(item => renderConversationItem(item))}
@@ -263,6 +273,91 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <kbd aria-label="Keyboard shortcut">{isMac ? '⌘K' : 'Ctrl K'}</kbd>
         </button>
       </div>
+
+      {/* Bookmarks Access Button */}
+      <div style={{ padding: '0 12px 6px' }}>
+        <button
+          ref={bookmarksTriggerRef}
+          type="button"
+          className="new-investigation-btn"
+          onClick={() => setBookmarksOpen(prev => !prev)}
+          title="View Bookmarks"
+          style={{
+            width: '100%',
+            margin: 0,
+            background: bookmarksOpen ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.035)',
+            borderColor: bookmarksOpen ? 'rgba(255, 255, 255, 0.18)' : 'rgba(255, 255, 255, 0.08)',
+          }}
+        >
+          <svg viewBox="0 0 24 24" width="15" height="15" fill={bookmarksOpen || bookmarkedList.length > 0 ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.6">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+          </svg>
+          <span style={{ flex: 1, textAlign: 'left', fontWeight: 500 }}>Bookmarks</span>
+          {bookmarkedList.length > 0 && (
+            <span className="sidebar-evidence-pill" style={{ fontSize: '10.5px' }}>
+              {bookmarkedList.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Bookmarks Flyout Drawer */}
+      {bookmarksOpen && (
+        <div
+          ref={bookmarksRef}
+          className="sidebar-bookmarks-drawer"
+          style={{
+            position: 'absolute',
+            left: '100%',
+            top: 0,
+            width: '280px',
+            height: '100%',
+            backgroundColor: '#121216',
+            borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
+            zIndex: 100,
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '4px 0 24px rgba(0,0,0,0.6)',
+          }}
+          role="region"
+          aria-label="Bookmarks Explorer"
+        >
+          <div className="sidebar-head" style={{ padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" stroke="currentColor" strokeWidth="1.5">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+              </svg>
+              <strong style={{ color: '#fff', fontSize: '14px', fontWeight: 600 }}>Bookmarks</strong>
+              <span className="sidebar-evidence-pill" style={{ fontSize: '10.5px' }}>{bookmarkedList.length}</span>
+            </div>
+            <button
+              type="button"
+              className="icon-button"
+              onClick={() => setBookmarksOpen(false)}
+              style={{ color: '#a3a3a3' }}
+              title="Close bookmarks"
+              aria-label="Close bookmarks"
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <div className="history-list custom-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: '8px' }}>
+            {bookmarkedList.length === 0 ? (
+              <div style={{ padding: '36px 16px', color: '#71717a', fontSize: '13px', textAlign: 'center', lineHeight: '1.5' }}>
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ margin: '0 auto 8px', opacity: 0.5, display: 'block' }}>
+                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                </svg>
+                No bookmarked investigations yet.
+                <div style={{ fontSize: '11px', marginTop: '4px', opacity: 0.8 }}>
+                  Click the bookmark icon on any chat to save it here.
+                </div>
+              </div>
+            ) : (
+              bookmarkedList.map(item => renderConversationItem(item))
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Active Evidence Quick Access Button: ONLY visible when an active query exists with indexed evidence */}
       {hasQuery && evidenceCount > 0 && (
@@ -333,8 +428,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             ) : (
               <>
-                {/* Pinned / Bookmarked investigations appear cleanly at the top */}
-                {renderGroup('Pinned', pinnedList, true)}
                 {renderGroup('Today', groups.today)}
                 {renderGroup('Yesterday', groups.yesterday)}
                 {renderGroup('Previous 7 Days', groups.last7)}

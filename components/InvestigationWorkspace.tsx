@@ -7,6 +7,7 @@ import { LandingBlock } from './LandingBlock';
 import { Composer } from './Composer';
 import { ConversationFeed } from './ConversationFeed';
 import { EvidencePanel } from './EvidencePanel';
+import { FloatingEvidenceButton } from './FloatingEvidenceButton';
 import { MethodologyModal } from './modals/MethodologyModal';
 import { UrlModal } from './modals/UrlModal';
 import { RenameModal } from './modals/RenameModal';
@@ -232,6 +233,8 @@ export const InvestigationWorkspace: React.FC = () => {
     setTimeout(() => setToastMsg(null), 3000);
   };
 
+  const hasQuery = Boolean(activeConversation && activeConversation.turns.length > 0);
+
   // Aggregate sources for active conversation
   const caseSources: IndexedSource[] = [];
   if (activeConversation) {
@@ -272,7 +275,7 @@ export const InvestigationWorkspace: React.FC = () => {
     );
     saveConversations(updated);
     const target = updated.find(c => c.id === id);
-    showToast(target?.isPinned ? 'Investigation pinned to top' : 'Investigation unpinned');
+    showToast(target?.isPinned ? 'Saved to Bookmarks' : 'Removed from Bookmarks');
   };
 
   // Keyboard navigation
@@ -474,7 +477,7 @@ export const InvestigationWorkspace: React.FC = () => {
             const status = currentMeta?.verdicts?.verdictStatus || getQueryVerdictStatus(currentMeta);
             if (status) {
               setAmbientGlow(status);
-              setTimeout(() => setAmbientGlow(null), 3200);
+              setTimeout(() => setAmbientGlow(null), 6800);
             }
           } else if (eventType === 'done') {
             const smartTitle = generateSmartTitle(promptToSend, currentMeta);
@@ -548,23 +551,40 @@ export const InvestigationWorkspace: React.FC = () => {
   const [ambientGlow, setAmbientGlow] = useState<'right' | 'false' | 'unverified' | null>(null);
 
   useEffect(() => {
+    // Expose window trigger for live preview / testing
+    if (typeof window !== 'undefined') {
+      (window as unknown as { __triggerAmbientGlow?: (type?: 'right' | 'false' | 'unverified') => void }).__triggerAmbientGlow = (type = 'false') => {
+        setAmbientGlow(type);
+        setTimeout(() => setAmbientGlow(null), 6800);
+      };
+    }
+
     if (activeVerdictStatus) {
       setAmbientGlow(activeVerdictStatus);
       const timer = setTimeout(() => {
         setAmbientGlow(null);
-      }, 3200); // Ambient backlight blooms for 3.2 seconds then fades
+      }, 6800); // Smooth non-sharp ambient sweep lasts 6.8 seconds then smoothly fades out
       return () => clearTimeout(timer);
     }
   }, [activeId, activeVerdictStatus]);
 
   return (
     <div className={`app-shell${mobileMenuOpen ? ' menu-open' : ''} ${sidebarOpen ? '' : 'sidebar-closed'}`} id="appShell">
-      {/* Ambient backlight glow overlay that flashes across the entire screen and background when a verdict arrives */}
+      {/* Google Gemini-Style Ambient Light: Smooth, organic rotating backlight aura (no sharp rectangular lines) */}
       {ambientGlow && (
         <div
-          className={`ambient-verdict-backdrop active glow-${ambientGlow}`}
+          className={`ambient-verdict-backdrop gemini-ambient active glow-${ambientGlow}`}
           aria-hidden="true"
-        />
+        >
+          {/* Deep atmospheric inward glow */}
+          <div className="gemini-ambient-haze" />
+          {/* Smooth organic rotating ambient aura (soft, non-sharp, non-squarish) */}
+          <div className="gemini-ambient-aura-wrap">
+            <div className="gemini-ambient-stream" />
+          </div>
+          {/* Soft edge vignette */}
+          <div className="gemini-ambient-vignette" />
+        </div>
       )}
 
       {/* Mobile backdrop: tapping outside sidebar closes it */}
@@ -589,7 +609,7 @@ export const InvestigationWorkspace: React.FC = () => {
           showToast('Investigation deleted');
         }}
         evidenceCount={caseSources.length}
-        hasQuery={Boolean(activeConversation && activeConversation.turns.length > 0)}
+        hasQuery={hasQuery}
         onOpenEvidence={() => setEvidencePanelOpen(true)}
         onTogglePinConversation={handleTogglePin}
         onOpenCreateFolder={() => {
@@ -612,7 +632,7 @@ export const InvestigationWorkspace: React.FC = () => {
           title={activeConversation ? activeConversation.title : 'New investigation'}
           caseId={activeConversation?.caseId}
           isLive={isStreaming}
-          hasQuery={Boolean(activeConversation && activeConversation.turns.length > 0)}
+          hasQuery={hasQuery}
           onOpenMethodology={() => setMethodologyModalOpen(true)}
           onToggleEvidence={() => setEvidencePanelOpen(prev => !prev)}
           evidenceCount={caseSources.length}
@@ -700,7 +720,17 @@ export const InvestigationWorkspace: React.FC = () => {
         </section>
       </main>
 
-      {/* Contextual Evidence Panel */}
+      {/* Floating Bottom-Right World Icon with Little Number on Top & Hover Evidence Popover */}
+      {/* Appears ONLY when a query has been asked in chat, and shows ONLY that active chat's evidence */}
+      {hasQuery && (
+        <FloatingEvidenceButton
+          sources={caseSources}
+          onOpenFullEvidence={() => setEvidencePanelOpen(prev => !prev)}
+          onCitationClick={handleCitationClick}
+        />
+      )}
+
+      {/* Contextual Evidence Panel Drawer */}
       <EvidencePanel
         isOpen={evidencePanelOpen}
         onClose={() => setEvidencePanelOpen(false)}

@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Internship Weekly Attendance & Full-Term Work Report — Naveen Nampally | useDAM</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --dam-red: #f03a3a;
+      --text-dark: #0f172a;
+      --text-muted: #475569;
+      --border-color: #cbd5e1;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --bg-accent: #f1f5f9;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-page);
+      color: var(--text-dark);
+      line-height: 1.6;
+      padding: 24px 16px;
+      font-size: 13.5px;
+    }
+
+    .container {
+      max-width: 920px;
+      margin: 0 auto;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+      overflow: hidden;
+    }
+
+    /* Action bar */
+    .action-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #0b0d13;
+      color: #fff;
+      padding: 12px 24px;
+      border-bottom: 2px solid var(--dam-red);
+    }
+
+    .action-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+
+    .action-brand span {
+      color: var(--dam-red);
+    }
+
+    .print-btn {
+      background: var(--dam-red);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: opacity 0.2s;
+    }
+
+    .print-btn:hover {
+      opacity: 0.9;
+    }
+
+    /* Document Sheet */
+    .doc-sheet {
+      padding: 40px 48px;
+    }
+
+    /* Section Header */
+    .doc-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 2px solid #0f172a;
+      padding-bottom: 18px;
+      margin-bottom: 24px;
+    }
+
+    .logo-area h1 {
+      font-size: 20px;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.02em;
+    }
+
+    .logo-area p {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .meta-area {
+      text-align: right;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .meta-area strong {
+      color: #0f172a;
+    }
+
+    .doc-title {
+      font-size: 16.5px;
+      font-weight: 750;
+      color: #0f172a;
+      text-align: center;
+      margin: 20px 0;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      border-top: 1px solid var(--border-color);
+      border-bottom: 1px solid var(--border-color);
+      padding: 8px 0;
+      background: var(--bg-accent);
+    }
+
+    .highlight-pill {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1d4ed8;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 11px;
+    }
+
+    .fill-box {
+      background: #fef3c7;
+      border: 1px dashed #d97706;
+      color: #92400e;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    /* Section content */
+    .section-block {
+      margin-bottom: 32px;
+    }
+
+    .section-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #0f172a;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 10px;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .letter-body {
+      font-size: 13.5px;
+      line-height: 1.7;
+      color: #1e293b;
+    }
+
+    .letter-body p {
+      margin-bottom: 14px;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      background: var(--bg-accent);
+      padding: 14px;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      margin: 16px 0;
+    }
+
+    .info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      font-size: 12px;
+    }
+
+    .info-item label {
+      color: var(--text-muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .info-item span {
+      font-weight: 600;
+      color: #0f172a;
+    }
+
+    /* Timesheet table */
+    .timesheet-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11.5px;
+      margin-top: 10px;
+    }
+
+    .timesheet-table th, 
+    .timesheet-table td {
+      border: 1px solid #cbd5e1;
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .timesheet-table th {
+      background: #0f172a;
+      color: #ffffff;
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .timesheet-table tr:nth-child(even) {
+      background: #f8fafc;
+    }
+
+    .badge-present {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      background: #dcfce7;
+      color: #15803d;
+      border: 1px solid #86efac;
+      white-space: nowrap;
+    }
+
+    .badge-submitted {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      background: #eff6ff;
+      color: #1e40af;
+      border: 1px solid #93c5fd;
+      white-space: nowrap;
+    }
+
+    .badge-scheduled {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      background: #f1f5f9;
+      color: #64748b;
+      border: 1px solid #cbd5e1;
+      white-space: nowrap;
+    }
+
+    .badge-scheduled-att {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      background: #f8fafc;
+      color: #475569;
+      border: 1px dashed #94a3b8;
+      white-space: nowrap;
+    }
+
+    /* Signatures */
+    .signatures-row {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 36px;
+      padding-top: 20px;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    .sign-col {
+      width: 45%;
+    }
+
+    .sign-col.right {
+      text-align: right;
+    }
+
+    .sign-stamp {
+      display: inline-block;
+      border: 1.5px dashed #0f172a;
+      padding: 10px 16px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      background: #f8fafc;
+      text-align: left;
+      font-size: 11px;
+    }
+
+    .sign-stamp strong {
+      display: block;
+      color: #0f172a;
+    }
+
+    .col-date {
+      white-space: nowrap !important;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* College Sanction Block */
+    .college-sanction-block {
+      margin-top: 26px;
+      border: 1.5px solid #0f172a;
+      border-radius: 8px;
+      padding: 16px 20px;
+      background: #f8fafc;
+    }
+
+    .sanction-header {
+      font-size: 11px;
+      font-weight: 800;
+      color: #0f172a;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1.5px solid #0f172a;
+      padding-bottom: 6px;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .sanction-options {
+      display: flex;
+      gap: 24px;
+      margin-bottom: 10px;
+      font-size: 12px;
+    }
+
+    .checkbox-box {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border: 1.5px solid #0f172a;
+      margin-right: 6px;
+      vertical-align: -1px;
+      background: #fff;
+    }
+
+    .college-sigs-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 20px;
+      margin-top: 28px;
+    }
+
+    .college-sig-item {
+      text-align: center;
+      font-size: 11px;
+      color: #334155;
+    }
+
+    .college-sig-line {
+      border-top: 1px dashed #64748b;
+      margin-bottom: 6px;
+      height: 1px;
+    }
+
+    /* Print styling */
+    @media print {
+      body {
+        background: #fff;
+        padding: 0;
+      }
+
+      .container {
+        border: none;
+        box-shadow: none;
+        max-width: 100%;
+      }
+
+      .action-bar {
+        display: none !important;
+      }
+
+      .doc-sheet {
+        padding: 14px 20px;
+      }
+
+      .page-break {
+        page-break-before: always;
+        break-before: page;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Top Action Bar for browser display -->
+    <div class="action-bar no-print">
+      <div class="action-brand">
+        USE<span>DAM</span> TECHNOLOGIES &bull; WEEKLY ATTENDANCE & WORK REPORT
+      </div>
+      <button class="print-btn" onclick="window.print()">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2">
+          <polyline points="6 9 6 2 18 2 18 9"></polyline>
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+          <rect x="6" y="14" width="12" height="8"></rect>
+        </svg>
+        Print / Save Official PDF
+      </button>
+    </div>
+
+    <div class="doc-sheet">
+      <!-- Header -->
+      <div class="doc-header">
+        <div class="logo-area">
+          <h1>useDAM Technologies Private Limited</h1>
+          <p>Evidence-Led Information Integrity & Intelligence Systems</p>
+          <p>Kota, Rajasthan, India &bull; usedam.com &bull; contact@usedam.com</p>
+        </div>
+        <div class="meta-area">
+          <p><strong>Ref:</strong> DAM/INT/2026/02</p>
+          <p><strong>Date:</strong> 14 October 2026</p>
+          <p><strong>Term:</strong> 60 Days (Weeks 1 & 2 Completed)</p>
+        </div>
+      </div>
+
+      <!-- Title -->
+      <div class="doc-title">
+        Official Student Internship Report
+      </div>
+
+      <!-- SECTION 1: STUDENT COLLEGE APPLICATION -->
+      <div class="section-block">
+        <div class="section-title">
+          <span>Part A: Formal Application for On-Duty (OD) / College Attendance Exemption</span>
+        </div>
+
+        <div class="letter-body">
+          <p>
+            <strong>To:</strong><br>
+            The Head of Department (HOD) / Principal / Training &amp; Placement Officer (TPO)<br>
+            Department of Computer Science &amp; Engineering<br>
+            <strong>MVSR Engineering College</strong><br>
+            Nadergul, Saroornagar, Hyderabad &ndash; 501510, Telangana
+          </p>
+
+          <p><strong>Subject:</strong> Application for grant of On-Duty (OD) Attendance / Academic Attendance Exemption during College Hours (9:00 AM – 4:00 PM) for 60-Day Software Engineer Internship at useDAM Technologies Private Limited</p>
+
+          <p>Respected Sir / Madam,</p>
+
+          <p>
+            I, <strong>Naveen Nampally</strong>, a bona fide student of <strong>3rd Year B.Tech (Computer Science &amp; Engineering - Section C)</strong>, bearing University Roll No: <strong>2451-24-733-161</strong>, respectfully submit this application to report my internship details &amp; work progress for the completed period and request continued <strong>attendance On-Duty (OD) credit / academic attendance exemption</strong>.
+          </p>
+
+          <p>
+            I have been officially appointed as a <strong>Software Engineer Intern</strong> at <strong>useDAM Technologies Private Limited</strong> (Reference: <code>DAM/INT/2026/02</code>) for a 60-day term spanning <strong>9 academic weeks</strong> from <strong>1 October 2026 to 29 November 2026</strong>.
+          </p>
+
+          <div class="info-grid">
+            <div class="info-item">
+              <label>Intern Name</label>
+              <span>Naveen Nampally</span>
+            </div>
+            <div class="info-item">
+              <label>University Roll Number</label>
+              <span><strong>2451-24-733-161</strong></span>
+            </div>
+            <div class="info-item">
+              <label>College &amp; Branch</label>
+              <span>MVSR Engg College &bull; 3rd Year CSE-C</span>
+            </div>
+            <div class="info-item">
+              <label>College Timings</label>
+              <span>9:00 AM – 4:00 PM (IST)</span>
+            </div>
+            <div class="info-item">
+              <label>Internship Designation</label>
+              <span>Software Engineer Intern</span>
+            </div>
+            <div class="info-item">
+              <label>Internship Hours</label>
+              <span>9:00 AM – 4:00 PM (35 Hours / Week)</span>
+            </div>
+            <div class="info-item">
+              <label>Current Status (14-Oct-2026)</label>
+              <span><strong>Weeks 1 &amp; 2 Completed (70 Hours)</strong></span>
+            </div>
+            <div class="info-item">
+              <label>Attendance Record to Date</label>
+              <span><strong>100% Present (OD) for Weeks 1 &amp; 2</strong></span>
+            </div>
+          </div>
+
+          <p>
+            <strong>Reason for Attendance Exemption:</strong><br>
+            My scheduled daily engineering development shifts, live cloud deployments, architectural syncs, and mentor reviews take place from <strong>9:00 AM to 4:00 PM</strong> (35 hours per week). Because these mandatory engineering hours directly overlap with regular college hours, I am actively engaged in full-time software engineering and unable to sit in classroom lectures and lab sessions during this period.
+          </p>
+
+          <p>
+            In accordance with institutional guidelines that grant attendance exemptions to students completing industry-recognized engineering internships, I respectfully request your office to approve <strong>On-Duty (OD) Attendance Credit</strong> for all my classes between <strong>9:00 AM and 4:00 PM</strong> for the completed period (Weeks 1 &amp; 2) and continuing across the remaining scheduled roadmap (Weeks 3 to 9), ensuring my academic attendance record remains 100% compliant.
+          </p>
+
+          <!-- Enclosures & Student Application Sign-off -->
+          <div style="margin-top: 18px; display: flex; justify-content: space-between; align-items: flex-end;">
+            <div>
+              <p style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 2px;"><strong>Enclosures:</strong></p>
+              <ul style="font-size: 11px; color: var(--text-muted); margin-left: 16px; line-height: 1.5;">
+                <li>Official Internship Appointment Letter (Ref: <code>DAM/INT/2026/02</code>)</li>
+                <li>Part B: 9-Week Technical Timesheet &amp; Deliverables Breakdown (70 Hrs Verified)</li>
+                <li>Part C: Company Attendance Verification &amp; Academic Endorsement</li>
+              </ul>
+            </div>
+            <div style="text-align: right; min-width: 200px;">
+              <p style="font-size: 12px; margin-bottom: 24px;">Yours respectfully,</p>
+              <div style="border-top: 1px solid #94a3b8; padding-top: 4px; display: inline-block; min-width: 170px; text-align: center;">
+                <strong>Naveen Nampally</strong><br>
+                <span style="font-size: 11px; color: var(--text-muted);">Roll No: 2451-24-733-161 (CSE-C)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="page-break"></div>
+
+      <!-- SECTION 2: 9-WEEK COMPREHENSIVE WORK LOG -->
+      <div class="section-block">
+        <div class="section-title">
+          <span>Part B: Weekly Internship Timesheet (Weeks 1 & 2 Attended &bull; Weeks 3–9 Roadmap)</span>
+          <span class="highlight-pill">70 Verified Hours to Date</span>
+        </div>
+
+        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+          The following weekly timesheet records verified weekly hours (9:00 AM – 4:00 PM shifts), key technical deliverables, and milestone submission status:
+        </p>
+
+        <table class="timesheet-table">
+          <thead>
+            <tr>
+              <th style="width: 9%;">Week #</th>
+              <th style="width: 18%;">Dates</th>
+              <th style="width: 12%;">Weekly Hours</th>
+              <th style="width: 43%;">Core Engineering Workstream &amp; Technical Deliverables</th>
+              <th style="width: 18%;">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Week 1: Present & Submitted -->
+            <tr style="background: #f0fdf4;">
+              <td><strong>Week 1</strong></td>
+              <td class="col-date">01-Oct &ndash; 07-Oct-2026</td>
+              <td><strong>35 hrs</strong><br><span style="color: var(--text-muted); font-size: 10px;">9am – 4pm</span></td>
+              <td>Scaffolded Next.js 16 App Router repository; built Indian Misinformation Knowledge Engine; engineered Part 1–6 heuristic analysis pipeline &amp; SHA-256 evidence certificate (Sec 65B Indian Evidence Act).</td>
+              <td>
+                <span class="badge-submitted">✔ Submitted &amp; Approved</span><br>
+                <span class="badge-present" style="margin-top: 3px;">✔ Present (OD)</span>
+              </td>
+            </tr>
+            <!-- Week 2: Present & Submitted -->
+            <tr style="background: #f0fdf4;">
+              <td><strong>Week 2</strong></td>
+              <td class="col-date">08-Oct &ndash; 14-Oct-2026</td>
+              <td><strong>35 hrs</strong><br><span style="color: var(--text-muted); font-size: 10px;">9am – 4pm</span></td>
+              <td>Authored 62 automated test suites (100% passing); configured Turbopack &amp; Vercel CI/CD; engineered 3-tier verdict telemetry, Astra 6 interactive mouse-drag slider, and overhauled button contrast/visibility.</td>
+              <td>
+                <span class="badge-submitted">✔ Submitted &amp; Approved</span><br>
+                <span class="badge-present" style="margin-top: 3px;">✔ Present (OD)</span>
+              </td>
+            </tr>
+            <!-- Weeks 3 to 9: Scheduled Roadmap -->
+            <tr>
+              <td><strong>Week 3</strong></td>
+              <td class="col-date">15-Oct &ndash; 21-Oct-2026</td>
+              <td><strong>35 hrs</strong><br><span style="color: var(--text-muted); font-size: 10px;">9am – 4pm</span></td>
+              <td>Integrated PIB Fact-Check &amp; National Regulatory Watchtower; engineered automated web crawlers and debunk indexing across RBI, SEBI, TRAI, and CERT-In advisory feeds.</td>
+              <td>
+                <span class="badge-scheduled">Scheduled / Pipeline</span><br>
+                <span class="badge-scheduled-att" style="margin-top: 3px;">Scheduled (OD)</span>
+              </td>
+            </tr>
+            <tr>
+              <td><strong>Week 4</strong></td>
+              <td class="col-date">22-Oct &ndash; 28-Oct-2026</td>
+              <td><strong>35 hrs</strong><br><span style="color: var(--text-muted); font-size: 10px;">9am – 4pm</span></td>
+              <td>Engineered Multilingual Vernacular Voice Advisory Engine; implemented regional speech synthesis across 12 Indian languages with natural conversational playback and audio caching.</td>
+              <td>
+                <span class="badge-scheduled">Scheduled / Pipeline</span><br>
+                <span class="badge-scheduled-att" style="margin-top: 3px;">Scheduled (OD)</span>
+              </td>
+            </tr>
+            <tr>
+              <td><strong>Week 5</strong></td>
+              <td class="col-date">29-Oct &ndash; 04-Nov-2026</td>
+              <td><strong>35 hrs</strong><br><span style="color: var(--text-muted); font-size: 10px;">9am – 4pm</span></td>
+              <td>Built WhatsApp Citizen Alert &amp; Community Forward-Busting Bot; integrated webhook receivers, automated image perceptual hash matching, and real-time viral rumor busting.</td>
+              <td>
+                <span class="badge-scheduled">Scheduled / Pipeline</span><br>
+                <span class="badge-scheduled-att" style="margin-top: 3px;">Scheduled (OD)</span>
+              </td>
+            </tr>
+            <tr>
+              <td><strong>Week 6</strong></td>
+              <td class="col-date">05-Nov &ndash; 11-Nov-2026</td>
+              <td><strong>35 hrs</strong><br><span style="color: var(--text-muted); font-size: 10px;">9am – 4pm</span></td>
+              <td>Engineered automated legal incident reporting kit for National Cyber Crime Portal (1930 / cybercrime.gov.in) and DoT Chakshu portal; created PDF evidence dossier auto-generation.</td>
+              <td>
+                <span class="badge-scheduled">Scheduled / Pipeline</span><br>
+                <span class="badge-scheduled-att" style="margin-top: 3px;">Scheduled (OD)</span>
+              </td>
+            </tr>
+            <tr>
+              <td><strong>Week 7</strong></td>
+              <td class="col-date">12-Nov &ndash; 18-Nov-2026</td>
+              <td><strong>35 hrs</strong><br><span style="color: var(--text-muted); font-size: 10px;">9am – 4pm</span></td>
+              <td>High-performance vector database optimization; implemented hybrid RAG (Retrieval-Augmented Generation) with semantic caching, reducing investigation latency below 400ms.</td>
+              <td>
+                <span class="badge-scheduled">Scheduled / Pipeline</span><br>
+                <span class="badge-scheduled-att" style="margin-top: 3px;">Scheduled (OD)</span>
+              </td>
+            </tr>
+            <tr>
+              <td><strong>Week 8</strong></td>
+              <td class="col-date">19-Nov &ndash; 25-Nov-2026</td>
+              <td><strong>35 hrs</strong><br><span style="color: var(--text-muted); font-size: 10px;">9am – 4pm</span></td>
+              <td>Enterprise security hardening &amp; OWASP compliance; engineered strict SSRF guards, automated prompt injection defenses, rate-limiting, and cryptographic API token authentication.</td>
+              <td>
+                <span class="badge-scheduled">Scheduled / Pipeline</span><br>
+                <span class="badge-scheduled-att" style="margin-top: 3px;">Scheduled (OD)</span>
+              </td>
+            </tr>
+            <tr>
+              <td><strong>Week 9</strong></td>
+              <td class="col-date">26-Nov &ndash; 29-Nov-2026</td>
+              <td><strong>20 hrs</strong><br><span style="color: var(--text-muted); font-size: 10px;">Final Sprint</span></td>
+              <td>Production release stabilization, complete API documentation, final codebase handover, and formal capstone technical presentation to useDAM Executive Leadership.</td>
+              <td>
+                <span class="badge-scheduled">Scheduled / Final</span><br>
+                <span class="badge-scheduled-att" style="margin-top: 3px;">Scheduled (OD)</span>
+              </td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr style="background: #f1f5f9; font-weight: 700;">
+              <td colspan="2">COMPLETED (WEEKS 1 &amp; 2):</td>
+              <td>70 Hours</td>
+              <td colspan="2">100% Attended (Present - OD) &bull; 100% Phase 1 Milestones Approved</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div class="page-break"></div>
+
+      <!-- SECTION 3: EMPLOYER CERTIFICATION & ENDORSEMENT -->
+      <div class="section-block">
+        <div class="section-title">
+          <span>Part C: Company Attendance Verification &amp; Academic Endorsement</span>
+          <span class="highlight-pill">Official Endorsement</span>
+        </div>
+
+        <div class="letter-body">
+          <p>
+            <strong>TO WHOMSOEVER IT MAY CONCERN</strong>
+          </p>
+          <p>
+            This is to officially certify that <strong>Mr. Naveen Nampally</strong>, student of <strong>MVSR Engineering College, Hyderabad</strong>, bearing University Roll No. <strong>2451-24-733-161</strong> (Department of Computer Science &amp; Engineering), is actively working as a full-time <strong>Software Engineer Intern</strong> at <strong>useDAM Technologies Private Limited</strong> under Internship Reference No. <strong>DAM/INT/2026/02</strong> for the 60-day term spanning <strong>1 October 2026 to 29 November 2026 (9 Weeks)</strong>.
+          </p>
+          <p>
+            We verify and confirm the following technical and attendance credentials as of <strong>14 October 2026</strong>:
+          </p>
+          <ol style="margin-left: 20px; margin-bottom: 14px;">
+            <li><strong>Verified Attendance to Date (Weeks 1 &amp; 2):</strong> During the completed initial evaluation period (1 October 2026 to 14 October 2026), Mr. Naveen Nampally has maintained <strong>100% attendance</strong>, logging <strong>70 verified engineering hours</strong> during scheduled 9:00 AM – 4:00 PM shifts. All assigned engineering deliverables for Weeks 1 and 2 have been <strong>successfully completed, submitted, and approved</strong>.</li>
+            <li><strong>Scheduled Roadmap (Weeks 3 to 9):</strong> He is scheduled to continue his full-time internship duties from 15 October 2026 to 29 November 2026 under the same daily schedule (9:00 AM to 4:00 PM, 35 hours/week).</li>
+            <li><strong>Engineering Scope:</strong> Full-stack development of our sovereign evidence platform, comprising Next.js microservices, Astra 6 draggable controls, OCR forensics, legal statutory cross-examiners, and enterprise security.</li>
+          </ol>
+          <p>
+            Because our core company hours (<strong>9:00 AM to 4:00 PM</strong>) directly coincide with his regular college hours, we strongly request the College Academic Administration, Department Head, and Principal to grant <strong>On-Duty (OD) Attendance Credit / Attendance Exemption</strong> to Mr. Naveen Nampally for both the completed weeks and the remaining scheduled weeks through 29 November 2026.
+          </p>
+        </div>
+
+        <!-- Signature blocks -->
+        <div class="signatures-row">
+          <div class="sign-col">
+            <div class="sign-stamp">
+              <strong>Digitally Verified by:</strong>
+              Naveen Nampally<br>
+              Software Engineer Intern<br>
+              Date: 14 October 2026
+            </div>
+            <p><strong>Naveen Nampally</strong><br>Student / Intern Signature</p>
+          </div>
+
+          <div class="sign-col right">
+            <div class="sign-stamp" style="text-align: right; border-color: var(--dam-red);">
+              <strong style="color: var(--dam-red);">useDAM Technologies Pvt. Ltd.</strong>
+              Anil Sharma &bull; Director &amp; Signatory<br>
+              Ref: DAM/ATT/2026/PHASE-1<br>
+              Date: 14 October 2026
+            </div>
+            <p><strong>Anil Sharma</strong><br>Director &amp; Signatory<br>useDAM Technologies Private Limited</p>
+          </div>
+        </div>
+
+        <!-- College Administration Sanction & Approval Block -->
+        <div class="college-sanction-block">
+          <div class="sanction-header">
+            <span>For College / Department Office Use Only &bull; Attendance Sanction</span>
+            <span>Academic Year 2026&ndash;2027</span>
+          </div>
+          <div class="sanction-options">
+            <span><span class="checkbox-box"></span> <strong>APPROVED:</strong> On-Duty (OD) Attendance Credit Sanctioned (9:00 AM &ndash; 4:00 PM)</span>
+            <span><span class="checkbox-box"></span> <strong>DEFERRED / REJECTED</strong></span>
+          </div>
+          <div style="font-size: 11px; color: #475569; margin-bottom: 24px;">
+            <strong>Sanction Order Details:</strong> OD credit ratified for 70 hours (Weeks 1 &amp; 2) and approved for upcoming schedule (Weeks 3 &ndash; 9) subject to company evaluation reports.
+          </div>
+          <div class="college-sigs-row">
+            <div class="college-sig-item">
+              <div class="college-sig-line"></div>
+              <strong>Head of Department (CSE)</strong><br>
+              MVSR Engineering College
+            </div>
+            <div class="college-sig-item">
+              <div class="college-sig-line"></div>
+              <strong>Training &amp; Placement Officer (TPO)</strong><br>
+              MVSR Engineering College
+            </div>
+            <div class="college-sig-item">
+              <div class="college-sig-line"></div>
+              <strong>Principal / Dean Academics</strong><br>
+              College Seal &amp; Date
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</body>
+</html>

@@ -58,6 +58,98 @@ function getEffectiveTavilyKey(explicitKey?: string): string {
   return key;
 }
 
+function generateSmartFollowUpFallback(prompt: string, history: ChatTurn[]): string {
+  const lower = prompt.toLowerCase();
+  
+  if (lower.includes('draft') || lower.includes('complaint') || lower.includes('letter')) {
+    return `### Formal Dispute & Fraud Complaint Letter
+*(Ready to copy, personalize, and submit to your Bank Branch Manager & Cyber Police)*
+
+---
+
+**Date:** ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}  
+**To:**  
+The Branch Manager,  
+[Name of Your Bank, e.g., State Bank of India / HDFC Bank],  
+[Branch Name / City]  
+
+**Subject:** Urgent Notice: Unauthorized Scam Communication & Request for Customer Account Protection under RBI Directions
+
+**Respected Sir / Madam,**
+
+I, **[Your Name]**, holding Savings Account No. **[Your Account Number]** at your branch, am submitting this formal complaint regarding a fraudulent cyber threat communication received on my registered mobile number.
+
+1. **Incident Details:**  
+   On **[Date & Time]**, I received a deceptive message/call alleging [suspension of banking services / urgent electricity cut / KYC deactivation] with instructions to [download an unverified APK / call an unauthorized number / transfer funds].
+2. **Statutory Reference:**  
+   In terms of the **RBI Master Direction on Limiting Liability of Customers in Unauthorised Electronic Banking Transactions (Ref: DBR.No.Leg.BC.78/09.07.005/2017-18)**, I am promptly intimating the bank within the mandatory reporting window (Golden Hour) to ensure zero customer liability.
+3. **Action Requested:**  
+   - Immediately place a precautionary monitor/freeze on unauthorized netbanking/UPI transaction attempts on my account.
+   - Re-issue a fresh UPI ID and invalidate compromised session tokens if applicable.
+   - Acknowledge receipt of this letter with an official bank grievance acknowledgment number.
+
+I have also registered an official complaint with the **National Cyber Crime Helpline (1930 / cybercrime.gov.in)** under Acknowledgment Reference: **[1930 Ref Number if available]**.
+
+Yours faithfully,  
+**[Your Signature]**  
+**[Your Name]**  
+Mobile: **[Your Mobile Number]**  
+Email: **[Your Email ID]**`;
+  }
+
+  if (lower.includes('1930') || lower.includes('chakshu') || lower.includes('report')) {
+    return `### Official Incident Reporting Guide (India)
+
+Follow these official steps to report this cyber threat and freeze any fraudulent fund transfers:
+
+#### 1. Immediate Financial Freeze — 1930 Helpline (Golden Hour)
+- **Dial 1930** immediately from your mobile phone.
+- The operator will ask for:
+  - Your Bank Name and Account Number
+  - Suspect's Phone Number or UPI ID
+  - Date, time, and exact amount deducted
+- The **Citizen Financial Cyber Fraud Reporting System (CFCFRMS)** will dispatch an automated lien request to the destination bank to freeze the recipient account before money is withdrawn at an ATM.
+
+#### 2. File Official Portal Complaint — cybercrime.gov.in
+- Visit **[cybercrime.gov.in](https://cybercrime.gov.in)** and click **"Report Other Cyber Crime"**.
+- Register using your mobile OTP.
+- Upload screenshots of the SMS, WhatsApp forward, or call log.
+- Download the formal **Cyber Complaint PDF acknowledgment** for bank and police records.
+
+#### 3. Report Malicious Sender on DoT Chakshu
+- Visit **[sancharsaathi.gov.in/sfc/](https://sancharsaathi.gov.in/sfc/)**.
+- Submit the fraud caller's 10-digit number or SMS header.
+- The Department of Telecommunications (DoT) will block the caller across all Indian telecom networks.`;
+  }
+
+  if (lower.includes('clicked') || lower.includes('otp') || lower.includes('hacked') || lower.includes('downloaded')) {
+    return `### 🚨 Urgent Emergency Triage: Immediate Actions Required
+
+If you have already clicked the link, downloaded an APK, or shared OTPs:
+
+1. **Disconnect Internet Access Immediately:**  
+   Turn on **Airplane Mode** or disable both Mobile Data and Wi-Fi immediately. This cuts off remote command-and-control servers from transmitting your OTPs and keystrokes.
+2. **Block Bank & UPI Access:**  
+   Call your bank's 24x7 toll-free helpline from another phone or use your bank's automated IVR to **instantly freeze Netbanking and UPI**.
+3. **Remove Malicious APKs:**  
+   - Open **Android Settings &rarr; Apps &rarr; See All Apps**.
+   - Look for recently installed apps without genuine icons or named *YONO, Update, Rewards, Wedding, Traffic, or System Service*.
+   - Tap **Uninstall**. If "Uninstall" is greyed out, go to **Settings &rarr; Security &rarr; Device Admin Apps**, revoke permissions, and restart in **Safe Mode** to remove.
+4. **Dial 1930 Cybercrime Helpline:**  
+   Report the incident immediately. Under RBI guidelines, reporting unauthorized debits within 3 days grants you complete protection from liability.`;
+  }
+
+  return `### Regulatory Guidance & Next Steps
+
+Based on authoritative Indian statutory directives:
+
+- **Do Not Engage:** Never call back 10-digit personal mobile numbers claiming to represent government agencies, power discoms, or banks.
+- **Verify Directly:** Access only official portals (**rbi.org.in**, **pib.gov.in**, **sancharsaathi.gov.in**).
+- **Report & Warn Others:** Share the debunked facts with family members and forward suspicious numbers to **1930 / Chakshu**.
+
+Would you like me to draft a complaint letter for your bank manager or provide step-by-step instructions for filing an online cyber report?`;
+}
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -174,7 +266,7 @@ export async function POST(req: NextRequest) {
             });
           }
 
-          const plan = coordinateInvestigation(prompt, attachments);
+          const plan = coordinateInvestigation(prompt, attachments, history);
 
           // Handle Conversational Intent (Greetings, pleasantries, general chat)
           if (plan.taskType === 'conversational') {
@@ -225,6 +317,91 @@ How can I assist your investigation today?`;
 
             sendEvent('meta', {
               taskType: 'conversational',
+              sources: [],
+              verdicts: null
+            });
+
+            sendEvent('done', { success: true });
+            controller.close();
+            return;
+          }
+
+          // Handle Follow-Up Questions & Actionable Advisory (Complaint drafting, 1930 reporting, triage steps)
+          if (plan.taskType === 'follow_up') {
+            sendEvent('stage', {
+              id: 'advisory',
+              title: 'Consulting Cyber Defense & Regulatory Knowledge',
+              status: 'running',
+              summary: 'Synthesizing tailored citizen guidance, complaint draft, or reporting instructions...',
+            });
+
+            await new Promise(r => setTimeout(r, 120));
+
+            sendEvent('stage', {
+              id: 'advisory',
+              title: 'Consulting Cyber Defense & Regulatory Knowledge',
+              status: 'completed',
+              summary: 'Ready. Streaming actionable intelligence...',
+            });
+
+            let streamed = false;
+            if (openaiKey) {
+              try {
+                const openai = createOpenAI({ apiKey: openaiKey });
+                const systemPrompt = `You are UseDAM, an intelligent and authoritative cybersecurity, legal, and regulatory advisor for citizens in India.
+You are assisting a citizen in an ongoing case investigation.
+
+CRITICAL DIRECTIVES:
+- Directly answer the user's specific request without repeating generic boilerplate or declaring rigid verification verdicts.
+- If they ask for a complaint letter (to bank manager, police, or cyber cell):
+  Provide a formal, highly professional, ready-to-copy letter. Include clear [Placeholders] for Date, Account Number, Branch Name, Disputed Transaction Details, and cite relevant Indian regulations:
+  * RBI Master Direction on Limiting Liability of Customers in Unauthorised Electronic Banking Transactions (Ref: DBR.No.Leg.BC.78/09.07.005/2017-18)
+  * Section 43A and Section 66D of the Information Technology Act 2000
+- If they ask how to report to 1930 / Chakshu / Cybercrime portal:
+  Provide clear, numbered step-by-step instructions:
+  1. Call 1930 (National Cyber Crime Reporting Helpline) immediately (golden hour).
+  2. Visit cybercrime.gov.in -> "Report Other Cyber Crime" -> enter transaction/call details.
+  3. Report malicious calls/SMS to Chakshu portal on sancharsaathi.gov.in.
+- If they ask what to do if they already clicked a link, downloaded an APK, or shared OTP:
+  Give urgent triage steps:
+  1. Immediately turn on Airplane Mode or disconnect from Wi-Fi/mobile data.
+  2. Call your bank immediately to freeze netbanking, UPI, and debit cards.
+  3. Uninstall suspicious APKs from Settings -> Apps, or boot in Safe Mode to remove hidden admin profiles.
+  4. File an immediate complaint on 1930.
+- If they ask for general advice, explanations, or WhatsApp summaries:
+  Provide clear, reassuring, practical advice with bold bullet points.
+- Tone: Empathetic, expert, decisive, and reassuring.`;
+
+                const result = streamText({
+                  model: openai('gpt-4o-mini'),
+                  system: systemPrompt,
+                  messages: [
+                    ...history.slice(-6).map(h => ({ role: h.role, content: h.content || '' })),
+                    { role: 'user', content: prompt }
+                  ],
+                  temperature: 0.3,
+                  abortSignal: req.signal,
+                });
+
+                for await (const delta of result.textStream) {
+                  streamed = true;
+                  sendEvent('token', { text: delta });
+                }
+              } catch (err) {
+                console.warn('Follow-up streaming fallback:', err);
+              }
+            }
+
+            if (!streamed) {
+              const fallbackResponse = generateSmartFollowUpFallback(prompt, history);
+              for (const chunk of fallbackResponse.split(' ')) {
+                sendEvent('token', { text: chunk + ' ' });
+                await new Promise(r => setTimeout(r, 12));
+              }
+            }
+
+            sendEvent('meta', {
+              taskType: 'follow_up',
               sources: [],
               verdicts: null
             });
@@ -408,6 +585,20 @@ How can I assist your investigation today?`;
             status: 'completed',
             summary: `Audit complete: ${verdicts.factualCorrectness} (${verdicts.verdictStatus === 'right' ? '✔ Verified' : verdicts.verdictStatus === 'false' ? '✖ False' : '⚪ Unverified'}, Threat: ${verdicts.scamRisk} Risk).`,
             details: { challengerAudit, explanation },
+          });
+
+          // Early metadata emission: Immediately provides sources and verdict to UI while briefing streams
+          sendEvent('meta', {
+            taskType: plan.taskType,
+            verdicts,
+            claims,
+            sources: evaluatedSources,
+            challengerAudit,
+            verdictExplanation: explanation,
+            forensics,
+            statutes,
+            documentAnalysis: primaryDocAnalysis,
+            urlAnalysis: primaryUrlAnalysis,
           });
 
           // STAGE 5: Synthesizing Intelligence Briefing

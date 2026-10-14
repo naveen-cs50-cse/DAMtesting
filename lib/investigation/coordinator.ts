@@ -6,7 +6,11 @@ export interface PlanResult {
   assertions: string[];
 }
 
-export function coordinateInvestigation(prompt: string, attachments: Attachment[] = []): PlanResult {
+export function coordinateInvestigation(
+  prompt: string,
+  attachments: Attachment[] = [],
+  history: { role: string; content?: string }[] = []
+): PlanResult {
   // Combine user prompt with any OCR-extracted text from image attachments
   const extractedPieces = attachments
     .filter(a => a.extractedText)
@@ -30,6 +34,43 @@ export function coordinateInvestigation(prompt: string, attachments: Attachment[
       taskType: 'conversational',
       queries: [],
       assertions: []
+    };
+  }
+
+  // Follow-Up & Actionable Advisory Intent (Complaint drafting, 1930 reporting walkthrough, post-click emergency steps, explaining context)
+  const isActionableFollowUp = attachments.length === 0 && (
+    lower.startsWith('draft') ||
+    lower.startsWith('write a') ||
+    lower.includes('complaint') ||
+    lower.includes('what should i do') ||
+    lower.includes('how do i report') ||
+    lower.includes('how to report') ||
+    lower.includes('i already clicked') ||
+    lower.includes('i shared otp') ||
+    lower.includes('my phone is hacked') ||
+    lower.includes('steps to report') ||
+    lower.includes('chakshu portal') ||
+    lower.includes('1930') ||
+    lower.includes('sample letter') ||
+    lower.includes('template for bank') ||
+    lower.includes('whatsapp warning summary') ||
+    (history.length > 0 && (
+      lower.startsWith('how') ||
+      lower.startsWith('what') ||
+      lower.startsWith('can you') ||
+      lower.startsWith('why') ||
+      lower.startsWith('tell me') ||
+      lower.startsWith('explain') ||
+      lower.includes('is it safe') ||
+      lower.includes('who is')
+    ))
+  );
+
+  if (isActionableFollowUp) {
+    return {
+      taskType: 'follow_up',
+      queries: [],
+      assertions: [prompt.trim()]
     };
   }
 

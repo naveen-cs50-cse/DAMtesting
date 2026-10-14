@@ -162,7 +162,7 @@ const AssistantTurnView: React.FC<{
   const [showCertModal, setShowCertModal] = useState(false);
   const [showAudio, setShowAudio] = useState(false);
 
-  const isConversational = meta?.taskType === 'conversational';
+  const isConversational = meta?.taskType === 'conversational' || meta?.taskType === 'follow_up';
   const hasSources = Boolean(meta?.sources && meta.sources.length > 0);
   const hasVerdicts = Boolean(meta?.verdicts && !isConversational);
   const turnVerdictStatus = meta?.verdicts?.verdictStatus || getQueryVerdictStatus(meta);
@@ -309,616 +309,242 @@ const AssistantTurnView: React.FC<{
         )}
 
         {/* 6. Deep Forensic Dossier & Regulatory Tools (Collapsible Inspector) */}
-        {!isConversational && (Boolean(meta?.statutes?.applicableStatutes?.length) || Boolean(meta?.forensics) || Boolean(meta?.incidentReport) || Boolean(meta?.documentAnalysis) || Boolean(meta?.manipulationAudit?.overallIndex) || Boolean(meta?.challengerAudit?.length) || Boolean(meta?.verdicts?.explanation)) && (
-          <details className="forensic-dossier-accordion">
-            <summary className="forensic-dossier-summary">
-              <div className="dossier-summary-left">
-                <ShieldIcon className="w-3.5 h-3.5" />
-                <strong>Forensic Dossier & Regulatory Tools</strong>
-              </div>
-              <span className="dossier-summary-hint">
-                Inspect legal clauses, Chakshu grievance kit & forensics ▾
-              </span>
-            </summary>
-            <div className="forensic-dossier-body">
+        {/* 6. Deep Forensic Dossier & Regulatory Tools (Collapsible Inspector) */}
+        {(() => {
+          if (isConversational) return null;
+          const meaningfulImpacts = (meta?.verdicts?.explanation?.sourceImpacts || []).filter(
+            impact => !impact.explanation?.toLowerCase().includes('fallback template') &&
+                      !impact.explanation?.toLowerCase().includes('excluded from live')
+          );
+          const hasIncidentKit = Boolean(
+            meta?.incidentReport && (meta.verdicts?.scamRisk === 'High' || meta.forensics?.phones?.some(p => p.risk === 'High') || meta.forensics?.urls?.some(u => u.status === 'critical'))
+          );
+          const hasStatutes = Boolean(meta?.statutes?.applicableStatutes?.length);
+          const hasForensics = Boolean(meta?.forensics && ((meta.forensics.urls?.length ?? 0) > 0 || (meta.forensics.phones?.length ?? 0) > 0 || (meta.forensics.senders?.length ?? 0) > 0));
+          const hasDocAnalysis = Boolean(meta?.documentAnalysis || turn.attachments?.some(a => a.documentAnalysis));
+          const hasManipulation = Boolean(meta?.manipulationAudit && meta.manipulationAudit.overallIndex > 0);
+          const hasChallenger = Boolean(meta?.challengerAudit && meta.challengerAudit.length > 0);
+
+          if (meaningfulImpacts.length === 0 && !hasIncidentKit && !hasStatutes && !hasForensics && !hasDocAnalysis && !hasManipulation && !hasChallenger) {
+            return null;
+          }
+
+          return (
+            <details className="forensic-dossier-accordion">
+              <summary className="forensic-dossier-summary">
+                <div className="dossier-summary-left">
+                  <ShieldIcon className="w-3.5 h-3.5" />
+                  <strong>Analysis & Verification Details</strong>
+                </div>
+                <span className="dossier-summary-hint">
+                  {hasIncidentKit ? 'Report fraud & view checks ▾' : 'View checks & sources ▾'}
+                </span>
+              </summary>
+              <div className="forensic-dossier-body">
 
         {/* 3.6 Structured Evidence Rationale & Source Attribution */}
-        {meta?.verdicts?.explanation && (
-          <details className="verdict-explanation-box revealed" open>
-            <summary className="verdict-explanation-summary">
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2">
+        {meaningfulImpacts.length > 0 && (
+          <div className="dossier-flat-section">
+            <div className="dossier-section-title">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="12" cy="12" r="10" />
                 <path d="m9 12 2 2 4-4" />
               </svg>
-              <span>Structured Evidence Rationale & Source Attribution</span>
-            </summary>
-            <div className="verdict-explanation-content">
-              {meta.verdicts.explanation.sourceImpacts && meta.verdicts.explanation.sourceImpacts.length > 0 && (
-                <div className="source-impacts-list">
-                  <span className="source-impacts-heading">Source Attribution Breakdown</span>
-                  {meta.verdicts.explanation.sourceImpacts.map(impact => (
-                    <div key={impact.sourceId} className={`source-impact-item role-${impact.impactRole}`}>
-                      <div className="source-impact-header">
-                        <span className="source-impact-domain">[{impact.sourceId}] {impact.domain}</span>
-                        <span className={`source-impact-stance-pill stance-${impact.stance}`}>{impact.stance}</span>
-                        <span className="source-impact-weight">Auth: {Math.round(impact.authorityWeight * 100)}% &bull; Rel: {Math.round(impact.relevanceScore * 100)}%</span>
-                      </div>
-                      <p className="source-impact-detail">{impact.explanation}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <span>Evidence Attribution Breakdown</span>
             </div>
-          </details>
-        )}
-
-        {/* 4. Threat & Forensic Analysis Cards (Revealed once investigation completes) */}
-        {/* 4.1 PSYCHOLOGICAL MANIPULATION & SOCIAL ENGINEERING RADAR */}
-        {meta?.manipulationAudit && meta.manipulationAudit.overallIndex > 0 && (
-          <div className="manipulation-card revealed" aria-label="Psychological Manipulation Radar">
-            <div className="manipulation-head">
-              <div className="manipulation-title">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z" />
-                  <path d="M12 6v6l4 2" />
-                </svg>
-                <strong>Psychological Manipulation Radar</strong>
-              </div>
-              <div className={`manipulation-badge level-${meta.manipulationAudit.threatLevel.toLowerCase()}`}>
-                <span>{meta.manipulationAudit.overallIndex}% {meta.manipulationAudit.threatLevel} Manipulation</span>
-              </div>
-            </div>
-
-            <div className="manipulation-meter-track">
-              <div
-                className={`manipulation-meter-fill level-${meta.manipulationAudit.threatLevel.toLowerCase()}`}
-                style={{ width: `${meta.manipulationAudit.overallIndex}%` }}
-              />
-            </div>
-
-            <p className="manipulation-summary-text">{meta.manipulationAudit.summary}</p>
-
-            <div className="manipulation-vectors-grid">
-              {meta.manipulationAudit.vectors.map(vec => (
-                <div key={vec.id} className={`vector-card ${vec.score > 0 ? 'active' : 'inactive'} level-${vec.level.toLowerCase()}`}>
-                  <div className="vector-card-head">
-                    <span className="vector-name">{vec.name}</span>
-                    <span className="vector-score">{vec.score}%</span>
+            <div className="source-impacts-flat-list">
+              {meaningfulImpacts.map(impact => (
+                <div key={impact.sourceId} className="source-impact-flat-row">
+                  <div className="source-impact-flat-head">
+                    <span className="source-impact-domain">[{impact.sourceId}] {impact.domain}</span>
+                    <span className="source-impact-pill">{impact.stance}</span>
+                    <span className="source-impact-weight">Auth: {Math.round(impact.authorityWeight * 100)}% &bull; Rel: {Math.round(impact.relevanceScore * 100)}%</span>
                   </div>
-                  <div className="vector-progress-track">
-                    <div className="vector-progress-fill" style={{ width: `${vec.score}%` }} />
-                  </div>
-                  {vec.detectedTriggers.length > 0 && (
-                    <div className="vector-triggers-list">
-                      {vec.detectedTriggers.slice(0, 3).map((trig, tIdx) => (
-                        <span key={tIdx} className="vector-trigger-tag">&quot;{trig}&quot;</span>
-                      ))}
-                    </div>
-                  )}
+                  <p className="source-impact-detail">{impact.explanation}</p>
                 </div>
               ))}
             </div>
-
-            {meta.manipulationAudit.counterMeasure && (
-              <div className="cognitive-pause-banner">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="10" y1="15" x2="10" y2="9" />
-                  <line x1="14" y1="15" x2="14" y2="9" />
-                </svg>
-                <span>{meta.manipulationAudit.counterMeasure}</span>
-              </div>
-            )}
           </div>
         )}
 
-        {/* 4.2 THREAT ENTITY & URL FORENSICS CARD (Phase 2) */}
-        {meta?.forensics && (meta.forensics.urls.length > 0 || meta.forensics.phones.length > 0 || meta.forensics.senders.length > 0) && (
-          <div className="forensics-card revealed" aria-label="Digital Entity & Link Forensics">
-            <div className="forensics-head">
-              <div className="forensics-title">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
-                <strong>Digital Entity & Link Forensics</strong>
-              </div>
-              <span className="forensics-badge">Indian Scam Guard</span>
-            </div>
-
-            <div className="forensics-body">
-              {/* Suspicious or Analyzed URLs */}
-              {meta.forensics.urls.length > 0 && (
-                <div className="forensic-section">
-                  <span className="forensic-section-label">Link & Domain Authenticity</span>
-                  <div className="forensic-items-list">
-                    {meta.forensics.urls.map((item, uIdx) => (
-                      <div key={uIdx} className={`forensic-item status-${item.status}`}>
-                        <div className="forensic-item-main">
-                          <span className={`forensic-status-pill ${item.status}`}>
-                            {item.status === 'safe' ? 'Verified Gov/NIC' : item.status === 'critical' ? 'Phishing / Malware APK' : 'Unverified 3rd-Party'}
-                          </span>
-                          <span className="forensic-domain-text">{item.domain || item.url}</span>
-                        </div>
-                        <p className="forensic-reason-text">{item.reason}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Analyzed Phone Numbers */}
-              {meta.forensics.phones.length > 0 && (
-                <div className="forensic-section">
-                  <span className="forensic-section-label">Telephone Number Risk</span>
-                  <div className="forensic-items-list">
-                    {meta.forensics.phones.map((phone, pIdx) => (
-                      <div key={pIdx} className={`forensic-item status-${phone.risk === 'High' ? 'critical' : 'suspicious'}`}>
-                        <div className="forensic-item-main">
-                          <span className={`forensic-status-pill ${phone.risk === 'High' ? 'critical' : 'suspicious'}`}>
-                            {phone.risk} Risk Caller
-                          </span>
-                          <span className="forensic-domain-text">{phone.number}</span>
-                        </div>
-                        <p className="forensic-reason-text">{phone.notes}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* DLT Sender Headers */}
-              {meta.forensics.senders.length > 0 && (
-                <div className="forensic-section">
-                  <span className="forensic-section-label">TRAI DLT Header Verification</span>
-                  <div className="forensic-items-list">
-                    {meta.forensics.senders.map((sender, sIdx) => (
-                      <div key={sIdx} className={`forensic-item status-${sender.isRegisteredDLT ? 'safe' : 'suspicious'}`}>
-                        <div className="forensic-item-main">
-                          <span className={`forensic-status-pill ${sender.isRegisteredDLT ? 'safe' : 'suspicious'}`}>
-                            {sender.isRegisteredDLT ? 'Registered DLT Header' : 'Unregistered Header'}
-                          </span>
-                          <span className="forensic-domain-text">{sender.id}</span>
-                        </div>
-                        <p className="forensic-reason-text">{sender.notes}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* 4.3 LEGAL & STATUTORY CLAUSE CROSS-EXAMINATION */}
-        {meta?.statutes && meta.statutes.applicableStatutes.length > 0 && (
-          <div className="statutes-card revealed" aria-label="Legal & Statutory Clause Cross-Examination">
-            <div className="statutes-head">
-              <div className="statutes-title">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
-                  <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
-                  <path d="M7 21h10" />
-                  <path d="M12 3v18" />
-                  <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2" />
-                </svg>
-                <strong>Legal & Statutory Cross-Examination</strong>
-              </div>
-              <span className="statutes-badge">{meta.statutes.statutoryViolationCount} Violations Flagged</span>
-            </div>
-
-            <div className="statutes-body">
-              <div className="statutes-grid">
-                {meta.statutes.applicableStatutes.map((clause, cIdx) => (
-                  <div key={cIdx} className="statute-item">
-                    <div className="statute-item-top">
-                      <span className="statute-act-name">{clause.act}</span>
-                      <span className="statute-sec-pill">{clause.section}</span>
-                    </div>
-                    <h5 className="statute-clause-title">{clause.title}</h5>
-                    <p className="statute-rule-desc"><strong>Statutory Standard:</strong> {clause.statutoryRule}</p>
-                    <p className="statute-remedy-desc"><strong>Citizen Remedy:</strong> {clause.punishmentOrRemedy}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="statutes-rights-note">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="12" y1="8" x2="12" y2="12" />
-                  <line x1="12" y1="16" x2="12.01" y2="16" />
-                </svg>
-                <span>{meta.statutes.citizenRightsSummary}</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 4.4 NATIONAL CYBER CRIME & CHAKSHU INCIDENT KIT (Phase 3) */}
-        {meta?.incidentReport && (
-          <div className="incident-kit-card revealed" aria-label="National Cyber Crime & Chakshu Incident Kit">
-            <div className="incident-kit-head">
-              <div className="incident-kit-title">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                  <path d="M12 8v4" />
-                  <path d="M12 16h.01" />
-                </svg>
-                <div>
-                  <strong>National Cyber Incident Redressal Kit</strong>
-                  <span className="incident-kit-subtitle">Pre-formatted grievance for Chakshu & 1930</span>
-                </div>
-              </div>
-              <div className="incident-channel-badge">
-                {meta.incidentReport.urgency === 'Immediate' && <span className="urgency-pulse" />}
-                <span>{meta.incidentReport.portalName}</span>
-              </div>
-            </div>
-
-            <div className="incident-kit-body">
-              <div className="incident-kit-meta-row">
-                <div className="incident-meta-chip">
-                  <span className="incident-chip-label">Classification:</span>
-                  <span className="incident-chip-val">{meta.incidentReport.category}</span>
-                </div>
-                <div className="incident-meta-chip">
-                  <span className="incident-chip-label">Immediate Helpline:</span>
-                  <a href={`tel:${meta.incidentReport.helpline.split(' ')[0]}`} className="incident-chip-val helpline-link">
-                    {meta.incidentReport.helpline}
-                  </a>
-                </div>
-              </div>
-
-              <div className="incident-actions-row">
-                <button
-                  type="button"
-                  className={`btn-incident-primary ${copiedReport ? 'copied' : ''}`}
-                  onClick={handleCopyReport}
-                  title="Copy pre-formatted grievance to paste into official portal"
-                >
-                  {copiedReport ? (
-                    <>
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                      Copied Dossier for Official Grievance!
-                    </>
-                  ) : (
-                    <>
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                      Copy Pre-formatted Incident Report
-                    </>
-                  )}
-                </button>
-
-                <a
-                  href={meta.incidentReport.portalUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn-incident-link"
-                >
-                  Open {meta.incidentReport.recommendedPortal === 'chakshu' ? 'Chakshu Portal' : 'Cybercrime.gov.in'}
-                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                </a>
-
-                {meta.incidentReport.recommendedPortal === 'chakshu' ? (
-                  <a
-                    href="https://cybercrime.gov.in"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn-incident-secondary"
-                  >
-                    Cybercrime.gov.in (1930)
-                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                  </a>
-                ) : (
-                  <a
-                    href="https://sancharsaathi.gov.in/sfc/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn-incident-secondary"
-                  >
-                    DoT Chakshu (Sanchar Saathi)
-                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                  </a>
-                )}
-              </div>
-
-              <details className="incident-dossier-preview">
-                <summary className="incident-dossier-summary">
-                  <span>View Pre-formatted Grievance Dossier</span>
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
-                </summary>
-                <pre className="incident-dossier-text">{meta.incidentReport.dossierText}</pre>
-              </details>
-            </div>
-          </div>
-        )}
-
-        {/* 4.5 OFFICIAL DOCUMENT & GAZETTE FORENSICS CARD */}
-        {(meta?.documentAnalysis || turn.attachments?.find(a => a.documentAnalysis)?.documentAnalysis) && (() => {
-          const docAnalysis = meta?.documentAnalysis || turn.attachments?.find(a => a.documentAnalysis)?.documentAnalysis;
-          if (!docAnalysis) return null;
+        {/* 4.1 Manipulation & Urgency Indicators */}
+        {(() => {
+          if (!meta?.manipulationAudit || meta.manipulationAudit.overallIndex <= 0) return null;
+          const activeVectors = (meta.manipulationAudit.vectors || []).filter(v => v.score > 0 || (v.detectedTriggers && v.detectedTriggers.length > 0));
+          if (activeVectors.length === 0 && !meta.manipulationAudit.summary) return null;
           return (
-            <div className="document-forensics-card revealed" aria-label="Official Document & Gazette Scrutiny">
-              <div className="document-forensics-head">
-                <div className="document-forensics-title">
-                  <FileIcon className="w-4 h-4 text-sky-400" />
-                  <strong>Official Document & Gazette Scrutiny</strong>
-                </div>
-                <span className={`document-status-pill ${docAnalysis.status}`}>
-                  {docAnalysis.pageCount} Page{docAnalysis.pageCount !== 1 ? 's' : ''} &bull; {docAnalysis.status}
-                </span>
+            <div className="dossier-flat-section">
+              <div className="dossier-section-title">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+                <span>Urgency & Pressure Indicators</span>
               </div>
-
-              <div className="document-forensics-body">
-                {/* Safe Failure / Error State Details */}
-                {docAnalysis.errorDetails && (
-                  <div className="doc-anomaly-item" style={{ background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#fca5a5' }}>
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
-                      <circle cx="12" cy="12" r="10" />
-                      <line x1="12" y1="8" x2="12" y2="12" />
-                      <line x1="12" y1="16" x2="12.01" y2="16" />
-                    </svg>
-                    <span><strong>Processing State:</strong> {docAnalysis.errorDetails}</span>
-                  </div>
+              <div className="dossier-flat-content">
+                {activeVectors.length > 0 ? (
+                  <ul className="dossier-simple-list">
+                    {activeVectors.map(vec => (
+                      <li key={vec.id}>
+                        <strong>{vec.name}:</strong> {vec.detectedTriggers.length > 0 ? `Detected keywords: "${vec.detectedTriggers.join('", "')}"` : `${vec.score}% urgency level`}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="dossier-simple-text">{meta.manipulationAudit.summary}</p>
                 )}
-
-                {/* Extracted Identifiers Grid */}
-                <div className="doc-identifiers-grid">
-                  <div className="doc-identifier-card">
-                    <span className="doc-identifier-label">Circular / Order Reference</span>
-                    <span className="doc-identifier-val">
-                      {docAnalysis.extractedIdentifiers.circularNumbers.length > 0
-                        ? docAnalysis.extractedIdentifiers.circularNumbers.join(', ')
-                        : 'No standard circular reference found'}
-                    </span>
-                  </div>
-
-                  <div className="doc-identifier-card">
-                    <span className="doc-identifier-label">Issuing Authority</span>
-                    <span className="doc-identifier-val">
-                      {docAnalysis.extractedIdentifiers.issuingAuthorities.length > 0
-                        ? docAnalysis.extractedIdentifiers.issuingAuthorities.join(', ')
-                        : 'Unspecified / Non-standard header'}
-                    </span>
-                  </div>
-
-                  <div className="doc-identifier-card">
-                    <span className="doc-identifier-label">Promulgation Dates</span>
-                    <span className="doc-identifier-val">
-                      {docAnalysis.extractedIdentifiers.dates.length > 0
-                        ? docAnalysis.extractedIdentifiers.dates.join(', ')
-                        : 'No explicit dates found'}
-                    </span>
-                  </div>
-
-                  <div className="doc-identifier-card">
-                    <span className="doc-identifier-label">Signatories & Seals</span>
-                    <span className="doc-identifier-val">
-                      {docAnalysis.extractedIdentifiers.signatoryNames.length > 0 || docAnalysis.extractedIdentifiers.stamps.length > 0
-                        ? [...docAnalysis.extractedIdentifiers.signatoryNames, ...docAnalysis.extractedIdentifiers.stamps].join(', ')
-                        : 'No signatory / seal block detected'}
-                    </span>
-                  </div>
-
-                  {docAnalysis.extractedIdentifiers.monetaryAmounts.length > 0 && (
-                    <div className="doc-identifier-card">
-                      <span className="doc-identifier-label">Monetary Sums Declared</span>
-                      <span className="doc-identifier-val">
-                        {docAnalysis.extractedIdentifiers.monetaryAmounts.join(', ')}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Regulatory Matches Cross-Reference */}
-                {docAnalysis.regulatoryMatches && docAnalysis.regulatoryMatches.length > 0 && (
-                  <div className="forensic-section">
-                    <span className="forensic-section-label">Regulatory Source Cross-Check</span>
-                    <div className="forensic-items-list">
-                      {docAnalysis.regulatoryMatches.map((match, mIdx) => (
-                        <div key={mIdx} className={`forensic-item status-${match.status === 'corroborated' ? 'safe' : match.status === 'deviant' ? 'critical' : 'suspicious'}`}>
-                          <div className="forensic-item-main">
-                            <span className={`forensic-status-pill ${match.status === 'corroborated' ? 'safe' : match.status === 'deviant' ? 'critical' : 'suspicious'}`}>
-                              {match.status === 'corroborated' ? 'Official Gazette Format' : match.status === 'deviant' ? 'Deviant Format Flagged' : 'Unmatched Pattern'}
-                            </span>
-                            <span className="forensic-domain-text">{match.authority} ({match.schemePattern})</span>
-                          </div>
-                          <p className="forensic-reason-text">{match.notes}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Flagged Document Inconsistencies */}
-                {docAnalysis.anomalies.length > 0 && (
-                  <div className="forensic-section">
-                    <span className="forensic-section-label">Flagged Document Inconsistencies ({docAnalysis.anomalies.length})</span>
-                    <div className="doc-anomalies-list">
-                      {docAnalysis.anomalies.map((anom, aIdx) => (
-                        <div key={aIdx} className="doc-anomaly-item">
-                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0, marginTop: 2 }}>
-                            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
-                            <line x1="12" y1="9" x2="12" y2="13" />
-                            <line x1="12" y1="17" x2="12.01" y2="17" />
-                          </svg>
-                          <div>
-                            <strong>Page {anom.pageNumber} ({anom.type.replace(/_/g, ' ')}):</strong> {anom.details}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Page-by-Page Forensic Findings Accordion */}
-                {docAnalysis.pages && docAnalysis.pages.length > 0 && (
-                  <details className="doc-pages-accordion">
-                    <summary className="doc-pages-summary">
-                      <span>Page-Level Forensic Findings ({docAnalysis.pages.length} Pages Analyzed)</span>
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
-                        <polyline points="6 9 12 15 18 9" />
-                      </svg>
-                    </summary>
-                    <div className="doc-pages-list">
-                      {docAnalysis.pages.map(page => (
-                        <div key={page.pageNumber} className="doc-page-row">
-                          <div className="doc-page-head">
-                            <span className="doc-page-badge">[Page {page.pageNumber}]</span>
-                            <span className="doc-page-method">
-                              {page.ocrApplied ? 'Scanned Page / OCR Applied' : 'Embedded PDF Text Stream'}
-                            </span>
-                          </div>
-                          <div className="doc-page-body">
-                            {page.circularNumbers.length > 0 && <span><strong>Ref:</strong> {page.circularNumbers.join(', ')} &bull; </span>}
-                            {page.dates.length > 0 && <span><strong>Dates:</strong> {page.dates.join(', ')} &bull; </span>}
-                            {page.signaturesDetected && <span><strong>Signatures/Stamps:</strong> Detected &bull; </span>}
-                            <span><strong>Word Count:</strong> {page.wordCount} words</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </details>
-                )}
-
-                {/* Strict Non-Forgery Disclaimer */}
-                <div className="doc-disclaimer-banner">
-                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0, marginTop: 1 }}>
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="16" x2="12" y2="12" />
-                    <line x1="12" y1="8" x2="12.01" y2="8" />
-                  </svg>
-                  <span>
-                    <strong>Forensic Notice:</strong> Formatting anomalies, domain mismatches, or layout deviations are highlighted for administrative verification. Visual and typographical heuristics alone do not establish document forgery. Authenticity must be confirmed against primary gazettes at <em>egazette.gov.in</em> or official issuing registries.
-                  </span>
-                </div>
               </div>
             </div>
           );
         })()}
 
-        {/* 4.6 SECURE WEB INGESTION & LINK FORENSICS CARD */}
+        {/* 4.2 Flagged Threat Entities & Links */}
+        {meta?.forensics && (meta.forensics.urls.length > 0 || meta.forensics.phones.length > 0 || meta.forensics.senders.length > 0) && (
+          <div className="dossier-flat-section">
+            <div className="dossier-section-title">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                <path d="m9 12 2 2 4-4"/>
+              </svg>
+              <span>Flagged Threat Entities</span>
+            </div>
+            <div className="dossier-flat-content">
+              <ul className="dossier-simple-list">
+                {meta.forensics.urls.map((item, uIdx) => (
+                  <li key={`url-${uIdx}`}>
+                    <strong>{item.domain || item.url}</strong>
+                    <span className="dossier-inline-tag">{item.status === 'safe' ? 'Official' : item.status === 'critical' ? 'Malicious APK / Link' : 'Unverified'}</span>
+                    {item.reason && <span className="dossier-inline-desc"> &mdash; {item.reason}</span>}
+                  </li>
+                ))}
+                {meta.forensics.phones.map((phone, pIdx) => (
+                  <li key={`phone-${pIdx}`}>
+                    <strong>{phone.number}</strong>
+                    <span className="dossier-inline-tag">{phone.risk} Risk</span>
+                    {phone.notes && <span className="dossier-inline-desc"> &mdash; {phone.notes}</span>}
+                  </li>
+                ))}
+                {meta.forensics.senders.map((sender, sIdx) => (
+                  <li key={`sender-${sIdx}`}>
+                    <strong>{sender.id}</strong>
+                    <span className="dossier-inline-tag">{sender.isRegisteredDLT ? 'Registered DLT Header' : 'Unregistered Header'}</span>
+                    {sender.notes && <span className="dossier-inline-desc"> &mdash; {sender.notes}</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {/* 4.3 Legal & Regulatory Protections */}
+        {meta?.statutes && meta.statutes.applicableStatutes.length > 0 && (
+          <div className="dossier-flat-section">
+            <div className="dossier-section-title">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
+                <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
+                <path d="M7 21h10" />
+                <path d="M12 3v18" />
+              </svg>
+              <span>Applicable Legal Rules</span>
+            </div>
+            <div className="dossier-flat-content">
+              <ul className="dossier-simple-list">
+                {meta.statutes.applicableStatutes.map((clause, cIdx) => (
+                  <li key={cIdx}>
+                    <strong>{clause.title || clause.act} ({clause.section}):</strong> {clause.statutoryRule}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {/* 4.4 Official Incident Reporting Kit */}
+        {hasIncidentKit && meta?.incidentReport && (
+          <div className="dossier-flat-section">
+            <div className="dossier-section-title">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              </svg>
+              <span>Incident Reporting Kit</span>
+            </div>
+            <div className="dossier-flat-content">
+              <p className="dossier-simple-desc">
+                Helpline: <strong>{meta.incidentReport.helpline}</strong> &bull; Portal: <strong>{meta.incidentReport.portalName}</strong>
+              </p>
+              <div className="dossier-simple-actions">
+                <button
+                  type="button"
+                  className="dossier-action-btn"
+                  onClick={handleCopyReport}
+                >
+                  {copiedReport ? '✓ Copied Incident Report' : 'Copy Incident Report'}
+                </button>
+                <a
+                  href={meta.incidentReport.portalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="dossier-action-btn"
+                >
+                  Open {meta.incidentReport.recommendedPortal === 'chakshu' ? 'Chakshu Portal' : 'Cybercrime Portal'} &rarr;
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 4.5 Official Document & Gazette Scrutiny */}
+        {(meta?.documentAnalysis || turn.attachments?.find(a => a.documentAnalysis)?.documentAnalysis) && (() => {
+          const docAnalysis = meta?.documentAnalysis || turn.attachments?.find(a => a.documentAnalysis)?.documentAnalysis;
+          if (!docAnalysis) return null;
+          return (
+            <div className="dossier-flat-section">
+              <div className="dossier-section-title">
+                <FileIcon className="w-3.5 h-3.5" />
+                <span>Document Scrutiny ({docAnalysis.pageCount} Pages &bull; {docAnalysis.status})</span>
+              </div>
+              <div className="dossier-flat-content">
+                <ul className="dossier-simple-list">
+                  {docAnalysis.extractedIdentifiers.circularNumbers.length > 0 && (
+                    <li><strong>Reference:</strong> {docAnalysis.extractedIdentifiers.circularNumbers.join(', ')}</li>
+                  )}
+                  {docAnalysis.extractedIdentifiers.issuingAuthorities.length > 0 && (
+                    <li><strong>Authority:</strong> {docAnalysis.extractedIdentifiers.issuingAuthorities.join(', ')}</li>
+                  )}
+                  {docAnalysis.anomalies.map((anom, aIdx) => (
+                    <li key={aIdx}><strong>Page {anom.pageNumber} ({anom.type.replace(/_/g, ' ')}):</strong> {anom.details}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* 4.6 Web Source & Link Ingestion */}
         {(meta?.urlAnalysis || turn.attachments?.find(a => a.urlAnalysis)?.urlAnalysis) && (() => {
           const urlAnalysis = meta?.urlAnalysis || turn.attachments?.find(a => a.urlAnalysis)?.urlAnalysis;
           if (!urlAnalysis) return null;
           return (
-            <div className="web-forensics-card revealed" aria-label="Web Source & Link Forensics">
-              <div className="web-forensics-head">
-                <div className="web-forensics-title">
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="2" y1="12" x2="22" y2="12" />
-                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-                  </svg>
-                  <strong>Web Ingestion & Link Forensics</strong>
-                </div>
-                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                  <span className={`forensic-status-pill ${urlAnalysis.domainRisk.riskLevel === 'High' ? 'critical' : urlAnalysis.domainRisk.riskLevel === 'Medium' ? 'suspicious' : 'safe'}`}>
-                    {urlAnalysis.domainRisk.riskLevel} Domain Risk
-                  </span>
-                  <span className={`document-status-pill ${urlAnalysis.status === 'success' ? 'clean' : 'anomalous'}`}>
-                    {urlAnalysis.status.toUpperCase()}
-                  </span>
-                </div>
+            <div className="dossier-flat-section">
+              <div className="dossier-section-title">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="2" y1="12" x2="22" y2="12" />
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                </svg>
+                <span>Web Domain Risk ({urlAnalysis.domain})</span>
               </div>
-
-              <div className="document-forensics-body">
-                {/* SSRF / Failure / Restriction Notices */}
-                {urlAnalysis.errorDetails && (
-                  <div className="doc-anomaly-item" style={{ background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#fca5a5' }}>
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
-                      <circle cx="12" cy="12" r="10" />
-                      <line x1="12" y1="8" x2="12" y2="12" />
-                      <line x1="12" y1="16" x2="12.01" y2="16" />
-                    </svg>
-                    <div>
-                      <strong>Ingestion Alert:</strong> {urlAnalysis.errorDetails}
-                    </div>
-                  </div>
-                )}
-
-                {/* Domain Warnings */}
-                {urlAnalysis.domainRisk.warnings.length > 0 && (
-                  <div className="doc-anomalies-list">
-                    {urlAnalysis.domainRisk.warnings.map((warn, wIdx) => (
-                      <div key={wIdx} className="doc-anomaly-item">
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0, marginTop: 2 }}>
-                          <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
-                          <line x1="12" y1="9" x2="12" y2="13" />
-                          <line x1="12" y1="17" x2="12.01" y2="17" />
-                        </svg>
-                        <div>{warn}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Metadata Grid */}
-                <div className="doc-identifiers-grid">
-                  <div className="doc-identifier-card">
-                    <span className="doc-identifier-label">Resolved Domain</span>
-                    <span className="doc-identifier-val">{urlAnalysis.domain}</span>
-                  </div>
-
-                  <div className="doc-identifier-card">
-                    <span className="doc-identifier-label">Page Title</span>
-                    <span className="doc-identifier-val">{urlAnalysis.title || 'No Title Declared'}</span>
-                  </div>
-
-                  <div className="doc-identifier-card">
-                    <span className="doc-identifier-label">Published / Author</span>
-                    <span className="doc-identifier-val">
-                      {urlAnalysis.publishedDate ? `${urlAnalysis.publishedDate}` : 'Unknown Date'}
-                      {urlAnalysis.author ? ` &bull; By ${urlAnalysis.author}` : ''}
-                    </span>
-                  </div>
-
-                  <div className="doc-identifier-card">
-                    <span className="doc-identifier-label">Extracted Content Scope</span>
-                    <span className="doc-identifier-val">
-                      {urlAnalysis.wordCount} words {urlAnalysis.isSocialPost ? `&bull; ${urlAnalysis.socialPlatform || 'Social'} Post` : ''}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Redirect History Trail */}
-                {urlAnalysis.redirectHistory.length > 1 && (
-                  <div className="forensic-section">
-                    <span className="forensic-section-label">Redirect Traversal History ({urlAnalysis.redirectHistory.length} Hops)</span>
-                    <div className="web-redirect-chain">
-                      {urlAnalysis.redirectHistory.map((hop, hIdx) => (
-                        <div key={hIdx} className="web-redirect-hop">
-                          <span className="web-redirect-arrow">{hIdx === 0 ? '▶' : '↳'}</span>
-                          <span>{hop}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Flagged Download Links / APK Payloads */}
-                {urlAnalysis.downloadLinks.length > 0 && (
-                  <div className="forensic-section">
-                    <span className="forensic-section-label" style={{ color: '#f87171' }}>Flagged Download Payloads ({urlAnalysis.downloadLinks.length})</span>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      {urlAnalysis.downloadLinks.map((dlink, dIdx) => (
-                        <span key={dIdx} className="web-payload-pill">
-                          ⚠️ {dlink}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Extracted Factual Claims */}
-                {urlAnalysis.claims.length > 0 && (
-                  <div className="forensic-section">
-                    <span className="forensic-section-label">Extracted Factual Claims for Cross-Examination ({urlAnalysis.claims.length})</span>
-                    <div className="web-claims-list">
-                      {urlAnalysis.claims.map((claim, cIdx) => (
-                        <div key={cIdx} className="web-claim-card">
-                          &ldquo;{claim}&rdquo;
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+              <div className="dossier-flat-content">
+                <ul className="dossier-simple-list">
+                  <li><strong>Domain Risk:</strong> {urlAnalysis.domainRisk.riskLevel}</li>
+                  {urlAnalysis.domainRisk.warnings.map((w, wIdx) => (
+                    <li key={wIdx}><strong>Warning:</strong> {w}</li>
+                  ))}
+                  {urlAnalysis.downloadLinks.map((dl, dlIdx) => (
+                    <li key={dlIdx}><strong>Flagged Payload:</strong> {dl}</li>
+                  ))}
+                </ul>
               </div>
             </div>
           );
@@ -926,25 +552,28 @@ const AssistantTurnView: React.FC<{
 
         {/* 6. Challenger Agent Audit */}
         {meta?.challengerAudit && meta.challengerAudit.length > 0 && (
-          <details className="challenger-box revealed" open>
-            <summary className="challenger-summary">
-              <svg viewBox="0 0 24 24" style={{ width: 16, height: 16 }} fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-              <span>What could make this assessment wrong? (Challenger Agent)</span>
-            </summary>
-            <div className="challenger-content">
-              <p>To avoid unwarranted certainty, our adversarial verifier checked the following counter-hypotheses:</p>
-              <ul>
+          <div className="dossier-flat-section challenger-flat-section">
+            <div className="dossier-section-title">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+              <span>Adversarial Challenger Verification</span>
+            </div>
+            <div className="challenger-flat-content">
+              <p className="challenger-intro">Counter-hypotheses checked to avoid unwarranted certainty:</p>
+              <ul className="challenger-bullets">
                 {meta.challengerAudit.map((pt, ptIdx) => (
                   <li key={ptIdx}>{pt}</li>
                 ))}
               </ul>
             </div>
-          </details>
+          </div>
         )}
 
-            </div>
-          </details>
-        )}
+              </div>
+            </details>
+          );
+        })()}
 
         {/* 7. Contextual Follow-up Inquiries */}
         {!isLive && (

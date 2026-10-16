@@ -6400,16 +6400,6 @@ details[open] .activity-summary-chevron {
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
 }
 
-.followup-badge {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: #a1a1aa;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 2px 8px;
-  border-radius: 999px;
-}
 
 .followup-chips-grid {
   display: grid;
@@ -6428,33 +6418,20 @@ details[open] .activity-summary-chevron {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 9px 12px;
+  gap: 12px;
+  padding: 10px 14px;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.025);
   border: 1px solid rgba(255, 255, 255, 0.07);
   color: #d4d4d8;
   font-size: 12.5px;
-  line-height: 1.4;
+  line-height: 1.45;
   cursor: pointer;
   text-align: left;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   width: 100%;
   box-sizing: border-box;
-}
-
-.followup-chip-num {
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  font-size: 10px;
-  font-weight: 700;
-  color: #71717a;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  padding: 2px 5px;
-  border-radius: 4px;
-  flex-shrink: 0;
-  transition: all 0.2s ease;
 }
 
 .followup-chip-text {
@@ -6485,12 +6462,6 @@ details[open] .activity-summary-chevron {
   border-color: rgba(255, 255, 255, 0.18);
   box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   transform: translateY(-1.5px);
-}
-
-.followup-chip:hover .followup-chip-num {
-  color: #ef4444;
-  background: rgba(239, 68, 68, 0.12);
-  border-color: rgba(239, 68, 68, 0.3);
 }
 
 .followup-chip:hover .followup-chip-text {
@@ -7975,56 +7946,137 @@ button, a, .history-item { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !im
   background: rgba(20, 20, 25, 0.7);
 }
 
-/* Collapsible Forensic Dossier Accordion */
+/* Collapsible Forensic Dossier Accordion (Premium Overhaul) */
 .forensic-dossier-accordion {
   margin-top: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 8px;
-  background: rgba(18, 18, 20, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(22, 24, 30, 0.72) 0%, rgba(13, 15, 20, 0.88) 100%);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
   overflow: hidden;
-  transition: border-color 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .forensic-dossier-accordion:hover {
-  border-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 6px 24px -2px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.forensic-dossier-accordion[open] {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: linear-gradient(180deg, rgba(22, 24, 31, 0.85) 0%, rgba(12, 14, 18, 0.95) 100%);
+  box-shadow: 0 10px 32px -4px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .forensic-dossier-summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
+  padding: 10px 14px;
   cursor: pointer;
   user-select: none;
-  font-size: 11.5px;
-  color: #71717a;
-  background: transparent;
-  transition: color 0.15s ease;
+  list-style: none;
+  outline: none;
+  transition: background-color 0.18s ease;
+}
+
+.forensic-dossier-summary::-webkit-details-marker {
+  display: none;
 }
 
 .forensic-dossier-summary:hover {
-  color: #d4d4d8;
+  background: rgba(255, 255, 255, 0.025);
 }
 
 .dossier-summary-left {
   display: flex;
   align-items: center;
-  gap: 7px;
-  font-weight: 500;
-  color: #a1a1aa;
+  gap: 9px;
+}
+
+.dossier-shield-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.24);
+  color: #60a5fa;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.forensic-dossier-accordion:hover .dossier-shield-icon {
+  background: rgba(59, 130, 246, 0.16);
+  border-color: rgba(59, 130, 246, 0.38);
+  color: #93c5fd;
+}
+
+.dossier-title {
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  color: #e4e4e7;
+  transition: color 0.15s ease;
+}
+
+.forensic-dossier-accordion:hover .dossier-title {
+  color: #ffffff;
+}
+
+.dossier-summary-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .dossier-summary-hint {
   font-size: 11px;
-  color: #52525b;
+  font-weight: 500;
+  color: #a1a1aa;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  padding: 3px 9px;
+  border-radius: 6px;
+  transition: all 0.18s ease;
+}
+
+.forensic-dossier-accordion:hover .dossier-summary-hint {
+  color: #d4d4d8;
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.dossier-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  color: #71717a;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), color 0.15s ease;
+}
+
+.forensic-dossier-accordion[open] .dossier-chevron {
+  transform: rotate(180deg);
+  color: #d4d4d8;
+}
+
+.forensic-dossier-accordion:hover .dossier-chevron {
+  color: #d4d4d8;
 }
 
 .forensic-dossier-body {
-  padding: 12px 14px 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 14px 16px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(10, 11, 15, 0.45);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 /* Flat Dossier Sections (No nested boxes) */

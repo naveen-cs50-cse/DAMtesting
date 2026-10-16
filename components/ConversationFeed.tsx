@@ -406,12 +406,21 @@ const AssistantTurnView: React.FC<{
             <details className="forensic-dossier-accordion">
               <summary className="forensic-dossier-summary">
                 <div className="dossier-summary-left">
-                  <ShieldIcon className="w-3.5 h-3.5" />
-                  <strong>Analysis & Verification Details</strong>
+                  <span className="dossier-shield-icon" aria-hidden="true">
+                    <ShieldIcon className="w-3.5 h-3.5" />
+                  </span>
+                  <span className="dossier-title">Analysis & Verification Details</span>
                 </div>
-                <span className="dossier-summary-hint">
-                  {hasIncidentKit ? 'Report fraud & view checks ▾' : 'View checks & sources ▾'}
-                </span>
+                <div className="dossier-summary-right">
+                  <span className="dossier-summary-hint">
+                    {hasIncidentKit ? 'Report fraud & view checks' : 'View checks & sources'}
+                  </span>
+                  <span className="dossier-chevron" aria-hidden="true">
+                    <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="4 6 8 10 12 6" />
+                    </svg>
+                  </span>
+                </div>
               </summary>
               <div className="forensic-dossier-body">
 
@@ -660,7 +669,6 @@ const AssistantTurnView: React.FC<{
                 </span>
                 <span className="followup-title">SUGGESTED NEXT INQUIRIES</span>
               </div>
-              <span className="followup-badge">Recommended Pivots</span>
             </div>
             <div className="followup-chips-grid">
               {getFollowUpChips(turn).map((chip, chipIdx) => (
@@ -671,7 +679,6 @@ const AssistantTurnView: React.FC<{
                   onClick={() => onFollowUpClick && onFollowUpClick(chip)}
                   title={`Investigate: "${chip}"`}
                 >
-                  <span className="followup-chip-num">{String(chipIdx + 1).padStart(2, '0')}</span>
                   <span className="followup-chip-text">{chip}</span>
                   <span className="chip-arrow" aria-hidden="true">
                     <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

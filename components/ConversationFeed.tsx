@@ -25,16 +25,22 @@ function getFollowUpChips(turn: ChatTurn): string[] {
   }
 
   // 2. Extract and sanitize primary claim / inquiry topic
-  const rawClaim = (meta?.claims?.[0]?.claim || turn.fullText?.slice(0, 120) || '').trim();
-  const cleanTopic = rawClaim
-    .replace(/^["'\s]+|["'\s]+$/g, '')
-    .replace(/^(the|a|an|is|are|was|were|that|this|check|verify|claim:)\s+/i, '')
+  const rawClaim = (meta?.claims?.[0]?.claim || turn.fullText?.slice(0, 160) || '').trim();
+  let cleanTopic = rawClaim
+    .replace(/^(this\s+)?(apk\s+message|sms|message|whatsapp\s+message|circular|notice|claim|rumor|threat|video|link|post)[:\s\-"']+/i, '')
+    .replace(/^(the|a|an|is|are|was|were|that|this|check|verify|please\s+check|investigate|evaluate|is\s+it\s+true\s+that)\s+/i, '')
+    .replace(/^["'“‘\s]+|["'”’\s]+$/g, '')
     .replace(/[.?!\n].*$/g, '')
-    .slice(0, 60)
     .trim();
 
+  if (cleanTopic.length > 45) {
+    const truncated = cleanTopic.slice(0, 45).replace(/\s+\S*$/, '');
+    cleanTopic = (truncated || cleanTopic.slice(0, 40)).trim();
+  }
+  cleanTopic = cleanTopic.replace(/[:\-,"'“‘”’]+$/g, '').trim();
+
   const lowerText = (rawClaim + ' ' + (turn.fullText || '')).toLowerCase();
-  const topicLabel = cleanTopic ? `"${cleanTopic}"` : 'this claim';
+  const topicLabel = cleanTopic && cleanTopic.length >= 3 ? `"${cleanTopic}"` : 'this claim';
 
   // 3. Category-specific dynamic inquiries tied directly to the claim
 
@@ -645,11 +651,16 @@ const AssistantTurnView: React.FC<{
         {/* 7. Contextual Follow-up Inquiries */}
         {!isLive && (
           <div className="followup-suggestions-section" aria-label="Suggested follow-up inquiries">
-            <div className="followup-suggestions-label">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
-              </svg>
-              <span>SUGGESTED NEXT INQUIRIES</span>
+            <div className="followup-suggestions-header">
+              <div className="followup-header-left">
+                <span className="followup-spark-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                  </svg>
+                </span>
+                <span className="followup-title">SUGGESTED NEXT INQUIRIES</span>
+              </div>
+              <span className="followup-badge">Recommended Pivots</span>
             </div>
             <div className="followup-chips-grid">
               {getFollowUpChips(turn).map((chip, chipIdx) => (
@@ -660,8 +671,14 @@ const AssistantTurnView: React.FC<{
                   onClick={() => onFollowUpClick && onFollowUpClick(chip)}
                   title={`Investigate: "${chip}"`}
                 >
-                  <span>{chip}</span>
-                  <span className="chip-arrow" aria-hidden="true">&rarr;</span>
+                  <span className="followup-chip-num">{String(chipIdx + 1).padStart(2, '0')}</span>
+                  <span className="followup-chip-text">{chip}</span>
+                  <span className="chip-arrow" aria-hidden="true">
+                    <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="3" y1="8" x2="13" y2="8" />
+                      <polyline points="9 4 13 8 9 12" />
+                    </svg>
+                  </span>
                 </button>
               ))}
             </div>

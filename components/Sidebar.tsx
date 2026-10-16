@@ -321,7 +321,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </svg>
           </span>
           <span style={{ flex: 1, textAlign: 'left', fontWeight: 500 }}>WhatsApp Bot</span>
-          <span className="sidebar-pill-tag whatsapp-tag">Live</span>
         </button>
       </div>
 
@@ -345,7 +344,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </svg>
           </span>
           <span style={{ flex: 1, textAlign: 'left', fontWeight: 500 }}>Extension</span>
-          <span className="sidebar-pill-tag extension-tag">Chrome</span>
         </button>
       </div>
 

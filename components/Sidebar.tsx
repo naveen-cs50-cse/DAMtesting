@@ -154,7 +154,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span className="sidebar-verdict-dot other" title={status === 'unverified' ? "Unverified" : "Conversation"} />
             )}
           </span>
-          <div className="history-text-col" style={{ width: '100%', overflow: 'hidden' }}>
+          <div className="history-text-col" style={{ minWidth: 0, flex: 1, overflow: 'hidden' }}>
             <span className="history-title-text" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', fontSize: '13px', lineHeight: '1.2' }}>
               {item.title}
             </span>

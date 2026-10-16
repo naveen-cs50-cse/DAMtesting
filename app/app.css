@@ -544,7 +544,7 @@ svg {
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
-  padding-right: 56px;
+  padding-right: 88px; /* Clean 88px clearance for the 3 action buttons (bookmark, rename, delete) */
   border-radius: var(--radius-sm);
   color: var(--dam-text-secondary);
   font-size: 13px;
@@ -615,9 +615,6 @@ svg {
   font-size: 13px;
   line-height: 1.35;
 }
-.history-item-wrap:hover .history-title-text {
-  padding-right: 25px; /* Pushes the text away from the buttons */
-}
 
 
 .history-time-hint {
@@ -641,24 +638,25 @@ svg {
 
 .history-actions {
   position: absolute;
-  right: 6px;
+  right: 4px;
   display: none;
   align-items: center;
   flex-direction: row;
-  gap: 3px;
+  gap: 2px;
   background: var(--dam-bg-panel-hover);
   padding: 2px 4px;
   border-radius: var(--radius-xs);
-  box-shadow: -8px 0 12px var(--dam-bg-panel-hover);
+  box-shadow: -10px 0 14px 2px var(--dam-bg-panel-hover);
   z-index: 2;
 }
 
 .history-item-wrap.current .history-actions {
   background: var(--dam-bg-panel-active);
-  box-shadow: -8px 0 12px var(--dam-bg-panel-active);
+  box-shadow: -10px 0 14px 2px var(--dam-bg-panel-active);
 }
 
-.history-item-wrap:hover .history-actions {
+.history-item-wrap:hover .history-actions,
+.history-item-wrap.current:hover .history-actions {
   display: flex;
   opacity: 1;
 }

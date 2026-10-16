@@ -268,8 +268,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <span className="sidebar-btn-icon-slot">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 5v14M5 12h14"/></svg>
           </span>
-          <span>New investigation</span>
-          <kbd aria-label="Keyboard shortcut">{isMac ? '⌘K' : 'Ctrl K'}</kbd>
+          <span style={{ flex: 1, textAlign: 'left', fontWeight: 500 }}>New investigation</span>
         </button>
       </div>
 

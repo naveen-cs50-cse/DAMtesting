@@ -339,15 +339,6 @@ const AssistantTurnView: React.FC<{
                 <GlobeIcon className="w-3.5 h-3.5" />
                 <span>Sources ({meta!.sources!.length})</span>
               </span>
-              <button
-                type="button"
-                className="sources-explorer-btn"
-                onClick={onOpenEvidence}
-                title="Open full Evidence Explorer panel"
-              >
-                <EvidenceIcon className="w-3 h-3" />
-                <span>Evidence Explorer &rarr;</span>
-              </button>
             </div>
             <div className="genspark-sources-scroll">
               {meta!.sources!.map(src => (

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { EvidenceIcon } from './icons';
+import { HelpCircleIcon, ShareIcon } from './icons';
 import { QueryVerdictStatus } from '@/lib/investigation/types';
 
 interface TopbarProps {
@@ -108,41 +108,24 @@ export const Topbar: React.FC<TopbarProps> = ({
       </div>
 
       <div className="topbar-actions">
-        {/* Evidence button: Only displayed when an active query exists with verified evidence */}
-        {hasQuery && mounted && evidenceCount > 0 && (
-          <button
-            className="quiet-button"
-            onClick={onToggleEvidence}
-            title="Toggle Evidence Explorer (Alt+E)"
-            suppressHydrationWarning
-          >
-            <EvidenceIcon className="w-3.5 h-3.5" />
-            <span>Evidence</span>
-            <span className="nav-badge">{evidenceCount}</span>
-          </button>
-        )}
-
         {hasQuery && onOpenShare && (
           <button
-            className="quiet-button"
+            className="quiet-button icon-only-btn"
             onClick={onOpenShare}
             title="Share or Export Investigation Briefing"
+            aria-label="Share Briefing"
           >
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-            </svg>
-            <span>Share</span>
+            <ShareIcon className="w-4 h-4" />
           </button>
         )}
 
         <button
-          className="quiet-button text-link"
+          className="quiet-button icon-only-btn"
           onClick={onOpenMethodology}
-          title="How DAM verifies evidence"
+          title="Methodology: How DAM verifies evidence"
+          aria-label="Methodology"
         >
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          <span>Methodology</span>
+          <HelpCircleIcon className="w-4 h-4" />
         </button>
       </div>
     </header>

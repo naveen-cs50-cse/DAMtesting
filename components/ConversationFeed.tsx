@@ -2,8 +2,7 @@
 
 import React, { useState } from 'react';
 import { ChatTurn, getQueryVerdictStatus } from '@/lib/investigation/types';
-import { CopyIcon, EvidenceIcon, FileIcon, GlobeIcon, RetryIcon, ShieldIcon, SpinnerIcon, StopIcon, VolumeIcon } from './icons';
-import { VernacularAudioPlayer } from './VernacularAudioPlayer';
+import { CheckIcon, CopyIcon, DownloadIcon, EvidenceIcon, FileIcon, GlobeIcon, RetryIcon, ShieldIcon, SpinnerIcon, StopIcon } from './icons';
 import { CertificateModal } from './CertificateModal';
 
 interface ConversationFeedProps {
@@ -19,32 +18,122 @@ interface ConversationFeedProps {
 
 function getFollowUpChips(turn: ChatTurn): string[] {
   const meta = turn.meta;
-  const scamRisk = meta?.verdicts?.scamRisk;
-  const correctness = meta?.verdicts?.factualCorrectness;
 
-  if (scamRisk === 'High' || scamRisk === 'Medium') {
+  // 1. If AI returned bespoke claim-specific suggested inquiries, prioritize them
+  if (meta?.suggestedInquiries && Array.isArray(meta.suggestedInquiries) && meta.suggestedInquiries.length > 0) {
+    return meta.suggestedInquiries.slice(0, 4);
+  }
+
+  // 2. Extract and sanitize primary claim / inquiry topic
+  const rawClaim = (meta?.claims?.[0]?.claim || turn.fullText?.slice(0, 120) || '').trim();
+  const cleanTopic = rawClaim
+    .replace(/^["'\s]+|["'\s]+$/g, '')
+    .replace(/^(the|a|an|is|are|was|were|that|this|check|verify|claim:)\s+/i, '')
+    .replace(/[.?!\n].*$/g, '')
+    .slice(0, 60)
+    .trim();
+
+  const lowerText = (rawClaim + ' ' + (turn.fullText || '')).toLowerCase();
+  const topicLabel = cleanTopic ? `"${cleanTopic}"` : 'this claim';
+
+  // 3. Category-specific dynamic inquiries tied directly to the claim
+
+  // Digital Arrest / Police / CBI / Court Threats
+  if (lowerText.includes('digital arrest') || lowerText.includes('cbi') || lowerText.includes('customs') || lowerText.includes('skype call') || lowerText.includes('police officer')) {
     return [
-      'How do I report this number to 1930 / Chakshu portal?',
-      'Draft a formal complaint for my bank manager',
-      'What should I do if I already clicked the link or shared OTP?',
-      'Check official advisory circular on this scam pattern',
+      `Does Indian criminal procedure ever permit a "digital arrest" over video calls?`,
+      `What emergency steps should I take if targeted by this extortion threat?`,
+      `How do I file a formal complaint on the National Cyber Crime Portal (1930)?`,
+      `Check official Ministry of Home Affairs (I4C) advisory on video-call fraud`,
     ];
   }
 
-  if (correctness === 'Contradicted' || correctness === 'Mixed') {
+  // Currency / Bank Notes / RBI / Financial
+  if (lowerText.includes('note') || lowerText.includes('currency') || lowerText.includes('rbi') || lowerText.includes('500') || lowerText.includes('2000') || lowerText.includes('legal tender') || lowerText.includes('star mark')) {
     return [
-      'Check latest PIB Fact Check clarification',
-      'Verify relevant ministry gazette notification',
-      'What is the official procedure under this policy?',
-      'Draft a WhatsApp warning summary for family',
+      `Has the Reserve Bank of India (RBI) issued an official circular regarding ${topicLabel}?`,
+      `What are the authentic RBI guidelines for verifying valid currency notes?`,
+      `What similar viral rumors have circulated about Indian currency notes?`,
+      `Draft a WhatsApp fact-check message clarifying the truth about ${topicLabel}`,
     ];
   }
 
+  // Electricity / DISCOM / Utility Disconnection Scams
+  if (lowerText.includes('electricity') || lowerText.includes('power cut') || lowerText.includes('discom') || lowerText.includes('meter') || lowerText.includes('bijli') || lowerText.includes('bill overdue')) {
+    return [
+      `What does Section 56 of the Electricity Act require before power disconnection?`,
+      `How can consumers verify genuine bill dues on their state electricity board portal?`,
+      `How to report this scam SMS to Chakshu on the Sanchar Saathi portal?`,
+      `Draft an urgent advisory warning neighbors against fake power cut SMS`,
+    ];
+  }
+
+  // Government Welfare Schemes / Free Subsidies / Yojana
+  if (lowerText.includes('yojana') || lowerText.includes('scheme') || lowerText.includes('free laptop') || lowerText.includes('solar') || lowerText.includes('pm-') || lowerText.includes('subsidy') || lowerText.includes('ration')) {
+    return [
+      `Is there an authentic government notification on india.gov.in for ${topicLabel}?`,
+      `What are the legitimate eligibility criteria and application portals for this policy?`,
+      `How to identify fake government scheme registration forms and APK links?`,
+      `Draft a brief family guide summarizing the actual official policy`,
+    ];
+  }
+
+  // Railway / IRCTC / Transport
+  if (lowerText.includes('railway') || lowerText.includes('train') || lowerText.includes('irctc') || lowerText.includes('ticket') || lowerText.includes('tatkal') || lowerText.includes('tdr')) {
+    return [
+      `What is the official IRCTC / Ministry of Railways circular on this rule?`,
+      `Check latest updates on the official Indian Railways portal (indianrailways.gov.in)`,
+      `What is the verified procedure for refund claims under this scenario?`,
+      `Draft a concise clarification on authentic railway passenger rules`,
+    ];
+  }
+
+  // Health / Medical / Science
+  if (lowerText.includes('vaccine') || lowerText.includes('cure') || lowerText.includes('cancer') || lowerText.includes('remedy') || lowerText.includes('ayush') || lowerText.includes('icmr') || lowerText.includes('who')) {
+    return [
+      `What is the medical and scientific consensus regarding ${topicLabel}?`,
+      `Has the Ministry of Health (MoHFW) or ICMR published evidence on this?`,
+      `What are the known health risks associated with unverified medical remedies?`,
+      `Draft an evidence-based fact-check summary for social media`,
+    ];
+  }
+
+  // High / Medium Scam Threat (Customized with claim topic)
+  if (meta?.verdicts?.scamRisk === 'High' || meta?.verdicts?.scamRisk === 'Medium') {
+    return [
+      `How do I report deceptive communications related to ${topicLabel} to 1930 / Chakshu?`,
+      `Draft a formal dispute complaint for my bank manager citing RBI guidelines`,
+      `What immediate protection steps should I take if I shared details or clicked links?`,
+      `Check official cybercrime advisories regarding similar scam patterns`,
+    ];
+  }
+
+  // Contradicted / Debunked Rumors
+  if (meta?.verdicts?.factualCorrectness === 'Contradicted') {
+    return [
+      `Has PIB Fact Check officially debunked ${topicLabel}?`,
+      `What primary gazette notification or directive refutes ${topicLabel}?`,
+      `What similar deceptive claims have circulated about this subject?`,
+      `Draft a verified WhatsApp debunking message for family and friends`,
+    ];
+  }
+
+  // Supported / Factually Confirmed
+  if (meta?.verdicts?.factualCorrectness === 'Supported') {
+    return [
+      `Where can citizens read the full primary gazette or circular for ${topicLabel}?`,
+      `What are the practical next steps or deadlines under this directive?`,
+      `What related official programs or provisions are currently active?`,
+      `Draft an informative summary highlighting the verified facts`,
+    ];
+  }
+
+  // General fallback explicitly incorporating the user's claim topic
   return [
-    'Check official government portal advisory',
-    'How do I verify the authenticity of this circular?',
-    'What are the relevant legal provisions under the IT Act?',
-    'Draft a briefing summary for WhatsApp',
+    `Has any government ministry or regulatory body issued a clarification on ${topicLabel}?`,
+    `What authoritative primary evidence exists evaluating ${topicLabel}?`,
+    `What similar viral claims have been reported on this topic?`,
+    `Draft an objective, evidence-backed summary of these findings`,
   ];
 }
 
@@ -160,7 +249,6 @@ const AssistantTurnView: React.FC<{
   const [copied, setCopied] = useState(false);
   const [copiedReport, setCopiedReport] = useState(false);
   const [showCertModal, setShowCertModal] = useState(false);
-  const [showAudio, setShowAudio] = useState(false);
 
   const isConversational = meta?.taskType === 'conversational' || meta?.taskType === 'follow_up';
   const hasSources = Boolean(meta?.sources && meta.sources.length > 0);
@@ -295,18 +383,6 @@ const AssistantTurnView: React.FC<{
           {renderMarkdown(turn.fullText || '', isLive)}
         </div>
 
-        {/* 5. Vernacular Audio Advisory (Expanded on user click) */}
-        {showAudio && turn.fullText && (
-          <div className="audio-player-wrapper revealed">
-            <VernacularAudioPlayer
-              text={turn.fullText}
-              verdictSummary={{
-                factualCorrectness: meta?.verdicts?.factualCorrectness,
-                scamRisk: meta?.verdicts?.scamRisk,
-              }}
-            />
-          </div>
-        )}
 
         {/* 6. Deep Forensic Dossier & Regulatory Tools (Collapsible Inspector) */}
         {/* 6. Deep Forensic Dossier & Regulatory Tools (Collapsible Inspector) */}
@@ -605,18 +681,27 @@ const AssistantTurnView: React.FC<{
         <div className="investigation-controls">
           <div className="controls-left">
             {isLive ? (
-              <button className="control-btn stop" onClick={onStop} title="Stop generation">
-                <StopIcon className="w-3.5 h-3.5" /> <span>Stop</span>
+              <button
+                className="control-btn stop icon-only-btn"
+                onClick={onStop}
+                title="Stop generation"
+                aria-label="Stop generation"
+              >
+                <StopIcon className="w-3.5 h-3.5" />
               </button>
             ) : (
               <>
                 <button
                   className={`control-btn icon-only-btn ${copied ? 'copied' : ''}`}
                   onClick={handleCopy}
-                  title={copied ? 'Copied!' : 'Copy'}
-                  aria-label="Copy"
+                  title={copied ? 'Copied!' : 'Copy Briefing'}
+                  aria-label="Copy Briefing"
                 >
-                  {copied ? '✅' : '📋'}
+                  {copied ? (
+                    <CheckIcon className="w-3.5 h-3.5" />
+                  ) : (
+                    <CopyIcon className="w-3.5 h-3.5" />
+                  )}
                 </button>
                 <button
                   className="control-btn icon-only-btn"
@@ -624,39 +709,15 @@ const AssistantTurnView: React.FC<{
                   title="Re-evaluate"
                   aria-label="Re-evaluate"
                 >
-                  🔄
+                  <RetryIcon className="w-3.5 h-3.5" />
                 </button>
-                {!isLive && turn.fullText && (
-                  <button
-                    type="button"
-                    className={`control-btn icon-only-btn ${showAudio ? 'active' : ''}`}
-                    onClick={() => setShowAudio(prev => !prev)}
-                    title={showAudio ? 'Hide Audio' : 'Listen'}
-                    aria-label={showAudio ? 'Hide Audio' : 'Listen'}
-                  >
-                    🔊
-                  </button>
-                )}
-                {meta?.certificate && (
-                  <button
-                    type="button"
-                    className="control-btn cert-trigger-btn"
-                    onClick={() => setShowCertModal(true)}
-                    title="View Cryptographic SHA-256 Legal Evidence Certificate"
-                  >
-                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                      <path d="m9 12 2 2 4-4" />
-                    </svg>
-                    <span>SHA-256 Legal Certificate</span>
-                  </button>
-                )}
+
               </>
             )}
           </div>
           <div className="controls-right">
             <button
-              className="control-btn"
+              className="control-btn icon-only-btn"
               onClick={() => {
                 const blob = new Blob([turn.fullText || ''], { type: 'text/markdown;charset=utf-8' });
                 const url = URL.createObjectURL(blob);
@@ -667,13 +728,9 @@ const AssistantTurnView: React.FC<{
                 URL.revokeObjectURL(url);
               }}
               title="Download Briefing"
+              aria-label="Download Briefing"
             >
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              <span>Download</span>
+              <DownloadIcon className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>

@@ -225,6 +225,7 @@ export interface InvestigationMeta {
   certificate?: import('./certificate').VerificationCertificate;
   documentAnalysis?: DocumentAnalysis;
   urlAnalysis?: UrlAnalysisResult;
+  suggestedInquiries?: string[];
 }
 
 export interface ChatTurn {

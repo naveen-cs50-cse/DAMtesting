@@ -530,6 +530,7 @@ CRITICAL DIRECTIVES:
           });
 
           // AI Adversarial Fact-Checking Challenger using OpenAI API
+          let aiSuggestedInquiries: string[] = [];
           if (openaiKey && prompt.trim()) {
             try {
               const aiVerdict = await evaluateClaimWithAI(prompt, openaiKey, {
@@ -539,6 +540,9 @@ CRITICAL DIRECTIVES:
               });
 
               if (aiVerdict) {
+                if (aiVerdict.suggestedInquiries && aiVerdict.suggestedInquiries.length > 0) {
+                  aiSuggestedInquiries = aiVerdict.suggestedInquiries;
+                }
                 verdicts.verdictStatus = aiVerdict.verdictStatus;
                 verdicts.factualCorrectness = aiVerdict.factualCorrectness;
 
@@ -830,6 +834,7 @@ No primary government gazette, statutory circular, or official notification was 
             documentAnalysis: primaryDocAnalysis,
             urlAnalysis: primaryUrlAnalysis,
             certificate,
+            suggestedInquiries: aiSuggestedInquiries,
           });
 
           sendEvent('done', { success: true });

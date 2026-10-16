@@ -1035,6 +1035,55 @@ svg {
   color: var(--dam-text-primary);
 }
 
+/* Sidebar Bookmarks Flyout Drawer with Smooth Opening Animation */
+.sidebar-bookmarks-drawer {
+  position: absolute;
+  left: 100%;
+  top: 0;
+  width: 280px;
+  height: 100%;
+  background-color: #121216;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 14px 0 36px rgba(0, 0, 0, 0.7);
+  animation: bookmarkDrawerOpen 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: left center;
+  will-change: transform, opacity;
+}
+
+@keyframes bookmarkDrawerOpen {
+  0% {
+    opacity: 0;
+    transform: translateX(-18px) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.sidebar-bookmarks-drawer .conversation-item {
+  animation: bookmarkItemFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+.sidebar-bookmarks-drawer .conversation-item:nth-child(1) { animation-delay: 0.03s; }
+.sidebar-bookmarks-drawer .conversation-item:nth-child(2) { animation-delay: 0.06s; }
+.sidebar-bookmarks-drawer .conversation-item:nth-child(3) { animation-delay: 0.09s; }
+.sidebar-bookmarks-drawer .conversation-item:nth-child(4) { animation-delay: 0.12s; }
+.sidebar-bookmarks-drawer .conversation-item:nth-child(5) { animation-delay: 0.15s; }
+
+@keyframes bookmarkItemFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Sidebar Footer & Workspace Menu */
 .sidebar-foot {
   padding: 12px 14px;
@@ -1483,6 +1532,26 @@ svg {
 
 .quiet-button[hidden] {
   display: none;
+}
+
+.quiet-button.icon-only-btn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  border-radius: var(--radius-md);
+  color: var(--dam-text-secondary);
+}
+
+.quiet-button.icon-only-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: transparent;
+  color: var(--dam-text-primary);
 }
 
 .secondary-button {
@@ -5108,6 +5177,25 @@ details[open] .timeline-chevron {
   justify-content: center;
   font-size: 14px;
   line-height: 1;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  border-radius: var(--radius-md);
+  color: var(--dam-text-secondary);
+}
+
+.control-btn.icon-only-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: transparent;
+  color: var(--dam-text-primary);
+  transform: none;
+}
+
+.control-btn.icon-only-btn.copied {
+  background: rgba(34, 197, 94, 0.12);
+  border: none;
+  box-shadow: none;
+  color: var(--dam-green);
 }
 
 .control-btn svg {
@@ -8392,35 +8480,37 @@ button, a, .history-item { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !im
   margin-right: 5px;
 }
 
-/* Sidebar History Status Indicator */
-.sidebar-verdict-tag {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  margin-right: 6px;
-  flex-shrink: 0;
-  font-size: 11.5px;
-  font-weight: 800;
-  line-height: 1;
-}
-
-.sidebar-verdict-tag.right {
-  color: #4ade80;
-}
-
-.sidebar-verdict-tag.false {
-  color: #f87171;
-}
-
-.sidebar-verdict-tag.unverified .sidebar-white-dot {
+/* Sidebar History Status Indicator — Glowing Status Circles */
+.sidebar-verdict-dot {
   display: inline-block;
-  width: 5px;
-  height: 5px;
+  width: 7.5px;
+  height: 7.5px;
   border-radius: 50%;
+  margin-right: 9px;
+  margin-left: 2px;
+  flex-shrink: 0;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+}
+
+.sidebar-verdict-dot.true,
+.sidebar-verdict-dot.right {
+  background: #22c55e;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.8), 0 0 2px #22c55e;
+}
+
+.sidebar-verdict-dot.false {
+  background: #ef4444;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.8), 0 0 2px #ef4444;
+}
+
+.sidebar-verdict-dot.other,
+.sidebar-verdict-dot.unverified {
   background: #cbd5e1;
-  box-shadow: 0 0 3px rgba(255, 255, 255, 0.6);
+  box-shadow: 0 0 7px rgba(203, 213, 225, 0.65), 0 0 2px #cbd5e1;
+}
+
+.history-item:hover .sidebar-verdict-dot {
+  transform: scale(1.2);
 }
 
 /* Sidebar Evidence Quick Nav Button */

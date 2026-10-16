@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Conversation, Folder, getQueryVerdictStatus } from '@/lib/investigation/types';
-import { EvidenceIcon, ShieldIcon } from './icons';
+import { ShieldIcon } from './icons';
 
 interface SidebarProps {
   conversations: Conversation[];
@@ -145,21 +145,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={() => onSelectConversation(item.id)}
           title={item.title}
         >
-          {status === 'right' && (
-            <span className="sidebar-verdict-tag right" title="Verified Correct">✔</span>
-          )}
-          {status === 'false' && (
-            <span className="sidebar-verdict-tag false" title="False / Debunked">✖</span>
-          )}
-          {status === 'unverified' && (
-            <span className="sidebar-verdict-tag unverified" title="Needs Verification">
-              <span className="sidebar-white-dot" />
-            </span>
-          )}
-          {!status && (
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" className="history-item-icon" aria-hidden="true">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            </svg>
+          {status === 'right' ? (
+            <span className="sidebar-verdict-dot true" title="Verified: True" />
+          ) : status === 'false' ? (
+            <span className="sidebar-verdict-dot false" title="Verified: False" />
+          ) : (
+            <span className="sidebar-verdict-dot other" title={status === 'unverified' ? "Unverified" : "Conversation"} />
           )}
           <div className="history-text-col" style={{ width: '100%', overflow: 'hidden' }}>
             <span className="history-title-text" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', fontSize: '13px', lineHeight: '1.2' }}>
@@ -306,19 +297,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div
           ref={bookmarksRef}
           className="sidebar-bookmarks-drawer"
-          style={{
-            position: 'absolute',
-            left: '100%',
-            top: 0,
-            width: '280px',
-            height: '100%',
-            backgroundColor: '#121216',
-            borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
-            zIndex: 100,
-            display: 'flex',
-            flexDirection: 'column',
-            boxShadow: '4px 0 24px rgba(0,0,0,0.6)',
-          }}
           role="region"
           aria-label="Bookmarks Explorer"
         >
@@ -359,21 +337,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       )}
 
-      {/* Active Evidence Quick Access Button: ONLY visible when an active query exists with indexed evidence */}
-      {hasQuery && evidenceCount > 0 && (
-        <div style={{ padding: '0 12px 8px' }}>
-          <button
-            type="button"
-            className="sidebar-evidence-nav-btn"
-            onClick={onOpenEvidence}
-            title="Open verified evidence explorer"
-          >
-            <EvidenceIcon className="w-3.5 h-3.5" />
-            <span style={{ flex: 1, textAlign: 'left', fontWeight: 500 }}>Evidence Records</span>
-            <span className="sidebar-evidence-pill">{evidenceCount}</span>
-          </button>
-        </div>
-      )}
 
       {/* Search Input Filter for Past Investigations */}
       {conversations.length > 3 && (

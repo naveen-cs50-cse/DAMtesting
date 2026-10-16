@@ -50,7 +50,6 @@ export const Composer: React.FC<ComposerProps> = ({
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [langMenuOpen, setLangMenuOpen] = useState(false);
-  const [isListening, setIsListening] = useState(false);
 
   // Auto-resize textarea to fit text (min 28px, max 160px)
   useEffect(() => {
@@ -166,54 +165,6 @@ export const Composer: React.FC<ComposerProps> = ({
     }
   };
 
-  const handleToggleVoice = () => {
-    interface SpeechRecognitionInstance {
-      lang: string;
-      interimResults: boolean;
-      maxAlternatives: number;
-      onstart: () => void;
-      onend: () => void;
-      onerror: () => void;
-      onresult: (event: { results: Array<Array<{ transcript: string }>> }) => void;
-      start: () => void;
-    }
-    const win = window as unknown as {
-      SpeechRecognition?: new () => SpeechRecognitionInstance;
-      webkitSpeechRecognition?: new () => SpeechRecognitionInstance;
-    };
-    const SpeechRecognitionClass = win.SpeechRecognition || win.webkitSpeechRecognition;
-    if (!SpeechRecognitionClass) {
-      alert('Voice recognition is not supported in this browser. Please type your query.');
-      return;
-    }
-
-    if (isListening) {
-      setIsListening(false);
-      return;
-    }
-
-    try {
-      const recognition = new SpeechRecognitionClass();
-      recognition.lang = activeLang === 'hi' ? 'hi-IN' : 'en-IN';
-      recognition.interimResults = false;
-      recognition.maxAlternatives = 1;
-
-      recognition.onstart = () => setIsListening(true);
-      recognition.onend = () => setIsListening(false);
-      recognition.onerror = () => setIsListening(false);
-
-      recognition.onresult = (event: { results: Array<Array<{ transcript: string }>> }) => {
-        const transcript = event.results[0]?.[0]?.transcript;
-        if (transcript) {
-          setInput(input ? input + ' ' + transcript : transcript);
-        }
-      };
-
-      recognition.start();
-    } catch {
-      setIsListening(false);
-    }
-  };
 
   const canSend = (input.trim().length > 0 || attachments.length > 0) && !isStreaming;
 
@@ -653,20 +604,7 @@ export const Composer: React.FC<ComposerProps> = ({
               )}
             </div>
 
-            {/* Microphone / Voice Input Button */}
-            <button
-              type="button"
-              className={`composer-icon-action-btn ${isListening ? 'listening' : ''}`}
-              title={isListening ? 'Listening… click to stop' : 'Voice input (Hindi/English)'}
-              aria-label="Voice input"
-              onClick={handleToggleVoice}
-            >
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                <line x1="12" x2="12" y1="19" y2="22"/>
-              </svg>
-            </button>
+
 
             {/* Submit / Stop Button */}
             {isStreaming ? (
@@ -698,10 +636,7 @@ export const Composer: React.FC<ComposerProps> = ({
 
       {/* Disclaimer Subtext */}
       <p className="composer-disclaimer-subtext">
-        DAM prioritizes primary Indian gazettes and regulatory feeds. 
-        <a href="#how-dam-verifies" onClick={e => { e.preventDefault(); alert("Open Methodology from the topbar or modal."); }}>
-          {' '}How DAM verifies evidence &rarr;
-        </a>
+        DAM prioritizes primary Indian gazettes and regulatory feeds.
       </p>
     </div>
   );

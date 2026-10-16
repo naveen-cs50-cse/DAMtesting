@@ -10,6 +10,7 @@ export interface AICallVerdictResult {
   keyFindings: string[];
   suggestedAction?: string;
   isConfirmedFact: boolean;
+  suggestedInquiries?: string[];
 }
 
 /**
@@ -51,7 +52,13 @@ You MUST respond strictly with a valid JSON object (no markdown formatting, no c
   "explanation": "Clear, direct 1-2 sentence explanation of the factual truth and reason for verdict",
   "keyFindings": ["Point 1", "Point 2"],
   "suggestedAction": "Practical advice for the citizen",
-  "isConfirmedFact": boolean
+  "isConfirmedFact": boolean,
+  "suggestedInquiries": [
+    "Specific follow-up inquiry 1 directly related to this exact claim topic or underlying entity",
+    "Specific follow-up inquiry 2 investigating similar viral claims or related circulars",
+    "Specific follow-up inquiry 3 examining official records or verification steps",
+    "Practical follow-up inquiry 4 for dispute, debunking, or official confirmation"
+  ]
 }`;
 
     const userContent = [
@@ -90,6 +97,13 @@ You MUST respond strictly with a valid JSON object (no markdown formatting, no c
         ? parsed.scamRisk
         : 'Low';
 
+    const suggestedInquiries: string[] = Array.isArray(parsed.suggestedInquiries)
+      ? parsed.suggestedInquiries
+          .filter((q: unknown): q is string => typeof q === 'string' && q.trim().length > 5)
+          .map((q: string) => q.trim())
+          .slice(0, 4)
+      : [];
+
     return {
       verdictStatus,
       factualCorrectness,
@@ -98,6 +112,7 @@ You MUST respond strictly with a valid JSON object (no markdown formatting, no c
       keyFindings: Array.isArray(parsed.keyFindings) ? parsed.keyFindings : [],
       suggestedAction: typeof parsed.suggestedAction === 'string' ? parsed.suggestedAction : '',
       isConfirmedFact: Boolean(parsed.isConfirmedFact),
+      suggestedInquiries,
     };
   } catch (err) {
     console.warn('AI verdict evaluation warning:', err);

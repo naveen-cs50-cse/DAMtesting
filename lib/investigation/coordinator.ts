@@ -37,36 +37,33 @@ export function coordinateInvestigation(
     };
   }
 
-  // Follow-Up & Actionable Advisory Intent (Complaint drafting, 1930 reporting walkthrough, post-click emergency steps, explaining context)
-  const isActionableFollowUp = attachments.length === 0 && (
-    lower.startsWith('draft') ||
-    lower.startsWith('write a') ||
-    lower.includes('complaint') ||
-    lower.includes('what should i do') ||
-    lower.includes('how do i report') ||
-    lower.includes('how to report') ||
-    lower.includes('i already clicked') ||
-    lower.includes('i shared otp') ||
-    lower.includes('my phone is hacked') ||
-    lower.includes('steps to report') ||
-    lower.includes('chakshu portal') ||
-    lower.includes('1930') ||
-    lower.includes('sample letter') ||
-    lower.includes('template for bank') ||
-    lower.includes('whatsapp warning summary') ||
-    (history.length > 0 && (
-      lower.startsWith('how') ||
-      lower.startsWith('what') ||
-      lower.startsWith('can you') ||
-      lower.startsWith('why') ||
-      lower.startsWith('tell me') ||
-      lower.startsWith('explain') ||
-      lower.includes('is it safe') ||
-      lower.includes('who is')
-    ))
+  // 1. Explicit claim fact-check inquiries always run through full live verification
+  const isClaimFactCheck = (
+    lower.startsWith('fact-check') ||
+    lower.startsWith('fact check') ||
+    lower.startsWith('verify') ||
+    lower.startsWith('is it true') ||
+    lower.startsWith('check if') ||
+    lower.startsWith('has the') ||
+    lower.startsWith('does the') ||
+    lower.startsWith('did the') ||
+    lower.includes('is genuine') ||
+    lower.includes('is authentic') ||
+    lower.includes('is fake') ||
+    lower.includes('is real') ||
+    lower.includes('legal tender')
   );
 
-  if (isActionableFollowUp) {
+  // 2. Only pure template/complaint drafting requests without verification intent are follow_up
+  const isDraftingRequest = attachments.length === 0 && !isClaimFactCheck && (
+    lower.startsWith('draft a complaint') ||
+    lower.startsWith('write a complaint') ||
+    lower.startsWith('draft a letter') ||
+    lower.startsWith('template for bank') ||
+    lower.startsWith('draft a formal dispute')
+  );
+
+  if (isDraftingRequest) {
     return {
       taskType: 'follow_up',
       queries: [],
@@ -141,17 +138,47 @@ export function coordinateInvestigation(
   } else if (lower.includes('trai') || lower.includes('sim') || lower.includes('dot') || lower.includes('block')) {
     queries.push('TRAI public notice fake mobile number blocking robocall');
     queries.push('Sanchar Saathi DoT cyber crime digital arrest advisory');
+  } else if (lower.includes('digital arrest') || (lower.includes('arrest') && (lower.includes('video') || lower.includes('skype') || lower.includes('call')))) {
+    queries.push('MHA I4C digital arrest video call advisory cybercrime.gov.in');
+    queries.push('digital arrest scam police CBI legal procedure clarification');
+  } else if (lower.includes('irs') || lower.includes('tax refund') || (lower.includes('tax') && lower.includes('phishing'))) {
+    queries.push('IRS tax refund email phishing scam official advisory');
+    queries.push('IRS initiate contact email text refund warning');
   } else {
     const rawSubject = prompt.trim() || extractedPieces.slice(0, 70);
-    const cleanedSubject = rawSubject.replace(/[?!.]/g, '').trim();
-    if (cleanedSubject) {
-      queries.push(`${cleanedSubject.slice(0, 60)} India official notification`);
-      queries.push(`${cleanedSubject.slice(0, 50)} PIB fact check verification`);
+    const coreClaim = rawSubject
+      .replace(/^(fact-check whether|fact check whether|fact-check if|fact check if|fact-check|fact check|verify whether|verify if|verify|is it true that|is it true|check if|please check|explain the historical context and main demands of|explain the|explain)\s+/i, '')
+      .replace(/[?!.]/g, '')
+      .trim();
+
+    const isGlobalTopic = !lower.includes('india') && !lower.includes('rbi') && !lower.includes('pib') && (
+      lower.includes('paris') || lower.includes('texas') || lower.includes('united states') ||
+      lower.includes('baloch') || lower.includes('pakistan') || lower.includes('china') ||
+      lower.includes('usa') || lower.includes('europe') || lower.includes('russia') ||
+      lower.includes('irs') || lower.includes('federal')
+    );
+
+    if (coreClaim) {
+      if (isGlobalTopic) {
+        queries.push(`${coreClaim.slice(0, 75)}`);
+        queries.push(`${coreClaim.slice(0, 65)} fact check`);
+      } else {
+        queries.push(`${coreClaim.slice(0, 65)} official fact check`);
+        queries.push(`${coreClaim.slice(0, 55)} notification circular`);
+      }
     }
   }
 
+  if (queries.length === 0 && prompt.trim()) {
+    queries.push(`${prompt.trim().slice(0, 70)} official fact check`);
+  }
+
+  const cleanAssertion = prompt
+    .replace(/^(fact-check whether|fact check whether|fact-check if|fact check if|verify whether|verify if|check if)\s+/i, '')
+    .trim();
+
   const assertions = [
-    prompt.slice(0, 110) || extractedPieces.slice(0, 110)
+    cleanAssertion.slice(0, 110) || prompt.slice(0, 110) || extractedPieces.slice(0, 110)
   ];
 
   return { taskType, queries, assertions };

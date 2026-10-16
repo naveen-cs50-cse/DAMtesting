@@ -54,12 +54,17 @@ You MUST respond strictly with a valid JSON object (no markdown formatting, no c
   "suggestedAction": "Practical advice for the citizen",
   "isConfirmedFact": boolean,
   "suggestedInquiries": [
-    "Specific follow-up inquiry 1 directly related to this exact claim topic or underlying entity",
-    "Specific follow-up inquiry 2 investigating similar viral claims or related circulars",
-    "Specific follow-up inquiry 3 examining official records or verification steps",
-    "Practical follow-up inquiry 4 for dispute, debunking, or official confirmation"
+    "[Concrete factual claim assertion 1 derived directly from this topic, e.g. 'The IRS initiates taxpayer refund notifications via unsolicited emails']",
+    "[Concrete factual claim assertion 2, e.g. 'Reserve Bank of India has banned ₹500 currency banknotes']",
+    "[Concrete factual claim assertion 3, e.g. 'Indian law permits police officers to execute digital arrests over Skype']"
   ]
-}`;
+}
+
+CRITICAL RULES FOR suggestedInquiries:
+- Present each item strictly as a CONCRETE FACTUAL CLAIM / ASSERTION STATEMENT (e.g. 'Electricity distribution companies can disconnect power at night without 15-day notice', 'Central Government announced free laptop distribution under PM Yojana').
+- DO NOT start with 'Fact-check whether...', 'Verify whether...', 'Check if...', 'Is it true that...', or 'Fact-check claim that...'. State the declarative assertion itself directly.
+- DO NOT provide how-to questions, customer-support steps, or complaint-drafting templates.
+- Each claim must be an actionable, testable statement for the verification pipeline.`;
 
     const userContent = [
       `User Inquiry / Claim: "${prompt.trim()}"`,
@@ -97,10 +102,22 @@ You MUST respond strictly with a valid JSON object (no markdown formatting, no c
         ? parsed.scamRisk
         : 'Low';
 
+    const sanitizeClaimStatement = (str: string): string => {
+      let c = str.trim()
+        .replace(/^(fact-check whether|fact check whether|fact-check if|fact check if|fact-check claim that|fact-check that|fact-check|fact check|verify whether|verify if|verify that|verify|is it true that|is it true|check if|check whether|investigate whether|investigate if|investigate)\s+/i, '')
+        .replace(/[?]+$/, '')
+        .trim();
+      if (c.length > 0) {
+        c = c.charAt(0).toUpperCase() + c.slice(1);
+      }
+      return c;
+    };
+
     const suggestedInquiries: string[] = Array.isArray(parsed.suggestedInquiries)
       ? parsed.suggestedInquiries
           .filter((q: unknown): q is string => typeof q === 'string' && q.trim().length > 5)
-          .map((q: string) => q.trim())
+          .map((q: string) => sanitizeClaimStatement(q))
+          .filter((q: string) => q.length > 5)
           .slice(0, 4)
       : [];
 

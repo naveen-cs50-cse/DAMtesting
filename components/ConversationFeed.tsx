@@ -16,12 +16,29 @@ interface ConversationFeedProps {
   onFollowUpClick?: (prompt: string) => void;
 }
 
+function sanitizeClaimText(text: string): string {
+  let c = text.trim()
+    .replace(/^(fact-check whether|fact check whether|fact-check if|fact check if|fact-check claim that|fact-check that|fact-check|fact check|verify whether|verify if|verify that|verify|is it true that|is it true|check if|check whether|investigate whether|investigate if|investigate)\s+/i, '')
+    .replace(/^["'“‘\s]+|["'”’\s]+$/g, '')
+    .replace(/[?]+$/, '')
+    .trim();
+  if (c.length > 0) {
+    c = c.charAt(0).toUpperCase() + c.slice(1);
+  }
+  return c;
+}
+
 function getFollowUpChips(turn: ChatTurn): string[] {
   const meta = turn.meta;
 
-  // 1. If AI returned bespoke claim-specific suggested inquiries, prioritize them
+  // 1. If AI returned bespoke claim-specific inquiries, sanitize and present as direct claims
   if (meta?.suggestedInquiries && Array.isArray(meta.suggestedInquiries) && meta.suggestedInquiries.length > 0) {
-    return meta.suggestedInquiries.slice(0, 4);
+    const cleaned = meta.suggestedInquiries
+      .map(sanitizeClaimText)
+      .filter(c => c.length > 10);
+    if (cleaned.length > 0) {
+      return cleaned.slice(0, 4);
+    }
   }
 
   // 2. Extract and sanitize primary claim / inquiry topic
@@ -40,106 +57,113 @@ function getFollowUpChips(turn: ChatTurn): string[] {
   cleanTopic = cleanTopic.replace(/[:\-,"'“‘”’]+$/g, '').trim();
 
   const lowerText = (rawClaim + ' ' + (turn.fullText || '')).toLowerCase();
-  const topicLabel = cleanTopic && cleanTopic.length >= 3 ? `"${cleanTopic}"` : 'this claim';
+  const topicLabel = cleanTopic && cleanTopic.length >= 3 && cleanTopic.toLowerCase() !== 'this claim' ? cleanTopic : null;
 
-  // 3. Category-specific dynamic inquiries tied directly to the claim
+  // 3. Category-specific declarative claims to verify
+
+  // Phishing / IRS / Tax / Banking emails
+  if (lowerText.includes('irs') || lowerText.includes('tax') || lowerText.includes('phishing') || lowerText.includes('refund email') || lowerText.includes('domain')) {
+    return [
+      `Tax authorities and revenue services initiate refund requests via unsolicited emails and SMS`,
+      `Official revenue portals require taxpayers to verify sensitive credentials on third-party links`,
+      `Tax administration directives mandate that legitimate refunds are only processed through official .gov portals`,
+    ];
+  }
 
   // Digital Arrest / Police / CBI / Court Threats
   if (lowerText.includes('digital arrest') || lowerText.includes('cbi') || lowerText.includes('customs') || lowerText.includes('skype call') || lowerText.includes('police officer')) {
     return [
-      `Does Indian criminal procedure ever permit a "digital arrest" over video calls?`,
-      `What emergency steps should I take if targeted by this extortion threat?`,
-      `How do I file a formal complaint on the National Cyber Crime Portal (1930)?`,
-      `Check official Ministry of Home Affairs (I4C) advisory on video-call fraud`,
+      `Indian criminal procedure codes authorize "digital arrest" over video calls and Skype`,
+      `Law enforcement officers can mandate fund transfers to reserve escrow accounts via video call`,
+      `Ministry of Home Affairs and I4C have designated video-call arrest threats as cyber extortion`,
     ];
   }
 
   // Currency / Bank Notes / RBI / Financial
   if (lowerText.includes('note') || lowerText.includes('currency') || lowerText.includes('rbi') || lowerText.includes('500') || lowerText.includes('2000') || lowerText.includes('legal tender') || lowerText.includes('star mark')) {
     return [
-      `Has the Reserve Bank of India (RBI) issued an official circular regarding ${topicLabel}?`,
-      `What are the authentic RBI guidelines for verifying valid currency notes?`,
-      `What similar viral rumors have circulated about Indian currency notes?`,
-      `Draft a WhatsApp fact-check message clarifying the truth about ${topicLabel}`,
+      `Reserve Bank of India has banned and demonetized ₹500 currency banknotes`,
+      `Banknotes featuring a star (*) symbol in the number panel are invalid legal tender`,
+      `RBI circular requires depositing old currency notes before a mandatory deadline`,
     ];
   }
 
   // Electricity / DISCOM / Utility Disconnection Scams
   if (lowerText.includes('electricity') || lowerText.includes('power cut') || lowerText.includes('discom') || lowerText.includes('meter') || lowerText.includes('bijli') || lowerText.includes('bill overdue')) {
     return [
-      `What does Section 56 of the Electricity Act require before power disconnection?`,
-      `How can consumers verify genuine bill dues on their state electricity board portal?`,
-      `How to report this scam SMS to Chakshu on the Sanchar Saathi portal?`,
-      `Draft an urgent advisory warning neighbors against fake power cut SMS`,
+      `Electricity distribution companies can disconnect power at night without 15 days notice`,
+      `Power discom bill verification requires installing third-party APK update files`,
+      `SERC regulations permit sending disconnection notices from personal 10-digit mobile numbers`,
     ];
   }
 
   // Government Welfare Schemes / Free Subsidies / Yojana
   if (lowerText.includes('yojana') || lowerText.includes('scheme') || lowerText.includes('free laptop') || lowerText.includes('solar') || lowerText.includes('pm-') || lowerText.includes('subsidy') || lowerText.includes('ration')) {
     return [
-      `Is there an authentic government notification on india.gov.in for ${topicLabel}?`,
-      `What are the legitimate eligibility criteria and application portals for this policy?`,
-      `How to identify fake government scheme registration forms and APK links?`,
-      `Draft a brief family guide summarizing the actual official policy`,
+      topicLabel ? `The Central Government announced ${topicLabel} on india.gov.in` : `The Central Government is distributing free laptops to students under PM National Scheme`,
+      `Registration for government subsidies requires paying an advance processing fee on third-party links`,
+      `Official welfare scheme benefits require citizens to share SMS OTPs for verification`,
     ];
   }
 
   // Railway / IRCTC / Transport
   if (lowerText.includes('railway') || lowerText.includes('train') || lowerText.includes('irctc') || lowerText.includes('ticket') || lowerText.includes('tatkal') || lowerText.includes('tdr')) {
     return [
-      `What is the official IRCTC / Ministry of Railways circular on this rule?`,
-      `Check latest updates on the official Indian Railways portal (indianrailways.gov.in)`,
-      `What is the verified procedure for refund claims under this scenario?`,
-      `Draft a concise clarification on authentic railway passenger rules`,
+      `Ministry of Railways issued a new rule banning luggage over 15kg in sleeper class`,
+      `IRCTC provides automatic full refunds without cancellation fee deduction for delayed trains`,
+      `Railway reservation tickets can be transferred to family members 24 hours before chart preparation`,
     ];
   }
 
   // Health / Medical / Science
   if (lowerText.includes('vaccine') || lowerText.includes('cure') || lowerText.includes('cancer') || lowerText.includes('remedy') || lowerText.includes('ayush') || lowerText.includes('icmr') || lowerText.includes('who')) {
     return [
-      `What is the medical and scientific consensus regarding ${topicLabel}?`,
-      `Has the Ministry of Health (MoHFW) or ICMR published evidence on this?`,
-      `What are the known health risks associated with unverified medical remedies?`,
-      `Draft an evidence-based fact-check summary for social media`,
+      `Ministry of Ayush and ICMR officially endorsed this viral herbal remedy`,
+      `Peer-reviewed clinical trials validate the medical cure claims for this treatment`,
+      `The World Health Organization issued an emergency alert regarding this medication`,
     ];
   }
 
-  // High / Medium Scam Threat (Customized with claim topic)
+  // High / Medium Scam Threat
   if (meta?.verdicts?.scamRisk === 'High' || meta?.verdicts?.scamRisk === 'Medium') {
     return [
-      `How do I report deceptive communications related to ${topicLabel} to 1930 / Chakshu?`,
-      `Draft a formal dispute complaint for my bank manager citing RBI guidelines`,
-      `What immediate protection steps should I take if I shared details or clicked links?`,
-      `Check official cybercrime advisories regarding similar scam patterns`,
+      topicLabel ? `Official regulatory authorities have flagged ${topicLabel} as an active phishing scam` : `Official regulatory authorities have flagged this communication as an active phishing scam`,
+      `Legitimate banking portals and ministries never solicit passwords or OTPs for this procedure`,
+      `National Cyber Crime Reporting Portal (1930) has issued public warnings on this modus operandi`,
     ];
   }
 
   // Contradicted / Debunked Rumors
   if (meta?.verdicts?.factualCorrectness === 'Contradicted') {
     return [
-      `Has PIB Fact Check officially debunked ${topicLabel}?`,
-      `What primary gazette notification or directive refutes ${topicLabel}?`,
-      `What similar deceptive claims have circulated about this subject?`,
-      `Draft a verified WhatsApp debunking message for family and friends`,
+      topicLabel ? `PIB Fact Check and official ministries have officially debunked ${topicLabel}` : `PIB Fact Check and official ministries have officially debunked this assertion`,
+      `Primary gazette notifications and statutory circulars directly refute this statement`,
+      `Statutory regulatory directives prohibit the actions described in this communication`,
     ];
   }
 
   // Supported / Factually Confirmed
   if (meta?.verdicts?.factualCorrectness === 'Supported') {
     return [
-      `Where can citizens read the full primary gazette or circular for ${topicLabel}?`,
-      `What are the practical next steps or deadlines under this directive?`,
-      `What related official programs or provisions are currently active?`,
-      `Draft an informative summary highlighting the verified facts`,
+      topicLabel ? `Published government gazettes and statutory notifications substantiate ${topicLabel}` : `Published government gazettes and statutory notifications substantiate this policy`,
+      `Official regulatory circulars confirm the active implementation timeline for this measure`,
+      `Primary ministry records corroborate the terms and conditions outlined in this statement`,
     ];
   }
 
-  // General fallback explicitly incorporating the user's claim topic
+  // General fallback explicitly incorporating clean topic or substantive claims
+  if (topicLabel) {
+    return [
+      `${topicLabel} is officially authorized and published in the Government Gazette`,
+      `Regulatory authorities and ministries have issued official alerts regarding ${topicLabel}`,
+      `Primary statutory records corroborate the authenticity of ${topicLabel}`,
+    ];
+  }
+
   return [
-    `Has any government ministry or regulatory body issued a clarification on ${topicLabel}?`,
-    `What authoritative primary evidence exists evaluating ${topicLabel}?`,
-    `What similar viral claims have been reported on this topic?`,
-    `Draft an objective, evidence-backed summary of these findings`,
+    `Central government authorities have published an official notification corroborating this assertion`,
+    `National fact-checking registries have debunked this assertion as false misinformation`,
+    `Statutory regulatory directives prohibit the demands and actions described in this communication`,
   ];
 }
 
@@ -255,6 +279,34 @@ const AssistantTurnView: React.FC<{
   const [copied, setCopied] = useState(false);
   const [copiedReport, setCopiedReport] = useState(false);
   const [showCertModal, setShowCertModal] = useState(false);
+  const [rating, setRating] = useState<number>(() => {
+    if (typeof window === 'undefined') return 0;
+    try {
+      const saved = localStorage.getItem(`dam_turn_rating_${turn.id}`);
+      return saved ? parseInt(saved, 10) : 0;
+    } catch {
+      return 0;
+    }
+  });
+  const [hoverRating, setHoverRating] = useState<number>(0);
+  const [ratingFeedback, setRatingFeedback] = useState<string | null>(null);
+
+  const handleRate = (star: number) => {
+    const nextRating = rating === star ? 0 : star;
+    setRating(nextRating);
+    try {
+      if (nextRating > 0) {
+        localStorage.setItem(`dam_turn_rating_${turn.id}`, nextRating.toString());
+        setRatingFeedback(nextRating >= 4 ? 'Thanks for rating!' : 'Feedback recorded');
+        setTimeout(() => setRatingFeedback(null), 2500);
+      } else {
+        localStorage.removeItem(`dam_turn_rating_${turn.id}`);
+        setRatingFeedback(null);
+      }
+    } catch {
+      // Safe fallback
+    }
+  };
 
   const isConversational = meta?.taskType === 'conversational' || meta?.taskType === 'follow_up';
   const hasSources = Boolean(meta?.sources && meta.sources.length > 0);
@@ -657,38 +709,34 @@ const AssistantTurnView: React.FC<{
           );
         })()}
 
-        {/* 7. Contextual Follow-up Inquiries */}
-        {!isLive && (
-          <div className="followup-suggestions-section" aria-label="Suggested follow-up inquiries">
-            <div className="followup-suggestions-header">
-              <div className="followup-header-left">
-                <span className="followup-spark-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+        {/* 7. Contextual Follow-up Inquiries (Minimalist vertical list matching reference) */}
+        {!isLive && getFollowUpChips(turn).length > 0 && (
+          <div className="followup-list-container" aria-label="Suggested follow-up inquiries">
+            {getFollowUpChips(turn).slice(0, 3).map((chip, chipIdx) => (
+              <button
+                key={chipIdx}
+                type="button"
+                className="followup-row-item"
+                onClick={() => onFollowUpClick && onFollowUpClick(chip)}
+                title={`Investigate: "${chip}"`}
+              >
+                <span className="followup-bubble-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                    <circle cx="8.5" cy="12" r="0.85" fill="currentColor" stroke="none" />
+                    <circle cx="12" cy="12" r="0.85" fill="currentColor" stroke="none" />
+                    <circle cx="15.5" cy="12" r="0.85" fill="currentColor" stroke="none" />
                   </svg>
                 </span>
-                <span className="followup-title">SUGGESTED NEXT INQUIRIES</span>
-              </div>
-            </div>
-            <div className="followup-chips-grid">
-              {getFollowUpChips(turn).map((chip, chipIdx) => (
-                <button
-                  key={chipIdx}
-                  type="button"
-                  className="followup-chip"
-                  onClick={() => onFollowUpClick && onFollowUpClick(chip)}
-                  title={`Investigate: "${chip}"`}
-                >
-                  <span className="followup-chip-text">{chip}</span>
-                  <span className="chip-arrow" aria-hidden="true">
-                    <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="3" y1="8" x2="13" y2="8" />
-                      <polyline points="9 4 13 8 9 12" />
-                    </svg>
-                  </span>
-                </button>
-              ))}
-            </div>
+                <span className="followup-row-text">{chip}</span>
+                <span className="followup-row-arrow" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                    <polyline points="12 5 19 12 12 19" />
+                  </svg>
+                </span>
+              </button>
+            ))}
           </div>
         )}
 
@@ -727,6 +775,34 @@ const AssistantTurnView: React.FC<{
                   <RetryIcon className="w-3.5 h-3.5" />
                 </button>
 
+                {/* Result Rating Widget ("How was this result? ★ ★ ★ ★ ★") */}
+                <div className="result-rating-widget" role="group" aria-label="How was this result?">
+                  <span className="result-rating-text">How was this result?</span>
+                  <div className="result-rating-stars">
+                    {[1, 2, 3, 4, 5].map((star) => {
+                      const active = (hoverRating || rating) >= star;
+                      return (
+                        <button
+                          key={star}
+                          type="button"
+                          className={`star-rating-btn ${active ? 'active' : ''}`}
+                          onClick={() => handleRate(star)}
+                          onMouseEnter={() => setHoverRating(star)}
+                          onMouseLeave={() => setHoverRating(0)}
+                          title={`Rate ${star} star${star > 1 ? 's' : ''}`}
+                          aria-label={`Rate ${star} star${star > 1 ? 's' : ''}`}
+                        >
+                          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                          </svg>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {ratingFeedback && (
+                    <span className="rating-feedback-badge">{ratingFeedback}</span>
+                  )}
+                </div>
               </>
             )}
           </div>

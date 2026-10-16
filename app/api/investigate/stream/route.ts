@@ -603,6 +603,7 @@ CRITICAL DIRECTIVES:
             statutes,
             documentAnalysis: primaryDocAnalysis,
             urlAnalysis: primaryUrlAnalysis,
+            suggestedInquiries: aiSuggestedInquiries.length > 0 ? aiSuggestedInquiries : undefined,
           });
 
           // STAGE 5: Synthesizing Intelligence Briefing
@@ -644,7 +645,8 @@ CRITICAL DIRECTIVES:
                 : '';
 
               const userContent = [
-                `User Inquiry: ${prompt || '(Investigation initiated from uploaded document/image/link)'}`,
+                `Active Claim to Investigate: "${prompt || '(Investigation initiated from uploaded document/image/link)'}"`,
+                `DIRECTIVE: Focus 100% of this intelligence briefing on verifying and investigating this specific claim. State the truth immediately, analyze the evidence, and provide clear citizen guidance.`,
                 extractedTextFromAttachments ? `\n\nExtracted Attachment Evidence:\n${extractedTextFromAttachments}` : '',
                 docText,
                 urlText,

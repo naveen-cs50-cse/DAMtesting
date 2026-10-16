@@ -14,6 +14,8 @@ import { RenameModal } from './modals/RenameModal';
 import { ShareModal } from './modals/ShareModal';
 import { FolderModal } from './modals/FolderModal';
 import { MoveToFolderModal } from './modals/MoveToFolderModal';
+import { WhatsAppModal } from './modals/WhatsAppModal';
+import { ExtensionModal } from './modals/ExtensionModal';
 import { Attachment, Conversation, Folder, IndexedSource, ChatTurn, ActivityStage, InvestigationMeta, getQueryVerdictStatus } from '@/lib/investigation/types';
 import { generateSmartTitle } from '@/lib/investigation/naming';
 
@@ -67,6 +69,8 @@ export const InvestigationWorkspace: React.FC = () => {
 
   // Modals state
   const [methodologyModalOpen, setMethodologyModalOpen] = useState(false);
+  const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
+  const [extensionModalOpen, setExtensionModalOpen] = useState(false);
   const [urlModalOpen, setUrlModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [folderModalOpen, setFolderModalOpen] = useState(false);
@@ -625,6 +629,13 @@ export const InvestigationWorkspace: React.FC = () => {
         onOpenMoveToFolderModal={conv => setMoveToFolderConv(conv)}
         onOpenMethodology={() => setMethodologyModalOpen(true)}
         onToggleSidebar={() => setSidebarOpen(prev => !prev)}
+        onOpenWhatsApp={() => setWhatsappModalOpen(true)}
+        onOpenExtension={() => setExtensionModalOpen(true)}
+        onOpenSettings={() => showToast('Verification Settings: Default regulatory profile active')}
+        onSignOut={() => {
+          setActiveId(null);
+          showToast('Workstation session reset');
+        }}
       />
 
       <main className="main-area" id="mainArea">
@@ -658,7 +669,11 @@ export const InvestigationWorkspace: React.FC = () => {
           >
             <div className="workspace-content-inner">
               {!activeConversation ? (
-                <LandingBlock onSelectPrompt={p => { setInput(p); handleSendInvestigation(p); }} />
+                <LandingBlock
+                  onSelectPrompt={p => { setInput(p); handleSendInvestigation(p); }}
+                  onOpenWhatsApp={() => setWhatsappModalOpen(true)}
+                  onOpenExtension={() => setExtensionModalOpen(true)}
+                />
               ) : (
                 <ConversationFeed
                   turns={activeConversation.turns}
@@ -831,6 +846,16 @@ export const InvestigationWorkspace: React.FC = () => {
           setFolderToEdit(null);
           setFolderModalOpen(true);
         }}
+      />
+
+      <WhatsAppModal
+        isOpen={whatsappModalOpen}
+        onClose={() => setWhatsappModalOpen(false)}
+      />
+
+      <ExtensionModal
+        isOpen={extensionModalOpen}
+        onClose={() => setExtensionModalOpen(false)}
       />
 
       {toastMsg && (

@@ -27,6 +27,10 @@ interface SidebarProps {
   onOpenEvidence: () => void;
   onOpenMethodology?: () => void;
   onToggleSidebar?: () => void;
+  onOpenWhatsApp?: () => void;
+  onOpenExtension?: () => void;
+  onOpenSettings?: () => void;
+  onSignOut?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -48,6 +52,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenEvidence,
   onOpenMethodology,
   onToggleSidebar,
+  onOpenWhatsApp,
+  onOpenExtension,
+  onOpenSettings,
+  onSignOut,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -66,6 +74,92 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const bookmarksRef = useRef<HTMLDivElement>(null);
   const bookmarksTriggerRef = useRef<HTMLButtonElement>(null);
+  const closeTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleMouseEnter = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+    setMenuOpen(true);
+  };
+
+  const handleMouseLeave = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+    }
+    closeTimerRef.current = setTimeout(() => {
+      setMenuOpen(false);
+    }, 220);
+  };
+
+  const handleTriggerClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+    setMenuOpen(prev => !prev);
+  };
+
+  const handleTriggerKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      setMenuOpen(true);
+      requestAnimationFrame(() => {
+        const first = menuRef.current?.querySelector<HTMLButtonElement | HTMLAnchorElement>('[role="menuitem"]');
+        first?.focus();
+      });
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setMenuOpen(true);
+      requestAnimationFrame(() => {
+        const items = menuRef.current?.querySelectorAll<HTMLButtonElement | HTMLAnchorElement>('[role="menuitem"]');
+        if (items && items.length > 0) {
+          items[items.length - 1]?.focus();
+        }
+      });
+    }
+  };
+
+  const handleMenuKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!menuRef.current) return;
+    const items = Array.from(
+      menuRef.current.querySelectorAll<HTMLButtonElement | HTMLAnchorElement>('[role="menuitem"]')
+    );
+    if (!items.length) return;
+    const currentIndex = items.indexOf(document.activeElement as HTMLButtonElement | HTMLAnchorElement);
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const nextIndex = currentIndex < items.length - 1 ? currentIndex + 1 : 0;
+      items[nextIndex]?.focus();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const prevIndex = currentIndex > 0 ? currentIndex - 1 : items.length - 1;
+      items[prevIndex]?.focus();
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      items[0]?.focus();
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      items[items.length - 1]?.focus();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setMenuOpen(false);
+      triggerRef.current?.focus();
+    } else if (e.key === 'Tab') {
+      setMenuOpen(false);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) {
+        clearTimeout(closeTimerRef.current);
+      }
+    };
+  }, []);
 
   // Close profile menu and bookmarks drawer on outside click or Escape key
   useEffect(() => {
@@ -92,7 +186,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     };
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setMenuOpen(false);
+        if (menuOpen) {
+          setMenuOpen(false);
+          triggerRef.current?.focus();
+        }
         setBookmarksOpen(false);
       }
     };
@@ -301,52 +398,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </button>
       </div>
 
-      {/* WhatsApp Agent Entry Point */}
-      <div style={{ padding: '0 12px 6px' }}>
-        <button
-          type="button"
-          className="new-investigation-btn sidebar-tool-btn"
-          onClick={() => setWhatsappModalOpen(true)}
-          title="WhatsApp Verification Agent — Forward & verify on mobile"
-          style={{
-            width: '100%',
-            margin: 0,
-            background: 'rgba(255, 255, 255, 0.035)',
-            borderColor: 'rgba(255, 255, 255, 0.08)',
-          }}
-        >
-          <span className="sidebar-btn-icon-slot whatsapp-slot">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
-              <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2zm0 18.15c-1.5 0-2.97-.4-4.25-1.16l-.3-.18-3.13.82.84-3.05-.2-.32a8.19 8.19 0 0 1-1.25-4.37c0-4.54 3.7-8.24 8.24-8.24 2.2 0 4.27.86 5.82 2.42a8.18 8.18 0 0 1 2.41 5.83c.01 4.54-3.69 8.24-8.23 8.24zm4.52-6.16c-.25-.12-1.47-.72-1.7-.81-.23-.08-.39-.12-.56.12-.17.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-1.99-1.23-.74-.66-1.23-1.47-1.38-1.72-.14-.25-.02-.38.11-.5.11-.11.25-.29.37-.43.12-.14.17-.25.25-.41.08-.17.04-.31-.02-.43s-.56-1.34-.76-1.84c-.2-.48-.41-.42-.56-.43h-.48c-.17 0-.43.06-.66.31-.22.25-.86.84-.86 2.05s.88 2.38 1 2.55c.12.17 1.73 2.65 4.2 3.71.59.25 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.07.14-1.18-.06-.11-.22-.17-.47-.3z"/>
-            </svg>
-          </span>
-          <span style={{ flex: 1, textAlign: 'left', fontWeight: 500 }}>WhatsApp Bot</span>
-        </button>
-      </div>
-
-      {/* Browser Extension Entry Point */}
-      <div style={{ padding: '0 12px 6px' }}>
-        <button
-          type="button"
-          className="new-investigation-btn sidebar-tool-btn"
-          onClick={() => setExtensionModalOpen(true)}
-          title="DAM Browser Extension — Real-time social & web claims fact-checker"
-          style={{
-            width: '100%',
-            margin: 0,
-            background: 'rgba(255, 255, 255, 0.035)',
-            borderColor: 'rgba(255, 255, 255, 0.08)',
-          }}
-        >
-          <span className="sidebar-btn-icon-slot extension-slot">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20.5 14.5A2.5 2.5 0 0 0 18 12V6a2 2 0 0 0-2-2h-6a2.5 2.5 0 0 0-5 0H3a1 1 0 0 0-1 1v4.5A2.5 2.5 0 0 0 4.5 12 2.5 2.5 0 0 0 2 14.5V19a1 1 0 0 0 1 1h4.5a2.5 2.5 0 0 0 5 0H16a2 2 0 0 0 2-2v-1.5a2.5 2.5 0 0 0 2.5-2.5z" />
-            </svg>
-          </span>
-          <span style={{ flex: 1, textAlign: 'left', fontWeight: 500 }}>Extension</span>
-        </button>
-      </div>
-
       {/* Bookmarks Flyout Drawer */}
       {bookmarksOpen && (
         <div
@@ -457,67 +508,194 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Clean User Profile Foot */}
-      <div className="sidebar-foot" style={{ padding: '8px 12px' }}>
+      <div
+        className="sidebar-foot"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
         <button
           ref={triggerRef}
-          className="history-item"
-          style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', border: 'none', background: 'transparent', color: 'var(--dam-text-primary)', cursor: 'pointer', borderRadius: '8px' }}
-          onClick={() => setMenuOpen(!menuOpen)}
-          aria-haspopup="true"
+          type="button"
+          className={`workspace-chip ${menuOpen ? 'menu-active' : ''}`}
+          onClick={handleTriggerClick}
+          onKeyDown={handleTriggerKeyDown}
+          aria-haspopup="menu"
           aria-expanded={menuOpen}
+          aria-controls="workspace-profile-menu"
+          title="Hitesh's workspace & options"
         >
-          <div style={{ width: '26px', height: '26px', borderRadius: '50%', backgroundColor: '#ffffff', color: '#000000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>
-            HK
-          </div>
-          <span style={{ fontSize: '13px', fontWeight: 500, color: '#e4e4e7' }}>Hitesh Kumar</span>
+          <span className="avatar" aria-hidden="true">HK</span>
+          <span className="workspace-copy">
+            <strong>Hitesh Kumar</strong>
+            <small>hitesh@usedam.ai</small>
+          </span>
+          <svg viewBox="0 0 24 24" className="chevron-up" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M6 15l6-6 6 6" />
+          </svg>
         </button>
 
         {menuOpen && (
-          <div className="workspace-menu-popover" ref={menuRef} role="menu" style={{ 
-            position: 'absolute', bottom: '60px', left: '12px', width: 'calc(100% - 24px)', 
-            backgroundColor: '#111114', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.1)', 
-            padding: '4px 0', zIndex: 100, boxShadow: '0 8px 24px rgba(0,0,0,0.8)' 
-          }}>
+          <div
+            id="workspace-profile-menu"
+            className="workspace-menu-popover"
+            ref={menuRef}
+            role="menu"
+            aria-label="Workspace & Profile Options"
+            onKeyDown={handleMenuKeyDown}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+          >
+            <div className="menu-header">
+              <div className="menu-user-row">
+                <span className="avatar" style={{ width: '28px', height: '28px', flex: '0 0 28px', fontSize: '10.5px' }} aria-hidden="true">HK</span>
+                <div className="menu-user-details">
+                  <span className="menu-user-name">Hitesh Kumar</span>
+                  <span className="menu-user-email">hitesh@usedam.ai</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="menu-divider" />
+
+            {/* Account & Settings Options */}
             <button
               type="button"
+              role="menuitem"
               className="menu-item"
-              style={{ display: 'flex', width: '100%', padding: '10px 14px', color: '#d4d4d8', background: 'transparent', border: 'none', gap: '10px', fontSize: '13px', cursor: 'pointer', alignItems: 'center' }}
               onClick={() => {
                 setMenuOpen(false);
+                triggerRef.current?.focus();
                 if (onOpenMethodology) onOpenMethodology();
               }}
             >
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+                <polyline points="10 9 9 9 8 9" />
+              </svg>
               <span>Methodology</span>
             </button>
-            <div style={{ height: '1px', backgroundColor: 'rgba(255, 255, 255, 0.08)', margin: '4px 0' }} />
+
             <button
               type="button"
+              role="menuitem"
               className="menu-item"
-              style={{ display: 'flex', width: '100%', padding: '10px 14px', color: '#d4d4d8', background: 'transparent', border: 'none', gap: '10px', fontSize: '13px', cursor: 'pointer', alignItems: 'center' }}
               onClick={() => {
                 setMenuOpen(false);
-                window.open('https://github.com/DAM-Technologys-Private-Limited/Usedam-Main-Webapp', '_blank');
+                triggerRef.current?.focus();
+                if (onOpenSettings) onOpenSettings();
               }}
             >
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              </svg>
+              <span>Verification Settings</span>
+            </button>
+
+            <a
+              role="menuitem"
+              className="menu-item"
+              href="https://github.com/DAM-Technologys-Private-Limited/Usedam-Main-Webapp"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => {
+                setMenuOpen(false);
+                triggerRef.current?.focus();
+              }}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
+              </svg>
               <span>GitHub Repository</span>
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginLeft: 'auto', opacity: 0.6 }} aria-hidden="true">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                <polyline points="15 3 21 3 21 9" />
+                <line x1="10" y1="14" x2="21" y2="3" />
+              </svg>
+            </a>
+
+            <div className="menu-divider" />
+
+            {/* Tools & Integrations Group */}
+            <button
+              type="button"
+              role="menuitem"
+              className="menu-item"
+              onClick={() => {
+                setMenuOpen(false);
+                triggerRef.current?.focus();
+                if (onOpenWhatsApp) {
+                  onOpenWhatsApp();
+                } else {
+                  setWhatsappModalOpen(true);
+                }
+              }}
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="#25D366" aria-hidden="true">
+                <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2zm0 18.15c-1.5 0-2.97-.4-4.25-1.16l-.3-.18-3.13.82.84-3.05-.2-.32a8.19 8.19 0 0 1-1.25-4.37c0-4.54 3.7-8.24 8.24-8.24 2.2 0 4.27.86 5.82 2.42a8.18 8.18 0 0 1 2.41 5.83c.01 4.54-3.69 8.24-8.23 8.24zm4.52-6.16c-.25-.12-1.47-.72-1.7-.81-.23-.08-.39-.12-.56.12-.17.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-1.99-1.23-.74-.66-1.23-1.47-1.38-1.72-.14-.25-.02-.38.11-.5.11-.11.25-.29.37-.43.12-.14.17-.25.25-.41.08-.17.04-.31-.02-.43s-.56-1.34-.76-1.84c-.2-.48-.41-.42-.56-.43h-.48c-.17 0-.43.06-.66.31-.22.25-.86.84-.86 2.05s.88 2.38 1 2.55c.12.17 1.73 2.65 4.2 3.71.59.25 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.07.14-1.18-.06-.11-.22-.17-.47-.3z" />
+              </svg>
+              <span>WhatsApp Bot</span>
+            </button>
+
+            <button
+              type="button"
+              role="menuitem"
+              className="menu-item"
+              onClick={() => {
+                setMenuOpen(false);
+                triggerRef.current?.focus();
+                if (onOpenExtension) {
+                  onOpenExtension();
+                } else {
+                  setExtensionModalOpen(true);
+                }
+              }}
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#3b82f6" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M20.5 14.5A2.5 2.5 0 0 0 18 12V6a2 2 0 0 0-2-2h-6a2.5 2.5 0 0 0-5 0H3a1 1 0 0 0-1 1v4.5A2.5 2.5 0 0 0 4.5 12 2.5 2.5 0 0 0 2 14.5V19a1 1 0 0 0 1 1h4.5a2.5 2.5 0 0 0 5 0H16a2 2 0 0 0 2-2v-1.5a2.5 2.5 0 0 0 2.5-2.5z" />
+              </svg>
+              <span>Browser Extension</span>
+            </button>
+
+            <div className="menu-divider" />
+
+            {/* Sign Out Group */}
+            <button
+              type="button"
+              role="menuitem"
+              className="menu-item danger"
+              onClick={() => {
+                setMenuOpen(false);
+                triggerRef.current?.focus();
+                if (onSignOut) onSignOut();
+              }}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+              </svg>
+              <span>Sign out</span>
             </button>
           </div>
         )}
       </div>
 
-      {/* WhatsApp Verification Agent Modal */}
-      <WhatsAppModal
-        isOpen={whatsappModalOpen}
-        onClose={() => setWhatsappModalOpen(false)}
-      />
+      {/* Fallback Modals if not managed by parent workspace */}
+      {!onOpenWhatsApp && (
+        <WhatsAppModal
+          isOpen={whatsappModalOpen}
+          onClose={() => setWhatsappModalOpen(false)}
+        />
+      )}
 
-      {/* Browser Extension Modal */}
-      <ExtensionModal
-        isOpen={extensionModalOpen}
-        onClose={() => setExtensionModalOpen(false)}
-      />
+      {!onOpenExtension && (
+        <ExtensionModal
+          isOpen={extensionModalOpen}
+          onClose={() => setExtensionModalOpen(false)}
+        />
+      )}
     </aside>
   );
 };

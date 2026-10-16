@@ -9499,3 +9499,317 @@ button, a, .history-item { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !im
     right: 0;
   }
 }
+
+/* =====================================================================
+   SIDEBAR CHANNELS & INTEGRATIONS (WhatsApp Bot & Browser Extension)
+   ===================================================================== */
+.sidebar-tool-btn {
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: rgba(255, 255, 255, 0.035) !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.sidebar-tool-btn:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  transform: translateY(-1px) !important;
+}
+
+.sidebar-tool-btn:active {
+  transform: translateY(0) !important;
+}
+
+.sidebar-btn-icon-slot.whatsapp-slot svg {
+  color: #25D366 !important;
+  fill: #25D366 !important;
+}
+
+.sidebar-btn-icon-slot.extension-slot svg {
+  color: #60a5fa !important;
+  stroke: #60a5fa !important;
+}
+
+.sidebar-pill-tag {
+  font-size: 10px;
+  font-weight: 650;
+  padding: 1.5px 6.5px;
+  border-radius: 4px;
+  letter-spacing: 0.03em;
+  line-height: 1.3;
+}
+
+.sidebar-pill-tag.whatsapp-tag {
+  background: rgba(37, 211, 102, 0.12);
+  color: #25D366;
+  border: 1px solid rgba(37, 211, 102, 0.28);
+}
+
+.sidebar-pill-tag.extension-tag {
+  background: rgba(59, 130, 246, 0.12);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.28);
+}
+
+body.sidebar-collapsed .sidebar-tool-btn span:not(.sidebar-btn-icon-slot),
+body.sidebar-collapsed .sidebar-pill-tag {
+  display: none !important;
+}
+
+/* Channel Modals (WhatsApp & Extension) */
+.whatsapp-agent-modal,
+.extension-agent-modal {
+  width: min(640px, calc(100vw - 32px)) !important;
+  background: linear-gradient(180deg, #18191f 0%, #111216 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 20px 48px -8px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+}
+
+.channel-modal-icon-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.channel-modal-icon-badge.whatsapp-badge {
+  background: rgba(37, 211, 102, 0.15);
+  border: 1px solid rgba(37, 211, 102, 0.3);
+  color: #25D366;
+}
+
+.channel-modal-icon-badge.extension-badge {
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #60a5fa;
+}
+
+.live-status-pill {
+  font-size: 10.5px;
+  font-weight: 650;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(37, 211, 102, 0.12);
+  border: 1px solid rgba(37, 211, 102, 0.3);
+  color: #25D366;
+  letter-spacing: 0.02em;
+}
+
+.live-status-pill.blue {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #60a5fa;
+}
+
+.channel-connect-card {
+  display: flex;
+  gap: 20px;
+  align-items: stretch;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+@media (max-width: 600px) {
+  .channel-connect-card {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+.channel-qr-frame {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 14px;
+  flex-shrink: 0;
+}
+
+.qr-code-box {
+  background: #0d0e12;
+  border: 1px solid rgba(37, 211, 102, 0.35);
+  box-shadow: 0 0 16px -2px rgba(37, 211, 102, 0.2);
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qr-scan-label {
+  font-size: 10.5px;
+  color: #a1a1aa;
+  font-weight: 500;
+}
+
+.channel-info-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.channel-info-col h4 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 650;
+  color: #f4f4f5;
+  letter-spacing: 0.01em;
+}
+
+.channel-features-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.channel-features-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.channel-step-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(37, 211, 102, 0.15);
+  border: 1px solid rgba(37, 211, 102, 0.35);
+  color: #25D366;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.channel-step-dot.blue {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.35);
+  color: #60a5fa;
+  font-size: 11px;
+}
+
+.channel-features-list strong {
+  display: block;
+  font-size: 12px;
+  color: #e4e4e7;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.channel-features-list p {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #a1a1aa;
+}
+
+/* Extension Mockup Frame */
+.extension-hero-frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 160px;
+}
+
+.extension-browser-mockup {
+  width: 100%;
+  background: #0d0e12;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.mockup-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.mockup-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.mockup-dot.red { background: #ef4444; }
+.mockup-dot.yellow { background: #eab308; }
+.mockup-dot.green { background: #22c55e; }
+
+.mockup-url-bar {
+  font-size: 9px;
+  font-family: monospace;
+  color: #71717a;
+  margin-left: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mockup-body {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mockup-claim-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9.5px;
+  color: #60a5fa;
+}
+
+.mockup-shield-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #3b82f6;
+  box-shadow: 0 0 6px #3b82f6;
+}
+
+.mockup-claim-text {
+  margin: 0;
+  font-size: 10px;
+  color: #d4d4d8;
+  font-style: italic;
+  line-height: 1.35;
+}
+
+.mockup-verdict-tag {
+  font-size: 9px;
+  font-weight: 650;
+  padding: 2px 6px;
+  border-radius: 4px;
+  width: fit-content;
+}
+
+.mockup-verdict-tag.refuted {
+  background: rgba(239, 68, 68, 0.18);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #f87171;
+}

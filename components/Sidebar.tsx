@@ -5,6 +5,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Conversation, Folder, getQueryVerdictStatus } from '@/lib/investigation/types';
 import { ShieldIcon } from './icons';
+import { WhatsAppModal } from './modals/WhatsAppModal';
+import { ExtensionModal } from './modals/ExtensionModal';
 
 interface SidebarProps {
   conversations: Conversation[];
@@ -50,6 +52,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [bookmarksOpen, setBookmarksOpen] = useState(false);
+  const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
+  const [extensionModalOpen, setExtensionModalOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -298,6 +302,54 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </button>
       </div>
 
+      {/* WhatsApp Agent Entry Point */}
+      <div style={{ padding: '0 12px 6px' }}>
+        <button
+          type="button"
+          className="new-investigation-btn sidebar-tool-btn"
+          onClick={() => setWhatsappModalOpen(true)}
+          title="WhatsApp Verification Agent — Forward & verify on mobile"
+          style={{
+            width: '100%',
+            margin: 0,
+            background: 'rgba(255, 255, 255, 0.035)',
+            borderColor: 'rgba(255, 255, 255, 0.08)',
+          }}
+        >
+          <span className="sidebar-btn-icon-slot whatsapp-slot">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+              <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2zm0 18.15c-1.5 0-2.97-.4-4.25-1.16l-.3-.18-3.13.82.84-3.05-.2-.32a8.19 8.19 0 0 1-1.25-4.37c0-4.54 3.7-8.24 8.24-8.24 2.2 0 4.27.86 5.82 2.42a8.18 8.18 0 0 1 2.41 5.83c.01 4.54-3.69 8.24-8.23 8.24zm4.52-6.16c-.25-.12-1.47-.72-1.7-.81-.23-.08-.39-.12-.56.12-.17.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-1.99-1.23-.74-.66-1.23-1.47-1.38-1.72-.14-.25-.02-.38.11-.5.11-.11.25-.29.37-.43.12-.14.17-.25.25-.41.08-.17.04-.31-.02-.43s-.56-1.34-.76-1.84c-.2-.48-.41-.42-.56-.43h-.48c-.17 0-.43.06-.66.31-.22.25-.86.84-.86 2.05s.88 2.38 1 2.55c.12.17 1.73 2.65 4.2 3.71.59.25 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.07.14-1.18-.06-.11-.22-.17-.47-.3z"/>
+            </svg>
+          </span>
+          <span style={{ flex: 1, textAlign: 'left', fontWeight: 500 }}>WhatsApp Bot</span>
+          <span className="sidebar-pill-tag whatsapp-tag">Live</span>
+        </button>
+      </div>
+
+      {/* Browser Extension Entry Point */}
+      <div style={{ padding: '0 12px 6px' }}>
+        <button
+          type="button"
+          className="new-investigation-btn sidebar-tool-btn"
+          onClick={() => setExtensionModalOpen(true)}
+          title="DAM Browser Extension — Real-time social & web claims fact-checker"
+          style={{
+            width: '100%',
+            margin: 0,
+            background: 'rgba(255, 255, 255, 0.035)',
+            borderColor: 'rgba(255, 255, 255, 0.08)',
+          }}
+        >
+          <span className="sidebar-btn-icon-slot extension-slot">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20.5 14.5A2.5 2.5 0 0 0 18 12V6a2 2 0 0 0-2-2h-6a2.5 2.5 0 0 0-5 0H3a1 1 0 0 0-1 1v4.5A2.5 2.5 0 0 0 4.5 12 2.5 2.5 0 0 0 2 14.5V19a1 1 0 0 0 1 1h4.5a2.5 2.5 0 0 0 5 0H16a2 2 0 0 0 2-2v-1.5a2.5 2.5 0 0 0 2.5-2.5z" />
+            </svg>
+          </span>
+          <span style={{ flex: 1, textAlign: 'left', fontWeight: 500 }}>Extension</span>
+          <span className="sidebar-pill-tag extension-tag">Chrome</span>
+        </button>
+      </div>
+
       {/* Bookmarks Flyout Drawer */}
       {bookmarksOpen && (
         <div
@@ -457,6 +509,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         )}
       </div>
+
+      {/* WhatsApp Verification Agent Modal */}
+      <WhatsAppModal
+        isOpen={whatsappModalOpen}
+        onClose={() => setWhatsappModalOpen(false)}
+      />
+
+      {/* Browser Extension Modal */}
+      <ExtensionModal
+        isOpen={extensionModalOpen}
+        onClose={() => setExtensionModalOpen(false)}
+      />
     </aside>
   );
 };

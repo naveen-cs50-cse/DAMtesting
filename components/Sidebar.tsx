@@ -145,13 +145,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={() => onSelectConversation(item.id)}
           title={item.title}
         >
-          {status === 'right' ? (
-            <span className="sidebar-verdict-dot true" title="Verified: True" />
-          ) : status === 'false' ? (
-            <span className="sidebar-verdict-dot false" title="Verified: False" />
-          ) : (
-            <span className="sidebar-verdict-dot other" title={status === 'unverified' ? "Unverified" : "Conversation"} />
-          )}
+          <span className="sidebar-dot-slot" aria-hidden="true">
+            {status === 'right' ? (
+              <span className="sidebar-verdict-dot true" title="Verified: True" />
+            ) : status === 'false' ? (
+              <span className="sidebar-verdict-dot false" title="Verified: False" />
+            ) : (
+              <span className="sidebar-verdict-dot other" title={status === 'unverified' ? "Unverified" : "Conversation"} />
+            )}
+          </span>
           <div className="history-text-col" style={{ width: '100%', overflow: 'hidden' }}>
             <span className="history-title-text" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', fontSize: '13px', lineHeight: '1.2' }}>
               {item.title}
@@ -259,7 +261,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           title={`Start a fresh investigation (${isMac ? 'Cmd+K' : 'Ctrl+K'})`}
           style={{ width: '100%', margin: 0 }}
         >
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 5v14M5 12h14"/></svg>
+          <span className="sidebar-btn-icon-slot">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 5v14M5 12h14"/></svg>
+          </span>
           <span>New investigation</span>
           <kbd aria-label="Keyboard shortcut">{isMac ? '⌘K' : 'Ctrl K'}</kbd>
         </button>
@@ -280,9 +284,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             borderColor: bookmarksOpen ? 'rgba(255, 255, 255, 0.18)' : 'rgba(255, 255, 255, 0.08)',
           }}
         >
-          <svg viewBox="0 0 24 24" width="15" height="15" fill={bookmarksOpen || bookmarkedList.length > 0 ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.6">
-            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
-          </svg>
+          <span className="sidebar-btn-icon-slot">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill={bookmarksOpen || bookmarkedList.length > 0 ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.6">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+            </svg>
+          </span>
           <span style={{ flex: 1, textAlign: 'left', fontWeight: 500 }}>Bookmarks</span>
           {bookmarkedList.length > 0 && (
             <span className="sidebar-evidence-pill" style={{ fontSize: '10.5px' }}>

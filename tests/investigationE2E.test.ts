@@ -184,7 +184,7 @@ describe('Investigation End-to-End Streamed Pipeline', () => {
       assert.ok(meta.statutes);
       assert.ok(meta.statutes.statutoryViolationCount >= 1);
       assert.ok(meta.certificate);
-      assert.equal(meta.certificate.status, 'VERIFIED_FRAUD');
+      assert.equal(meta.certificate.status, 'EVIDENCE_INSUFFICIENT');
       assert.equal(meta.certificate.sha256Fingerprint.length, 64);
       assert.ok(meta.manipulationAudit);
       assert.ok(meta.manipulationAudit.overallIndex > 0);

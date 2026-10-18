@@ -1,6 +1,6 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateText } from 'ai';
-import { FactualCorrectness, QueryVerdictStatus, ScamRisk } from './types';
+import { FactualCorrectness, QueryVerdictStatus, ResponseLanguage, ScamRisk } from './types';
 
 export interface AICallVerdictResult {
   verdictStatus: QueryVerdictStatus;
@@ -24,6 +24,7 @@ export async function evaluateClaimWithAI(
     extractedAttachmentText?: string;
     existingSourcesCount?: number;
     sourcesSummary?: string;
+    responseLanguage?: ResponseLanguage;
   }
 ): Promise<AICallVerdictResult | null> {
   if (!apiKey || !prompt.trim()) return null;
@@ -66,7 +67,9 @@ CRITICAL RULES FOR suggestedInquiries:
 - Present each item strictly as a CONCRETE FACTUAL CLAIM / ASSERTION STATEMENT (e.g. 'Electricity distribution companies can disconnect power at night without 15-day notice', 'Central Government announced free laptop distribution under PM Yojana').
 - DO NOT start with 'Fact-check whether...', 'Verify whether...', 'Check if...', 'Is it true that...', or 'Fact-check claim that...'. State the declarative assertion itself directly.
 - DO NOT provide how-to questions, customer-support steps, or complaint-drafting templates.
-- Each claim must be an actionable, testable statement for the verification pipeline.`;
+- Each claim must be an actionable, testable statement for the verification pipeline.
+
+LANGUAGE: Write all human-readable prose values and suggested inquiries in ${({ en: 'English', hi: 'Hindi', mr: 'Marathi', ta: 'Tamil', bn: 'Bengali', te: 'Telugu' } as const)[context?.responseLanguage || 'en']}. Keep JSON keys and enum values exactly as specified. Preserve URLs, names, evidence identifiers, and quoted source text unchanged.`;
 
     const userContent = [
       `User Inquiry / Claim: "${prompt.trim()}"`,

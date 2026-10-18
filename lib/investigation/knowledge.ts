@@ -19,75 +19,64 @@ export interface AuthorityEvaluation {
   description: string;
 }
 
-export function getSourceAuthority(domain: string, type?: string): AuthorityEvaluation {
+const VERIFIED_PUBLISHERS: Array<{
+  domain: string;
+  tier: AuthorityEvaluation['tier'];
+  type: 'Government' | 'Fact-checker' | 'News' | 'Registry';
+  description: string;
+  weight: number;
+}> = [
+  { domain: 'aph.gov.au', tier: 'Government', type: 'Government', description: 'Parliament of Australia', weight: 1 },
+  { domain: 'australia.gov.au', tier: 'Government', type: 'Government', description: 'Australian Government', weight: 1 },
+  { domain: 'abs.gov.au', tier: 'Government', type: 'Government', description: 'Australian Bureau of Statistics', weight: 1 },
+  { domain: 'rba.gov.au', tier: 'Government', type: 'Government', description: 'Reserve Bank of Australia', weight: 1 },
+  { domain: 'rbi.org.in', tier: 'Government', type: 'Government', description: 'Reserve Bank of India', weight: 1 },
+  { domain: 'sbi.co.in', tier: 'Government', type: 'Government', description: 'State Bank of India', weight: 1 },
+  { domain: 'trai.gov.in', tier: 'Government', type: 'Government', description: 'Telecom Regulatory Authority of India', weight: 1 },
+  { domain: 'cert-in.org.in', tier: 'Government', type: 'Government', description: 'Indian Computer Emergency Response Team', weight: 1 },
+  { domain: 'sancharsaathi.gov.in', tier: 'Government', type: 'Government', description: 'Sanchar Saathi', weight: 1 },
+  { domain: 'cybercrime.gov.in', tier: 'Government', type: 'Government', description: 'National Cyber Crime Reporting Portal', weight: 1 },
+  { domain: 'sebi.gov.in', tier: 'Government', type: 'Government', description: 'Securities and Exchange Board of India', weight: 1 },
+  { domain: 'incometax.gov.in', tier: 'Government', type: 'Government', description: 'Income Tax Department', weight: 1 },
+  { domain: 'epfindia.gov.in', tier: 'Government', type: 'Government', description: 'Employees Provident Fund Organisation', weight: 1 },
+  { domain: 'uidai.gov.in', tier: 'Government', type: 'Government', description: 'Unique Identification Authority of India', weight: 1 },
+  { domain: 'ceir.gov.in', tier: 'Government', type: 'Government', description: 'Central Equipment Identity Register', weight: 1 },
+  { domain: 'pib.gov.in', tier: 'Government', type: 'Government', description: 'Press Information Bureau', weight: 1 },
+  { domain: 'tnerc.gov.in', tier: 'Government', type: 'Government', description: 'Tamil Nadu Electricity Regulatory Commission', weight: 1 },
+  { domain: 'kserc.org.in', tier: 'Registry', type: 'Registry', description: 'Kerala State Electricity Regulatory Commission', weight: 0.8 },
+  { domain: 'abr.business.gov.au', tier: 'Registry', type: 'Registry', description: 'Australian Business Register', weight: 0.8 },
+  { domain: 'boomlive.in', tier: 'Fact-checker', type: 'Fact-checker', description: 'Independent fact-checking organisation', weight: 0.85 },
+  { domain: 'altnews.in', tier: 'Fact-checker', type: 'Fact-checker', description: 'Independent fact-checking organisation', weight: 0.85 },
+  { domain: 'factly.in', tier: 'Fact-checker', type: 'Fact-checker', description: 'Independent fact-checking organisation', weight: 0.85 },
+  { domain: 'vishvasnews.com', tier: 'Fact-checker', type: 'Fact-checker', description: 'Independent fact-checking organisation', weight: 0.85 },
+  { domain: 'newsmobile.in', tier: 'Fact-checker', type: 'Fact-checker', description: 'Independent fact-checking organisation', weight: 0.85 },
+  { domain: 'thip.media', tier: 'Fact-checker', type: 'Fact-checker', description: 'Independent fact-checking organisation', weight: 0.85 },
+  { domain: 'thequint.com', tier: 'Fact-checker', type: 'Fact-checker', description: 'Independent fact-checking organisation', weight: 0.85 },
+  { domain: 'thehindu.com', tier: 'News', type: 'News', description: 'Established news publication', weight: 0.65 },
+  { domain: 'indianexpress.com', tier: 'News', type: 'News', description: 'Established news publication', weight: 0.65 },
+  { domain: 'timesofindia.indiatimes.com', tier: 'News', type: 'News', description: 'Established news publication', weight: 0.65 },
+  { domain: 'hindustantimes.com', tier: 'News', type: 'News', description: 'Established news publication', weight: 0.65 },
+  { domain: 'livemint.com', tier: 'News', type: 'News', description: 'Established news publication', weight: 0.65 },
+  { domain: 'ndtv.com', tier: 'News', type: 'News', description: 'Established news publication', weight: 0.65 },
+  { domain: 'business-standard.com', tier: 'News', type: 'News', description: 'Established news publication', weight: 0.65 },
+  { domain: 'abc.net.au', tier: 'News', type: 'News', description: 'Australian public broadcaster', weight: 0.7 },
+];
+
+function verifiedPublisher(domain: string) {
   const cleanDomain = domain.toLowerCase().replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
+  return VERIFIED_PUBLISHERS.find(publisher =>
+    cleanDomain === publisher.domain || cleanDomain.endsWith(`.${publisher.domain}`)
+  );
+}
 
-  // Primary Indian Government & Statutory Regulators
-  if (type === 'Government' && (
-    cleanDomain.endsWith('.gov.in') ||
-    cleanDomain.endsWith('.nic.in') ||
-    cleanDomain.includes('rbi.org.in') ||
-    cleanDomain.includes('trai.gov.in') ||
-    cleanDomain.includes('cert-in.org.in') ||
-    cleanDomain.includes('sancharsaathi.gov.in') ||
-    cleanDomain.includes('cybercrime.gov.in') ||
-    cleanDomain.includes('sebi.gov.in') ||
-    cleanDomain.includes('incometax.gov.in') ||
-    cleanDomain.includes('epfindia.gov.in') ||
-    cleanDomain.includes('uidai.gov.in') ||
-    cleanDomain.includes('ceir.gov.in')
-  )) {
-    return {
-      weight: 1.0,
-      tier: 'Government',
-      description: 'Primary Indian Government / Statutory Regulatory Authority'
-    };
-  }
+export function getVerifiedPublisherType(domain: string): 'Government' | 'Fact-checker' | 'News' | 'Registry' | null {
+  return verifiedPublisher(domain)?.type || null;
+}
 
-  // Recognized Fact-checking organizations (IFCN / Indian verified debunks)
-  if (type === 'Fact-checker' && (
-    cleanDomain.includes('boomlive') ||
-    cleanDomain.includes('altnews') ||
-    cleanDomain.includes('factly') ||
-    cleanDomain.includes('vishvasnews') ||
-    cleanDomain.includes('newsmobile') ||
-    cleanDomain.includes('thip.media') ||
-    cleanDomain.includes('webqoof') ||
-    cleanDomain.includes('thequint')
-  )) {
-    return {
-      weight: 0.85,
-      tier: 'Fact-checker',
-      description: 'Verified Independent Fact-Checking Organization'
-    };
-  }
-
-  // Official public registries / state discoms
-  if (type === 'Registry') {
-    return {
-      weight: 0.80,
-      tier: 'Registry',
-      description: 'Statutory Registry / State Utility Entity'
-    };
-  }
-
-  // Mainstream Indian news publications
-  if (type === 'News' && (
-    cleanDomain.includes('thehindu') ||
-    cleanDomain.includes('indianexpress') ||
-    cleanDomain.includes('timesofindia') ||
-    cleanDomain.includes('hindustantimes') ||
-    cleanDomain.includes('livemint') ||
-    cleanDomain.includes('ndtv') ||
-    cleanDomain.includes('business-standard') ||
-    cleanDomain.includes('ptinews') ||
-    cleanDomain.includes('aniin')
-  )) {
-    return {
-      weight: 0.65,
-      tier: 'News',
-      description: 'Established Press / Mainstream Media'
-    };
+export function getSourceAuthority(domain: string, type?: string): AuthorityEvaluation {
+  const publisher = verifiedPublisher(domain);
+  if (publisher && publisher.type === type) {
+    return { weight: publisher.weight, tier: publisher.tier, description: publisher.description };
   }
 
   return {

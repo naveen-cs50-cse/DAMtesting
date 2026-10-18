@@ -1,6 +1,7 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import type { PublicIntegrationStatus } from '@/lib/integrations/destinations';
 
 interface ExtensionModalProps {
   isOpen: boolean;
@@ -8,6 +9,18 @@ interface ExtensionModalProps {
 }
 
 export const ExtensionModal: React.FC<ExtensionModalProps> = ({ isOpen, onClose }) => {
+  const [integration, setIntegration] = useState<PublicIntegrationStatus['extension'] | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let active = true;
+    fetch('/api/integrations/status', { cache: 'no-store' })
+      .then(response => response.ok ? response.json() : Promise.reject(new Error('Status unavailable')))
+      .then((data: PublicIntegrationStatus) => { if (active) setIntegration(data.extension); })
+      .catch(() => { if (active) setIntegration({ status: 'not_configured', destination: null }); });
+    return () => { active = false; };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
@@ -23,7 +36,7 @@ export const ExtensionModal: React.FC<ExtensionModalProps> = ({ isOpen, onClose 
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <h3 style={{ margin: 0 }}>DAM Browser Extension</h3>
-                <span className="live-status-pill blue">Chrome &amp; Edge</span>
+                <span className="live-status-pill blue">{integration?.status === 'configured' ? 'Listing configured' : 'Coming soon'}</span>
               </div>
               <small>Real-time fact-checking across news, social feeds, and web pages</small>
             </div>
@@ -44,7 +57,7 @@ export const ExtensionModal: React.FC<ExtensionModalProps> = ({ isOpen, onClose 
                 <div className="mockup-body">
                   <div className="mockup-claim-badge">
                     <span className="mockup-shield-dot" />
-                    <strong>DAM Shield Active</strong>
+                    <strong>DAM Shield Preview</strong>
                   </div>
                   <p className="mockup-claim-text">&quot;RBI has banned ₹500 notes starting next week...&quot;</p>
                   <div className="mockup-verdict-tag refuted">Refuted &bull; RBI Circular #84</div>
@@ -88,13 +101,15 @@ export const ExtensionModal: React.FC<ExtensionModalProps> = ({ isOpen, onClose 
           <div style={{ display: 'flex', gap: '8px' }}>
             <button type="button" className="secondary-btn" onClick={onClose}>Close</button>
             <a
-              href="https://chromewebstore.google.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="primary-btn"
+              href={integration?.destination || undefined}
+              target={integration?.destination ? '_blank' : undefined}
+              rel={integration?.destination ? 'noopener noreferrer' : undefined}
+              aria-disabled={!integration?.destination}
+              onClick={event => { if (!integration?.destination) event.preventDefault(); }}
+              className={`primary-btn${integration?.destination ? '' : ' disabled'}`}
               style={{ background: '#3b82f6', borderColor: '#60a5fa', color: '#ffffff', fontWeight: 650, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             >
-              <span>Add to Chrome</span>
+              <span>{integration?.destination ? 'View Chrome listing' : 'Not configured'}</span>
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
             </a>
           </div>

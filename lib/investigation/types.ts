@@ -1,8 +1,9 @@
 export type FactualCorrectness = 'Supported' | 'Contradicted' | 'Mixed' | 'Unverified';
-export type ScamRisk = 'Low' | 'Medium' | 'High';
+export type ScamRisk = 'Low' | 'Medium' | 'High' | 'Not applicable';
 export type EvidenceSufficiency = 'Sufficient' | 'Partial' | 'Insufficient';
 export type MessageAuthenticity = 'Authenticated' | 'Not authenticated' | 'Cannot authenticate' | 'Not applicable';
 export type TaskType = 'verification' | 'scam_check' | 'job_offer' | 'research' | 'document_analysis' | 'conversational' | 'follow_up';
+export type ResponseLanguage = 'en' | 'hi' | 'mr' | 'ta' | 'bn' | 'te';
 
 export interface JobOfferCheck {
   label: string;
@@ -201,7 +202,7 @@ export interface IndexedSource {
   impactRole?: SourceImpact['impactRole'];
   impactExplanation?: string;
   isFixture?: boolean;
-  contentOrigin?: 'search_snippet' | 'fetched_page';
+  contentOrigin?: 'search_metadata' | 'search_snippet' | 'fetched_page';
   inspectionStatus?: 'not_inspected' | 'inspected' | 'unavailable';
   isCited?: boolean;
 }
@@ -226,6 +227,11 @@ export interface InvestigationVerdicts {
   verdictStatus?: QueryVerdictStatus;
 }
 
+export interface StructuredAssessment extends InvestigationVerdicts {
+  messageAuthenticity: MessageAuthenticity;
+  verdictStatus: QueryVerdictStatus;
+}
+
 export type ActivityStageId = 'analyze' | 'search' | 'read' | 'challenger' | 'synthesize' | 'url_ingestion' | 'advisory';
 
 export interface ActivityStage {
@@ -248,7 +254,9 @@ export interface ActivityStage {
 export interface InvestigationMeta {
   caseId: string;
   taskType: TaskType;
+  assessment?: StructuredAssessment | null;
   verdicts?: InvestigationVerdicts | null;
+  assessmentError?: string;
   claims?: ClaimFinding[];
   sources?: IndexedSource[];
   challengerAudit?: string[];
@@ -263,6 +271,20 @@ export interface InvestigationMeta {
   suggestedInquiries?: string[];
   retrieval?: RetrievalStats;
   jobOfferAnalysis?: JobOfferAnalysis;
+  language?: ResponseLanguage;
+}
+
+export interface AnswerEvidenceSet {
+  investigationId: string;
+  answerId: string;
+  retrievedSources: IndexedSource[];
+  citedEvidenceIds: number[];
+}
+
+export interface CitationTarget {
+  investigationId: string;
+  answerId: string;
+  evidenceId: number;
 }
 
 export interface ChatTurn {
@@ -274,7 +296,9 @@ export interface ChatTurn {
   fullText?: string;
   stages?: ActivityStage[];
   meta?: InvestigationMeta | null;
+  evidenceSet?: AnswerEvidenceSet;
   isLive?: boolean;
+  language?: ResponseLanguage;
 }
 
 export interface Folder {
@@ -296,22 +320,4 @@ export interface Conversation {
 
 export type QueryVerdictStatus = 'right' | 'false' | 'unverified';
 
-export function getQueryVerdictStatus(meta?: InvestigationMeta | null): QueryVerdictStatus | null {
-  if (!meta || meta.taskType === 'conversational' || !meta.verdicts) return null;
-  if (meta.verdicts.verdictStatus) return meta.verdicts.verdictStatus;
-  const { factualCorrectness, scamRisk, riskTriggers } = meta.verdicts;
-
-  if (
-    factualCorrectness === 'Contradicted' ||
-    scamRisk === 'High' ||
-    (riskTriggers && riskTriggers.length > 0 && scamRisk === 'Medium' && riskTriggers.includes('Viral Misinformation Rumor'))
-  ) {
-    return 'false';
-  }
-
-  if (factualCorrectness === 'Supported') {
-    return 'right';
-  }
-
-  return 'unverified';
-}
+export { getQueryVerdictStatus } from './assessment';

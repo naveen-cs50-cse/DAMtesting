@@ -12,6 +12,14 @@ const verdicts: InvestigationVerdicts = {
   evidenceSufficiency: 'Insufficient',
   riskTriggers: ['Job Offer Payment Request'],
   verdictStatus: 'unverified',
+  explanation: {
+    summary: 'Job offer assessment.',
+    factualRationale: 'The offer cannot be confirmed.',
+    authenticityRationale: 'The recruiter cannot be authenticated.',
+    scamRationale: 'The message requests payment.',
+    sufficiencyRationale: 'Direct employer confirmation is unavailable.',
+    sourceImpacts: [],
+  },
 };
 
 test('classifies job offers and creates privacy-safe company/careers queries', () => {
@@ -43,7 +51,7 @@ test('separates offer warning signs from recruiter and offer authentication', ()
   assert.equal(analysis.checks[1].status, 'completed');
   assert.equal(analysis.checks[2].status, 'not_completed');
 
-  const answer = buildInitialAnswer({ verdicts, sources: [], jobOfferAnalysis: analysis });
+  const answer = buildInitialAnswer({ assessment: verdicts as import('../lib/investigation/types').StructuredAssessment, sources: [], jobOfferAnalysis: analysis });
   assert.ok(hasInitialAnswerHierarchy(answer));
   assert.match(answer, /company or careers page would not.*prove/i);
   assert.match(answer, /Not completed — Recruiter affiliation and specific offer/i);

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import type { PublicIntegrationStatus } from '@/lib/integrations/destinations';
 
 interface WhatsAppModalProps {
   isOpen: boolean;
@@ -9,11 +10,23 @@ interface WhatsAppModalProps {
 
 export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({ isOpen, onClose }) => {
   const [copied, setCopied] = useState(false);
+  const [integration, setIntegration] = useState<PublicIntegrationStatus['whatsapp'] | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let active = true;
+    fetch('/api/integrations/status', { cache: 'no-store' })
+      .then(response => response.ok ? response.json() : Promise.reject(new Error('Status unavailable')))
+      .then((data: PublicIntegrationStatus) => { if (active) setIntegration(data.whatsapp); })
+      .catch(() => { if (active) setIntegration({ status: 'not_configured', destination: null, displayNumber: null }); });
+    return () => { active = false; };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText('https://wa.me/?text=Hi%20DAM,%20please%20verify%20this%20claim');
+    if (!integration?.destination) return;
+    navigator.clipboard.writeText(integration.destination);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -31,7 +44,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({ isOpen, onClose })
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <h3 style={{ margin: 0 }}>DAM WhatsApp Agent</h3>
-                <span className="live-status-pill">Active 24/7</span>
+                <span className="live-status-pill">{integration?.status === 'configured' ? 'Configured' : 'Coming soon'}</span>
               </div>
               <small>Forward &amp; verify viral claims directly on your mobile device</small>
             </div>
@@ -42,46 +55,10 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({ isOpen, onClose })
         <div className="methodology-body" style={{ gap: '16px' }}>
           <div className="channel-connect-card">
             <div className="channel-qr-frame">
-              {/* Clean vector QR code simulation */}
               <div className="qr-code-box">
-                <svg viewBox="0 0 100 100" width="90" height="90" fill="currentColor">
-                  {/* Outer corner anchors */}
-                  <rect x="10" y="10" width="24" height="24" rx="3" fill="#ffffff" />
-                  <rect x="14" y="14" width="16" height="16" rx="2" fill="#0d0e12" />
-                  <rect x="18" y="18" width="8" height="8" rx="1" fill="#25D366" />
-
-                  <rect x="66" y="10" width="24" height="24" rx="3" fill="#ffffff" />
-                  <rect x="70" y="14" width="16" height="16" rx="2" fill="#0d0e12" />
-                  <rect x="74" y="18" width="8" height="8" rx="1" fill="#25D366" />
-
-                  <rect x="10" y="66" width="24" height="24" rx="3" fill="#ffffff" />
-                  <rect x="14" y="70" width="16" height="16" rx="2" fill="#0d0e12" />
-                  <rect x="18" y="74" width="8" height="8" rx="1" fill="#25D366" />
-
-                  {/* QR Pattern Data Blocks */}
-                  <rect x="42" y="12" width="6" height="6" rx="1" fill="#ffffff" />
-                  <rect x="52" y="12" width="6" height="6" rx="1" fill="#ffffff" />
-                  <rect x="42" y="24" width="6" height="12" rx="1" fill="#25D366" />
-                  <rect x="52" y="24" width="6" height="6" rx="1" fill="#ffffff" />
-
-                  <rect x="12" y="42" width="12" height="6" rx="1" fill="#ffffff" />
-                  <rect x="28" y="42" width="6" height="12" rx="1" fill="#ffffff" />
-                  <rect x="40" y="42" width="8" height="8" rx="2" fill="#ffffff" />
-                  <rect x="52" y="40" width="14" height="6" rx="1" fill="#ffffff" />
-                  <rect x="72" y="42" width="16" height="6" rx="1" fill="#25D366" />
-
-                  <rect x="40" y="56" width="6" height="14" rx="1" fill="#ffffff" />
-                  <rect x="52" y="54" width="10" height="6" rx="1" fill="#ffffff" />
-                  <rect x="68" y="56" width="6" height="18" rx="1" fill="#ffffff" />
-                  <rect x="80" y="56" width="8" height="10" rx="1" fill="#ffffff" />
-
-                  <rect x="42" y="76" width="16" height="6" rx="1" fill="#25D366" />
-                  <rect x="42" y="86" width="8" height="6" rx="1" fill="#ffffff" />
-                  <rect x="56" y="86" width="12" height="6" rx="1" fill="#ffffff" />
-                  <rect x="76" y="76" width="14" height="16" rx="1" fill="#ffffff" />
-                </svg>
+                <svg viewBox="0 0 24 24" width="54" height="54" fill="#25D366"><path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91S17.5 2 12.04 2z"/></svg>
               </div>
-              <span className="qr-scan-label">Scan with your phone</span>
+              <span className="qr-scan-label">{integration?.destination ? integration.displayNumber : 'Not configured'}</span>
             </div>
 
             <div className="channel-info-col">
@@ -118,6 +95,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({ isOpen, onClose })
             type="button"
             className="secondary-btn"
             onClick={handleCopyLink}
+            disabled={!integration?.destination}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           >
             {copied ? (
@@ -135,13 +113,15 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({ isOpen, onClose })
           <div style={{ display: 'flex', gap: '8px' }}>
             <button type="button" className="secondary-btn" onClick={onClose}>Close</button>
             <a
-              href="https://wa.me/?text=Hi%20DAM,%20please%20verify%20this%20claim"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="primary-btn"
+              href={integration?.destination || undefined}
+              target={integration?.destination ? '_blank' : undefined}
+              rel={integration?.destination ? 'noopener noreferrer' : undefined}
+              aria-disabled={!integration?.destination}
+              onClick={event => { if (!integration?.destination) event.preventDefault(); }}
+              className={`primary-btn${integration?.destination ? '' : ' disabled'}`}
               style={{ background: '#25D366', borderColor: '#22c55e', color: '#000000', fontWeight: 650, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             >
-              <span>Open in WhatsApp</span>
+              <span>{integration?.destination ? 'Open in WhatsApp' : 'Not configured'}</span>
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
             </a>
           </div>

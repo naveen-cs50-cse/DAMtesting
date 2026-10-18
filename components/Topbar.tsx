@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { HelpCircleIcon, ShareIcon, SettingsIcon } from './icons';
-import { QueryVerdictStatus } from '@/lib/investigation/types';
+import { QueryVerdictStatus, ResponseLanguage } from '@/lib/investigation/types';
 
 interface TopbarProps {
   title: string;
@@ -18,6 +18,7 @@ interface TopbarProps {
   onOpenShare?: () => void;
   sidebarOpen?: boolean;
   verdictStatus?: QueryVerdictStatus | null;
+  language?: ResponseLanguage;
 }
 
 export const Topbar: React.FC<TopbarProps> = ({
@@ -33,12 +34,18 @@ export const Topbar: React.FC<TopbarProps> = ({
   onOpenShare,
   sidebarOpen = true,
   verdictStatus,
+  language = 'en',
 }) => {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+  const verdictLabels = language === 'hi'
+    ? { right: 'सत्य', false: 'असत्य', unverified: 'अप्रमाणित' }
+    : language === 'ta'
+      ? { right: 'உண்மை', false: 'தவறு', unverified: 'சரிபார்க்கப்படவில்லை' }
+      : { right: 'True', false: 'False', unverified: 'Unverified' };
   return (
     <header className="topbar">
       <div className="topbar-left">
@@ -92,18 +99,18 @@ export const Topbar: React.FC<TopbarProps> = ({
           {hasQuery && title !== 'New investigation' && <strong>{title}</strong>}
           {/* Simple basic text verdict indicator: True / False in light green / red */}
           {hasQuery && verdictStatus === 'right' && (
-            <span className="topbar-verdict-text true" title="Verified: True">
-              True
+            <span className="topbar-verdict-text true" title={verdictLabels.right}>
+              {verdictLabels.right}
             </span>
           )}
           {hasQuery && verdictStatus === 'false' && (
-            <span className="topbar-verdict-text false" title="Verified: False">
-              False
+            <span className="topbar-verdict-text false" title={verdictLabels.false}>
+              {verdictLabels.false}
             </span>
           )}
           {hasQuery && verdictStatus === 'unverified' && (
-            <span className="topbar-verdict-text unverified" title="Unverified">
-              Unverified
+            <span className="topbar-verdict-text unverified" title={verdictLabels.unverified}>
+              {verdictLabels.unverified}
             </span>
           )}
         </div>

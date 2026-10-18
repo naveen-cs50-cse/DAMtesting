@@ -1,16 +1,21 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ChatTurn, IndexedSource, TaskType, UrlAnalysisResult, getQueryVerdictStatus } from '@/lib/investigation/types';
+import { ChatTurn, CitationTarget, IndexedSource, TaskType, UrlAnalysisResult, getQueryVerdictStatus } from '@/lib/investigation/types';
 import { detectMessageHighlights, segmentHighlightedText } from '@/lib/investigation/messageHighlights';
 import { isJobOfferContent, redactJobOfferPersonalData } from '@/lib/investigation/jobOffer';
 import { CheckIcon, CopyIcon, DownloadIcon, EvidenceIcon, FileIcon, GlobeIcon, RetryIcon, ShieldIcon, SpinnerIcon, StopIcon } from './icons';
 import { CertificateModal } from './CertificateModal';
+import { getAssessment } from '@/lib/investigation/assessment';
+import { evidenceDomId } from '@/lib/investigation/evidenceIsolation';
+import { localizedSuggestions, localizedVerdictLabel } from '@/lib/investigation/localization';
+import { formatRetrievalSummary } from '@/lib/investigation/retrievalSummary';
 
 interface ConversationFeedProps {
+  investigationId: string;
   turns: ChatTurn[];
   isStreaming: boolean;
-  onCitationClick: (citeIndex: number) => void;
+  onCitationClick: (target: CitationTarget) => void;
   onOpenEvidence: () => void;
   onCopyBriefing: (text: string) => void;
   onRetry: () => void;
@@ -32,6 +37,8 @@ function sanitizeClaimText(text: string): string {
 
 function getFollowUpChips(turn: ChatTurn): string[] {
   const meta = turn.meta;
+  const assessmentResult = getAssessment(meta);
+  const assessment = assessmentResult.ok ? assessmentResult.assessment : null;
 
   // 1. If AI returned bespoke claim-specific inquiries, sanitize and present as direct claims
   if (meta?.suggestedInquiries && Array.isArray(meta.suggestedInquiries) && meta.suggestedInquiries.length > 0) {
@@ -42,6 +49,7 @@ function getFollowUpChips(turn: ChatTurn): string[] {
       return cleaned.slice(0, 4);
     }
   }
+  if (assessment && meta?.language && meta.language !== 'en') return localizedSuggestions(assessment, meta.language);
 
   // 2. Extract and sanitize primary claim / inquiry topic
   const rawClaim = (meta?.claims?.[0]?.claim || turn.fullText?.slice(0, 160) || '').trim();
@@ -127,7 +135,7 @@ function getFollowUpChips(turn: ChatTurn): string[] {
   }
 
   // High / Medium Scam Threat
-  if (meta?.verdicts?.scamRisk === 'High' || meta?.verdicts?.scamRisk === 'Medium') {
+  if (assessment?.scamRisk === 'High' || assessment?.scamRisk === 'Medium') {
     return [
       topicLabel ? `Official regulatory authorities have flagged ${topicLabel} as an active phishing scam` : `Official regulatory authorities have flagged this communication as an active phishing scam`,
       `Legitimate banking portals and ministries never solicit passwords or OTPs for this procedure`,
@@ -136,29 +144,29 @@ function getFollowUpChips(turn: ChatTurn): string[] {
   }
 
   // Contradicted / Debunked Rumors
-  if (meta?.verdicts?.factualCorrectness === 'Contradicted') {
+  if (assessment?.factualCorrectness === 'Contradicted') {
     return [
-      topicLabel ? `PIB Fact Check and official ministries have officially debunked ${topicLabel}` : `PIB Fact Check and official ministries have officially debunked this assertion`,
-      `Primary gazette notifications and statutory circulars directly refute this statement`,
-      `Statutory regulatory directives prohibit the actions described in this communication`,
+      topicLabel ? `Relevant primary sources directly contradict ${topicLabel}` : `Relevant primary sources directly contradict this assertion`,
+      `The cited evidence addresses the central claim rather than only providing background context`,
+      `A date, place, or other qualifier changes how this claim should be interpreted`,
     ];
   }
 
   // Supported / Factually Confirmed
-  if (meta?.verdicts?.factualCorrectness === 'Supported') {
+  if (assessment?.factualCorrectness === 'Supported') {
     return [
-      topicLabel ? `Published government gazettes and statutory notifications substantiate ${topicLabel}` : `Published government gazettes and statutory notifications substantiate this policy`,
-      `Official regulatory circulars confirm the active implementation timeline for this measure`,
-      `Primary ministry records corroborate the terms and conditions outlined in this statement`,
+      topicLabel ? `Relevant primary sources substantiate ${topicLabel}` : `Relevant primary sources substantiate this claim`,
+      `The cited evidence directly supports the central claim`,
+      `The source date and scope still apply to the submitted question`,
     ];
   }
 
   // General fallback explicitly incorporating clean topic or substantive claims
   if (topicLabel) {
     return [
-      `${topicLabel} is officially authorized and published in the Government Gazette`,
-      `Regulatory authorities and ministries have issued official alerts regarding ${topicLabel}`,
-      `Primary statutory records corroborate the authenticity of ${topicLabel}`,
+      `A relevant primary source directly addresses ${topicLabel}`,
+      `Independent evidence supports or contradicts ${topicLabel}`,
+      `The available evidence resolves the date and scope of ${topicLabel}`,
     ];
   }
 
@@ -404,13 +412,13 @@ const UserTurnItem: React.FC<{
 const AssistantTurnView: React.FC<{
   turn: ChatTurn;
   isStreaming: boolean;
-  onCitationClick: (citeIndex: number) => void;
+  onCitationClick: (target: CitationTarget) => void;
   onOpenEvidence: () => void;
   onCopyBriefing: (text: string) => void;
   onRetry: () => void;
   onStop: () => void;
   onFollowUpClick?: (prompt: string) => void;
-  renderMarkdown: (text: string, isLive: boolean) => React.ReactNode;
+  renderMarkdown: (text: string, isLive: boolean, answerId: string) => React.ReactNode;
 }> = ({
   turn,
   isStreaming,
@@ -422,6 +430,12 @@ const AssistantTurnView: React.FC<{
   renderMarkdown,
 }) => {
   const meta = turn.meta;
+  const language = meta?.language || turn.language || 'en';
+  const ui = language === 'hi'
+    ? { checking: 'पृष्ठभूमि स्रोतों की जाँच…', preparing: 'साक्ष्य खोज तैयार की जा रही है…', found: 'परिणाम', inspected: 'पृष्ठ जाँचे', snippets: 'केवल स्निपेट', unavailable: 'अनुपलब्ध', cited: 'स्रोत उद्धृत', retrieved: 'प्राप्त स्रोत', noSources: 'कोई स्रोत रिकॉर्ड नहीं मिला', analysis: 'विश्लेषण और सत्यापन विवरण', view: 'जाँच और स्रोत देखें', evidence: 'साक्ष्य संबंध विवरण', challenger: 'वैकल्पिक परिकल्पना जाँच', challengerIntro: 'अनुचित निश्चितता से बचने के लिए जाँची गई वैकल्पिक परिकल्पनाएँ:' }
+    : language === 'ta'
+      ? { checking: 'பின்னணி ஆதாரங்களைச் சரிபார்க்கிறது…', preparing: 'ஆதாரத் தேடல் தயாராகிறது…', found: 'முடிவுகள்', inspected: 'பக்கங்கள் ஆய்வு', snippets: 'துணுக்குகள் மட்டும்', unavailable: 'கிடைக்கவில்லை', cited: 'ஆதாரங்கள் மேற்கோள்', retrieved: 'பெறப்பட்ட ஆதாரங்கள்', noSources: 'ஆதாரப் பதிவுகள் எதுவும் கிடைக்கவில்லை', analysis: 'பகுப்பாய்வு மற்றும் சரிபார்ப்பு விவரங்கள்', view: 'சோதனைகளையும் ஆதாரங்களையும் காண்க', evidence: 'ஆதார இணைப்பு விவரம்', challenger: 'மாற்றுக் கருதுகோள் சரிபார்ப்பு', challengerIntro: 'ஆதாரமற்ற உறுதியைத் தவிர்க்கச் சரிபார்க்கப்பட்ட மாற்றுக் கருதுகோள்கள்:' }
+      : { checking: 'Checking background sources...', preparing: 'Preparing the evidence search...', found: 'Found results', inspected: 'pages inspected', snippets: 'Snippet-only', unavailable: 'Unavailable', cited: 'sources cited', retrieved: 'Retrieved sources', noSources: 'No source records retrieved', analysis: 'Analysis & Verification Details', view: 'View checks & sources', evidence: 'Evidence Attribution Breakdown', challenger: 'Adversarial Challenger Verification', challengerIntro: 'Counter-hypotheses checked to avoid unwarranted certainty:' };
   const stages = turn.stages || [];
   const isLive = Boolean(turn.isLive && isStreaming);
 
@@ -460,9 +474,15 @@ const AssistantTurnView: React.FC<{
   };
 
   const isConversational = meta?.taskType === 'conversational' || meta?.taskType === 'follow_up';
+  const assessmentResult = getAssessment(meta);
+  const assessment = assessmentResult.ok ? assessmentResult.assessment : null;
   const hasSources = Boolean(meta?.sources && meta.sources.length > 0);
-  const hasVerdicts = Boolean(meta?.verdicts && !isConversational);
-  const turnVerdictStatus = meta?.verdicts?.verdictStatus || getQueryVerdictStatus(meta);
+  const citedSourceCount = new Set([
+    ...(meta?.retrieval?.citedSourceIds || []),
+    ...(meta?.sources || []).filter(source => source.isCited).map(source => source.id),
+  ]).size;
+  const hasVerdicts = Boolean(assessment && !isConversational);
+  const turnVerdictStatus = getQueryVerdictStatus(meta);
   const isAuditOpen = isLive ? true : userExpandedAudit;
 
   const handleCopy = () => {
@@ -501,12 +521,12 @@ const AssistantTurnView: React.FC<{
               )}
               <span className="checking-label">
                 {isLive
-                  ? (stages.find(s => s.status === 'running')?.title || 'Checking background sources...')
-                  : meta?.retrieval
-                    ? `Found ${meta.retrieval.searchResultsFound} result${meta.retrieval.searchResultsFound === 1 ? '' : 's'} · Inspected ${meta.retrieval.pagesInspected} page${meta.retrieval.pagesInspected === 1 ? '' : 's'}${meta.retrieval.pagesUnavailable > 0 ? ` · Unavailable ${meta.retrieval.pagesUnavailable} page${meta.retrieval.pagesUnavailable === 1 ? '' : 's'}` : ''} · Cited ${meta.retrieval.citedSourceIds.length} source${meta.retrieval.citedSourceIds.length === 1 ? '' : 's'}`
+                  ? (stages.find(s => s.status === 'running')?.title || ui.checking)
+                    : meta?.retrieval
+                      ? formatRetrievalSummary(meta.retrieval, language)
                     : hasSources
-                      ? `Retrieved ${meta!.sources!.length} source${meta!.sources!.length === 1 ? '' : 's'}`
-                      : 'No source records retrieved'}
+                      ? `${ui.retrieved} ${meta!.sources!.length}`
+                      : ui.noSources}
               </span>
               <svg
                 viewBox="0 0 24 24"
@@ -526,7 +546,7 @@ const AssistantTurnView: React.FC<{
                 {stages.length === 0 ? (
                   <div className="checking-step-row">
                     <span className="step-dot">•</span>
-                    <span className="step-name">Preparing the evidence search...</span>
+                    <span className="step-name">{ui.preparing}</span>
                   </div>
                 ) : (
                   stages.map((s, idx) => (
@@ -550,7 +570,7 @@ const AssistantTurnView: React.FC<{
             <div className="genspark-sources-header">
               <span className="sources-count-label">
                 <GlobeIcon className="w-3.5 h-3.5" />
-                <span>Sources ({meta!.sources!.length})</span>
+                <span>{ui.retrieved} ({meta!.sources!.length}) &middot; {ui.cited} ({citedSourceCount})</span>
               </span>
             </div>
             <div className="genspark-sources-scroll">
@@ -584,7 +604,7 @@ const AssistantTurnView: React.FC<{
 
         {/* 4. Investigation Briefing Prose */}
         <div className={`answer-prose ${isLive ? 'generating' : ''}`}>
-          {renderMarkdown(turn.fullText || '', isLive)}
+          {renderMarkdown(turn.fullText || '', isLive, turn.id)}
         </div>
 
 
@@ -592,12 +612,12 @@ const AssistantTurnView: React.FC<{
         {/* 6. Deep Forensic Dossier & Regulatory Tools (Collapsible Inspector) */}
         {(() => {
           if (isConversational) return null;
-          const meaningfulImpacts = (meta?.verdicts?.explanation?.sourceImpacts || []).filter(
+          const meaningfulImpacts = (assessment?.explanation?.sourceImpacts || []).filter(
             impact => !impact.explanation?.toLowerCase().includes('fallback template') &&
                       !impact.explanation?.toLowerCase().includes('excluded from live')
           );
           const hasIncidentKit = Boolean(
-            meta?.incidentReport && (meta.verdicts?.scamRisk === 'High' || meta.forensics?.phones?.some(p => p.risk === 'High') || meta.forensics?.urls?.some(u => u.status === 'critical'))
+            meta?.incidentReport && (assessment?.scamRisk === 'High' || meta.forensics?.phones?.some(p => p.risk === 'High') || meta.forensics?.urls?.some(u => u.status === 'critical'))
           );
           const hasStatutes = Boolean(meta?.statutes?.applicableStatutes?.length);
           const hasForensics = Boolean(meta?.forensics && ((meta.forensics.urls?.length ?? 0) > 0 || (meta.forensics.phones?.length ?? 0) > 0 || (meta.forensics.senders?.length ?? 0) > 0));
@@ -616,11 +636,11 @@ const AssistantTurnView: React.FC<{
                   <span className="dossier-shield-icon" aria-hidden="true">
                     <ShieldIcon className="w-3.5 h-3.5" />
                   </span>
-                  <span className="dossier-title">Analysis & Verification Details</span>
+                  <span className="dossier-title">{ui.analysis}</span>
                 </div>
                 <div className="dossier-summary-right">
                   <span className="dossier-summary-hint">
-                    {hasIncidentKit ? 'Report fraud & view checks' : 'View checks & sources'}
+                    {ui.view}
                   </span>
                   <span className="dossier-chevron" aria-hidden="true">
                     <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -639,14 +659,14 @@ const AssistantTurnView: React.FC<{
                 <circle cx="12" cy="12" r="10" />
                 <path d="m9 12 2 2 4-4" />
               </svg>
-              <span>Evidence Attribution Breakdown</span>
+              <span>{ui.evidence}</span>
             </div>
             <div className="source-impacts-flat-list">
               {meaningfulImpacts.map(impact => (
                 <div key={impact.sourceId} className="source-impact-flat-row">
                   <div className="source-impact-flat-head">
                     <span className="source-impact-domain">[{impact.sourceId}] {impact.domain}</span>
-                    <span className="source-impact-pill">{impact.stance}</span>
+                    <span className="source-impact-pill">{localizedVerdictLabel(impact.stance, language)}</span>
                   </div>
                   <p className="source-impact-detail">{impact.explanation}</p>
                 </div>
@@ -845,10 +865,10 @@ const AssistantTurnView: React.FC<{
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
               </svg>
-              <span>Adversarial Challenger Verification</span>
+              <span>{ui.challenger}</span>
             </div>
             <div className="challenger-flat-content">
-              <p className="challenger-intro">Counter-hypotheses checked to avoid unwarranted certainty:</p>
+              <p className="challenger-intro">{ui.challengerIntro}</p>
               <ul className="challenger-bullets">
                 {meta.challengerAudit.map((pt, ptIdx) => (
                   <li key={ptIdx}>{pt}</li>
@@ -994,6 +1014,7 @@ const AssistantTurnView: React.FC<{
 };
 
 export const ConversationFeed: React.FC<ConversationFeedProps> = ({
+  investigationId,
   turns,
   isStreaming,
   onCitationClick,
@@ -1027,7 +1048,7 @@ export const ConversationFeed: React.FC<ConversationFeedProps> = ({
     });
   };
 
-  const renderMarkdown = (text: string = '', isLive: boolean = false) => {
+  const renderMarkdown = (text: string = '', isLive: boolean = false, answerId: string) => {
     const cleaned = text
       .replace(/\s+([.,;:!?])/g, '$1')
       .replace(/\]\s+\[/g, '][');
@@ -1040,16 +1061,17 @@ export const ConversationFeed: React.FC<ConversationFeedProps> = ({
           const match = part.match(/^\[([0-9]+)\]$/);
           if (match) {
             const num = parseInt(match[1], 10);
+            const target = { investigationId, answerId, evidenceId: num };
             return (
               <a
                 key={i}
-                href={`#evidence-card-${num}`}
+                href={`#${evidenceDomId(target)}`}
                 className="citation-ref"
                 data-citation={num}
                 title={`Jump to source ${num}`}
                 onClick={e => {
                   e.preventDefault();
-                  onCitationClick(num);
+                  onCitationClick(target);
                 }}
               >
                 [{num}]
@@ -1096,7 +1118,11 @@ export const ConversationFeed: React.FC<ConversationFeedProps> = ({
               onCopyPrompt={onCopyBriefing}
               sources={relatedAssistant?.meta?.sources || []}
               taskType={relatedAssistant?.meta?.taskType}
-              onCitationClick={onCitationClick}
+              onCitationClick={evidenceId => {
+                if (relatedAssistant) {
+                  onCitationClick({ investigationId, answerId: relatedAssistant.id, evidenceId });
+                }
+              }}
             />
           );
         }

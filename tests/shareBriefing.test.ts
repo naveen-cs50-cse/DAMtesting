@@ -13,6 +13,14 @@ const meta: InvestigationMeta = {
     evidenceSufficiency: 'Partial',
     riskTriggers: ['Sensitive Credential Request'],
     verdictStatus: 'unverified',
+    explanation: {
+      summary: 'Unverified message.',
+      factualRationale: 'The public evidence does not confirm the sender claim.',
+      authenticityRationale: 'Contact priya.sharma@example.com or +91 98765 43210 could not be authenticated.',
+      scamRationale: 'The message requests a password and payment.',
+      sufficiencyRationale: 'Only partial evidence was available.',
+      sourceImpacts: [],
+    },
   },
   claims: [],
   sources: [
@@ -110,4 +118,22 @@ test('does not create a share payload before an investigation is complete', () =
     turns: [{ ...conversation.turns[1], isLive: true }],
   };
   assert.equal(buildShareBriefing(incomplete), null);
+});
+
+test('does not present a processing failure as a shareable successful investigation', () => {
+  const failed: Conversation = {
+    ...conversation,
+    turns: [{
+      ...conversation.turns[1],
+      isLive: false,
+      meta: {
+        ...meta,
+        verdicts: undefined,
+        assessment: undefined,
+        assessmentError: 'The structured assessment was missing from the provider response.',
+      },
+    }],
+  };
+
+  assert.equal(buildShareBriefing(failed), null);
 });

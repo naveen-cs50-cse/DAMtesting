@@ -1,10 +1,12 @@
-import { IndexedSource, InvestigationVerdicts, JobOfferAnalysis, VerdictExplanation } from './types';
+import { IndexedSource, JobOfferAnalysis, ResponseLanguage, StructuredAssessment, VerdictExplanation } from './types';
+import { requireStructuredAssessment } from './assessment';
+import { RESPONSE_LANGUAGES, answerCopy } from './localization';
 
 interface InitialAnswerInput {
-  verdicts: InvestigationVerdicts;
-  explanation?: VerdictExplanation;
+  assessment: StructuredAssessment;
   sources: IndexedSource[];
   jobOfferAnalysis?: JobOfferAnalysis;
+  language?: ResponseLanguage;
 }
 
 function citationsFor(
@@ -12,7 +14,12 @@ function citationsFor(
   predicate: (source: IndexedSource) => boolean,
 ): string {
   return sources
-    .filter(source => !source.isFixture && predicate(source))
+    .filter(source =>
+      !source.isFixture &&
+      (source.relevanceScore ?? 1) >= 0.4 &&
+      source.impactRole !== 'insufficient_relevance' &&
+      predicate(source)
+    )
     .slice(0, 3)
     .map(source => `[${source.id}]`)
     .join(' ');
@@ -24,46 +31,38 @@ function withCitations(text: string, citations: string): string {
   return `${sentence.replace(/[.]+$/, '')} ${citations}.`;
 }
 
-function assessmentText(verdicts: InvestigationVerdicts): string {
-  const factual = {
-    Supported: 'The factual claim is supported by the available evidence',
-    Contradicted: 'The factual claim is contradicted by the available evidence',
-    Mixed: 'The factual evidence is mixed',
-    Unverified: 'The factual claim remains unverified',
-  }[verdicts.factualCorrectness];
-
-  const authenticity = verdicts.messageAuthenticity && verdicts.messageAuthenticity !== 'Not applicable'
-    ? verdicts.messageAuthenticity === 'Authenticated'
-      ? ', and the sender was authenticated'
-      : ', and the specific sender could not be authenticated'
-    : '';
-
-  const risk = verdicts.scamRisk === 'High'
-    ? 'The message nevertheless contains high-risk scam warning signs.'
-    : verdicts.scamRisk === 'Medium'
-      ? 'The message contains warning signs that warrant caution.'
-      : 'No material scam warning signs were identified from the submitted material.';
-
-  const evidenceLimit = verdicts.evidenceSufficiency === 'Insufficient'
-    ? ' The available evidence is too limited for a firmer conclusion.'
-    : verdicts.evidenceSufficiency === 'Partial'
-      ? ' Some material uncertainty remains because the evidence is partial.'
-      : '';
-
-  return `${factual}${authenticity}. ${risk}${evidenceLimit}`;
+function assessmentText(verdicts: StructuredAssessment, language: ResponseLanguage): string {
+  const copy = answerCopy(language);
+  return [
+    copy.factual[verdicts.factualCorrectness],
+    copy.authenticity[verdicts.messageAuthenticity],
+    copy.scam[verdicts.scamRisk],
+    copy.sufficiency[verdicts.evidenceSufficiency],
+  ].filter(Boolean).join('. ').replace(/\.\s*\./g, '.');
 }
 
 function uniqueReasons(reasons: string[]): string[] {
   const seen = new Set<string>();
   return reasons.filter(reason => {
-    const key = reason.toLowerCase().replace(/\[\d+\]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+    const key = reason.toLocaleLowerCase().replace(/\[\d+\]/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
     if (!key || seen.has(key)) return false;
     seen.add(key);
     return true;
   }).slice(0, 3);
 }
 
-function buildJobOfferAnswer(verdicts: InvestigationVerdicts, analysis: JobOfferAnalysis): string {
+function buildJobOfferAnswer(analysis: JobOfferAnalysis, language: ResponseLanguage): string {
+  const copy = answerCopy(language);
+  if (language === 'hi' || language === 'ta') {
+    const hindi = language === 'hi';
+    const assessment = hindi
+      ? 'प्रस्तुत सामग्री से इस विशिष्ट नौकरी प्रस्ताव की प्रामाणिकता की पुष्टि नहीं की जा सकती। कंपनी का अस्तित्व अपने आप में भर्तीकर्ता की संबद्धता या इस प्रस्ताव की प्रामाणिकता सिद्ध नहीं करता।'
+      : 'சமர்ப்பிக்கப்பட்ட தகவலால் இந்த குறிப்பிட்ட வேலை வாய்ப்பின் நம்பகத்தன்மையை உறுதிப்படுத்த முடியாது. நிறுவனம் இருப்பது மட்டும் ஆட்சேர்ப்பாளரின் தொடர்பையோ இந்த வாய்ப்பின் உண்மைத்தன்மையையோ நிரூபிக்காது.';
+    const reasons = hindi
+      ? [analysis.paymentRequest ? 'संदेश में भुगतान का अनुरोध मिला।' : 'कोई स्पष्ट भुगतान अनुरोध नहीं मिला।', analysis.sensitiveDataRequest ? 'संदेश में संवेदनशील व्यक्तिगत जानकारी का अनुरोध मिला।' : 'संवेदनशील जानकारी का कोई स्पष्ट अनुरोध नहीं मिला।', analysis.domainWarning ? 'प्रेषक डोमेन की स्वतंत्र पुष्टि आवश्यक है।' : 'उपलब्ध सामग्री से भर्तीकर्ता की संबद्धता की पुष्टि नहीं हुई।']
+      : [analysis.paymentRequest ? 'செய்தியில் பணம் கோரப்பட்டுள்ளது.' : 'வெளிப்படையான பணக் கோரிக்கை இல்லை.', analysis.sensitiveDataRequest ? 'செய்தியில் முக்கிய தனிப்பட்ட தகவல் கோரப்பட்டுள்ளது.' : 'முக்கிய தகவலுக்கான வெளிப்படையான கோரிக்கை இல்லை.', analysis.domainWarning ? 'அனுப்புநர் களத்தைத் தனியாகச் சரிபார்க்க வேண்டும்.' : 'கிடைக்கும் தகவலால் ஆட்சேர்ப்பாளர் தொடர்பு உறுதிப்படுத்தப்படவில்லை.'];
+    return [`### ${copy.headings.assessment}`, assessment, '', `### ${copy.headings.reasons}`, ...reasons.map(reason => `- ${reason}`), '', `### ${copy.headings.nextSteps}`, ...copy.nextSteps.suspicious.map((step, index) => `${index + 1}. ${step}`)].join('\n');
+  }
   const warningSummary = analysis.paymentRequest && analysis.sensitiveDataRequest
     ? 'The message requests both payment and sensitive personal information.'
     : analysis.paymentRequest
@@ -83,19 +82,22 @@ function buildJobOfferAnswer(verdicts: InvestigationVerdicts, analysis: JobOffer
   ];
 
   return [
-    '### Assessment',
+    `### ${copy.headings.assessment}`,
     `The specific job offer cannot be authenticated from the submitted material. ${warningSummary} Finding a company or careers page would not, by itself, prove that the recruiter is affiliated or that this offer is genuine.`,
     '',
-    '### Main reasons',
+    `### ${copy.headings.reasons}`,
     ...reasons.map(reason => `- ${reason}`),
     '',
-    '### Next steps',
+    `### ${copy.headings.nextSteps}`,
     ...nextSteps.map((step, index) => `${index + 1}. ${step}`),
   ].join('\n');
 }
 
-export function buildInitialAnswer({ verdicts, explanation, sources, jobOfferAnalysis }: InitialAnswerInput): string {
-  if (jobOfferAnalysis) return buildJobOfferAnswer(verdicts, jobOfferAnalysis);
+export function buildInitialAnswer({ assessment, sources, jobOfferAnalysis, language = 'en' }: InitialAnswerInput): string {
+  const verdicts = requireStructuredAssessment(assessment);
+  const copy = answerCopy(language);
+  const explanation: VerdictExplanation = verdicts.explanation!;
+  if (jobOfferAnalysis) return buildJobOfferAnswer(jobOfferAnalysis, language);
   const factualCitations = citationsFor(sources, source =>
     verdicts.factualCorrectness === 'Supported'
       ? source.stance === 'supports'
@@ -107,63 +109,43 @@ export function buildInitialAnswer({ verdicts, explanation, sources, jobOfferAna
     /\b(cvv|otp|password|pin|bank(?:ing)? details|card details|phishing|scam|fraud)\b/i.test(`${source.title} ${source.passage}`)
   );
 
-  const defaultFactualReason = {
-    Supported: 'Relevant retrieved evidence directly supports the submitted claim.',
-    Contradicted: 'Relevant retrieved evidence directly conflicts with the submitted claim.',
-    Mixed: 'The relevant sources do not agree or apply to different parts of the claim.',
-    Unverified: 'The available evidence does not confirm or disprove the specific claim.',
-  }[verdicts.factualCorrectness];
+  const defaultFactualReason = copy.factualReason[verdicts.factualCorrectness];
 
   const reasons = uniqueReasons([
     withCitations(explanation?.factualRationale || defaultFactualReason, factualCitations),
     verdicts.messageAuthenticity && verdicts.messageAuthenticity !== 'Not applicable'
-      ? (explanation?.authenticityRationale || 'The submitted material does not provide enough information to verify the sender.')
+      ? (explanation?.authenticityRationale || copy.authenticityReason[verdicts.messageAuthenticity])
       : '',
-    verdicts.scamRisk !== 'Low'
-      ? withCitations(explanation?.scamRationale || 'The message contains suspicious requests or pressure tactics.', warningCitations)
+    verdicts.scamRisk !== 'Low' && verdicts.scamRisk !== 'Not applicable'
+      ? withCitations(explanation?.scamRationale || copy.scamReason[verdicts.scamRisk], warningCitations)
       : '',
     explanation?.sufficiencyRationale || '',
   ]);
 
-  let nextSteps: string[];
-  if (verdicts.scamRisk === 'High') {
-    nextSteps = [
-      'Do not click links, call supplied numbers, or share passwords, PINs, OTPs, CVVs, or banking details.',
-      'Verify the message independently through the organisation’s official website or a trusted contact number.',
-      'Keep the message and sender details if you need to report it through the appropriate fraud or cybercrime channel.',
-    ];
-  } else if (verdicts.factualCorrectness === 'Supported') {
-    nextSteps = [
-      'Check the cited source and the relevant official channel for the exact scope, date, and any action required.',
-      'Use only official contact details or portals before sharing information or completing a transaction.',
-    ];
-  } else {
-    nextSteps = [
-      'Do not rely on or forward the claim until it is confirmed by the relevant primary source.',
-      'Verify it independently through the organisation or authority concerned.',
-      'Keep the original message and sender details if the communication appears suspicious.',
-    ];
-  }
+  const nextSteps = verdicts.scamRisk === 'High' || verdicts.scamRisk === 'Medium'
+    ? copy.nextSteps.suspicious
+    : copy.nextSteps[verdicts.factualCorrectness];
 
   return [
-    '### Assessment',
-    assessmentText(verdicts),
+    `### ${copy.headings.assessment}`,
+    assessmentText(verdicts, language),
     '',
-    '### Main reasons',
+    `### ${copy.headings.reasons}`,
     ...reasons.map(reason => `- ${reason}`),
     '',
-    '### Next steps',
+    `### ${copy.headings.nextSteps}`,
     ...nextSteps.map((step, index) => `${index + 1}. ${step}`),
   ].join('\n');
 }
 
 export function hasInitialAnswerHierarchy(markdown: string): boolean {
   const headings = Array.from(markdown.matchAll(/^###\s+(.+)$/gm)).map(match => match[1].trim());
-  if (headings.length !== 3 || headings.join('|') !== 'Assessment|Main reasons|Next steps') return false;
+  const matchingCopy = RESPONSE_LANGUAGES.map(answerCopy).find(copy => headings.join('|') === Object.values(copy.headings).join('|'));
+  if (headings.length !== 3 || !matchingCopy) return false;
 
-  const reasonsBlock = markdown.split(/^### Main reasons\s*$/m)[1]?.split(/^### Next steps\s*$/m)[0] || '';
+  const reasonsBlock = markdown.split(new RegExp(`^### ${matchingCopy.headings.reasons}\\s*$`, 'm'))[1]?.split(new RegExp(`^### ${matchingCopy.headings.nextSteps}\\s*$`, 'm'))[0] || '';
   const reasons = reasonsBlock.split('\n').filter(line => /^\s*[-*]\s+\S/.test(line));
-  const nextStepsBlock = markdown.split(/^### Next steps\s*$/m)[1] || '';
+  const nextStepsBlock = markdown.split(new RegExp(`^### ${matchingCopy.headings.nextSteps}\\s*$`, 'm'))[1] || '';
   const nextSteps = nextStepsBlock.split('\n').filter(line => /^\s*\d+[.)]\s+\S/.test(line));
   return reasons.length >= 1 && reasons.length <= 3 && nextSteps.length >= 2 && nextSteps.length <= 3;
 }

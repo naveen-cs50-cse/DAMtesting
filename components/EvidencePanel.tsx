@@ -3,12 +3,17 @@
 import React, { useState } from 'react';
 import { IndexedSource } from '@/lib/investigation/types';
 import { CopyIcon, EvidenceIcon, ExternalIcon } from './icons';
+import { evidenceDomId } from '@/lib/investigation/evidenceIsolation';
 
 interface EvidencePanelProps {
   isOpen: boolean;
   onClose: () => void;
   sources: IndexedSource[];
   highlightIndex?: number | null;
+  investigationId?: string;
+  answerId?: string;
+  citedEvidenceIds?: number[];
+  missingEvidenceMessage?: string | null;
 }
 
 export const EvidencePanel: React.FC<EvidencePanelProps> = ({
@@ -16,6 +21,10 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
   onClose,
   sources = [],
   highlightIndex,
+  investigationId,
+  answerId,
+  citedEvidenceIds = [],
+  missingEvidenceMessage,
 }) => {
   const [filterQuery, setFilterQuery] = useState('');
   const [copiedId, setCopiedId] = useState<number | null>(null);
@@ -30,10 +39,18 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  React.useEffect(() => {
+    if (!isOpen || highlightIndex == null || !investigationId || !answerId) return;
+    const targetId = evidenceDomId({ investigationId, answerId, evidenceId: highlightIndex });
+    requestAnimationFrame(() => {
+      document.getElementById(targetId)?.scrollIntoView({ block: 'center' });
+    });
+  }, [answerId, highlightIndex, investigationId, isOpen]);
+
   if (!isOpen) return null;
 
   const filtered = sources.filter(s => {
-    if (!filterQuery) return true;
+    if (!filterQuery || highlightIndex != null) return true;
     const q = filterQuery.toLowerCase();
     return (
       s.title.toLowerCase().includes(q) ||
@@ -44,7 +61,11 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
   });
 
   const handleCopyPassage = (src: IndexedSource) => {
-    const origin = src.contentOrigin === 'fetched_page' ? 'Fetched page content' : 'Search-result snippet';
+    const origin = src.contentOrigin === 'fetched_page'
+      ? 'Fetched page content'
+      : src.contentOrigin === 'search_snippet'
+        ? 'Search-result snippet'
+        : 'Search-result metadata';
     const text = `[${src.id}] ${origin}: "${src.passage}" — ${src.title} (${src.domain}, ${src.date})\n${src.url}`;
     navigator.clipboard.writeText(text);
     setCopiedId(src.id);
@@ -64,7 +85,7 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
             <EvidenceIcon className="evidence-panel-icon" />
             <div>
               <strong>Evidence</strong>
-              <small>{sources.length} deduplicated {sources.length === 1 ? 'record' : 'records'}</small>
+              <small>{sources.length} retrieved &middot; {citedEvidenceIds.length} cited</small>
             </div>
           </div>
           <button
@@ -106,8 +127,8 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
               <div className="evidence-empty-icon-wrap">
                 <EvidenceIcon className="w-8 h-8 text-muted" />
               </div>
-              <strong>No Evidence Required Yet</strong>
-              <p>Submit a claim or query to search, cross-reference, and verify primary records.</p>
+              <strong>{missingEvidenceMessage ? 'Historical Evidence Unavailable' : 'No Evidence Retrieved'}</strong>
+              <p>{missingEvidenceMessage || 'No source records were retrieved for this answer.'}</p>
             </div>
           ) : filtered.length === 0 ? (
             <div className="evidence-empty-view">
@@ -129,7 +150,11 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
               <div
                 key={`${src.id}-${src.url}`}
                 className={`evidence-card ${src.id === highlightIndex ? 'highlight-target' : ''}`}
-                id={`evidence-card-${src.id}`}
+                id={evidenceDomId({
+                  investigationId: investigationId || 'unknown-investigation',
+                  answerId: answerId || 'unknown-answer',
+                  evidenceId: src.id,
+                })}
                 data-index={src.id}
               >
                 <div className="evidence-card-header">
@@ -155,7 +180,7 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
 
                 <div className="evidence-card-foot">
                   <div className="evidence-card-meta">
-                    <span>{src.contentOrigin === 'fetched_page' ? 'Fetched page content' : 'Search snippet'}</span>
+                    <span>{src.contentOrigin === 'fetched_page' ? 'Fetched page content' : src.contentOrigin === 'search_snippet' ? 'Search snippet' : 'Search result metadata'}</span>
                     <span>&bull;</span>
                     <span>{src.inspectionStatus === 'inspected' ? 'Page inspected' : src.inspectionStatus === 'unavailable' ? 'Page unavailable' : 'Page not inspected'}</span>
                     {src.isCited && <><span>&bull;</span><span>Cited</span></>}

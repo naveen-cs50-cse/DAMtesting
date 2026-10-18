@@ -35,9 +35,7 @@ export function generateVerificationCertificate(
   const certificateId = `CERT-DAM-${caseId.replace('DAM-', '')}-${sha256Fingerprint.slice(0, 8).toUpperCase()}`;
 
   let status: VerificationCertificate['status'] = 'EVIDENCE_INSUFFICIENT';
-  if (verdicts.scamRisk === 'High') {
-    status = 'VERIFIED_FRAUD';
-  } else if (verdicts.evidenceSufficiency === 'Insufficient' || verdicts.factualCorrectness === 'Unverified') {
+  if (verdicts.evidenceSufficiency === 'Insufficient' || verdicts.factualCorrectness === 'Unverified') {
     status = 'EVIDENCE_INSUFFICIENT';
   } else if (verdicts.factualCorrectness === 'Supported') {
     status = 'VERIFIED_AUTHENTIC';
@@ -49,7 +47,7 @@ export function generateVerificationCertificate(
 
   const topFindings = [
     `Factual Determination: ${verdicts.factualCorrectness}`,
-    `Threat & Scam Assessment: ${verdicts.scamRisk} Risk`,
+    `Threat & Scam Assessment: ${verdicts.scamRisk === 'Not applicable' ? 'Not applicable' : `${verdicts.scamRisk} Risk`}`,
     `Evidence Base: ${sourcesCount} source${sourcesCount === 1 ? '' : 's'} cited in this briefing`
   ];
 

@@ -39,7 +39,8 @@ describe('Evidence-Driven Verdict Engine', () => {
 
       assert.equal(result.verdicts.factualCorrectness, 'Supported');
       assert.equal(result.verdicts.evidenceSufficiency, 'Sufficient');
-      assert.equal(result.verdicts.scamRisk, 'Low');
+      assert.equal(result.verdicts.scamRisk, 'Not applicable');
+      assert.equal(result.verdicts.messageAuthenticity, 'Not applicable');
       assert.equal(result.explanation.sourceImpacts.length, 2);
       assert.equal(result.explanation.sourceImpacts[0].impactRole, 'primary_support');
       assert.ok(result.explanation.factualRationale.includes('supports the assertion'));
@@ -139,7 +140,7 @@ describe('Evidence-Driven Verdict Engine', () => {
       // Strict requirements: Never default to Contradicted or High Risk!
       assert.equal(result.verdicts.factualCorrectness, 'Unverified');
       assert.equal(result.verdicts.evidenceSufficiency, 'Insufficient');
-      assert.equal(result.verdicts.scamRisk, 'Low');
+      assert.equal(result.verdicts.scamRisk, 'Not applicable');
       assert.equal(result.verdicts.riskTriggers.length, 0);
       assert.ok(result.explanation.sufficiencyRationale.includes('No relevant authoritative evidence'));
       assert.ok(result.explanation.factualRationale.includes('not evidence that the assertion is false'));
@@ -168,7 +169,7 @@ describe('Evidence-Driven Verdict Engine', () => {
 
       assert.equal(result.verdicts.factualCorrectness, 'Unverified');
       assert.equal(result.verdicts.evidenceSufficiency, 'Insufficient');
-      assert.equal(result.verdicts.scamRisk, 'Low');
+      assert.equal(result.verdicts.scamRisk, 'Not applicable');
     });
   });
 
@@ -241,7 +242,7 @@ describe('Evidence-Driven Verdict Engine', () => {
       assert.equal(result.verdicts.factualCorrectness, 'Unverified');
     });
 
-    it('should assign Low Scam Risk to an unknown benign query with no threats', () => {
+    it('should mark Scam Risk not applicable for an ordinary factual query', () => {
       const query = 'What are the application steps for the National Overseas Scholarship 2026?';
       const result = executeVerdictEngine({
         prompt: query,
@@ -249,7 +250,8 @@ describe('Evidence-Driven Verdict Engine', () => {
         sources: []
       });
 
-      assert.equal(result.verdicts.scamRisk, 'Low');
+      assert.equal(result.verdicts.scamRisk, 'Not applicable');
+      assert.equal(result.verdicts.messageAuthenticity, 'Not applicable');
       assert.equal(result.verdicts.factualCorrectness, 'Unverified');
       assert.equal(result.verdicts.evidenceSufficiency, 'Insufficient');
     });

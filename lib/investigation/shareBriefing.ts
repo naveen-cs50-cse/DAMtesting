@@ -1,4 +1,7 @@
 import { Conversation, IndexedSource, InvestigationMeta } from './types';
+import { getAssessment } from './assessment';
+import { answerCopy, localizeAssessmentForDisplay } from './localization';
+import type { ResponseLanguage } from './types';
 
 export interface ShareBriefingPayload {
   text: string;
@@ -48,16 +51,19 @@ function citedSources(meta: InvestigationMeta): Array<{ id: number; label: strin
 }
 
 function assessment(meta: InvestigationMeta): string {
-  const verdicts = meta.verdicts;
-  if (!verdicts) {
-    return 'Investigation briefing completed without automated verdict scores.';
+  const validation = getAssessment(meta);
+  if (!validation.ok) {
+    return `A validated assessment is unavailable because processing failed: ${validation.error}`;
   }
-  const parts = [`Factual support is ${verdicts.factualCorrectness.toLowerCase()}.`];
-  if (verdicts.messageAuthenticity && verdicts.messageAuthenticity !== 'Not applicable') {
-    parts.push(`The specific message is ${verdicts.messageAuthenticity.toLowerCase()}.`);
+  const language = meta.language || 'en';
+  const verdicts = validation.assessment;
+  if (language === 'en') {
+    const parts = [`Factual support is ${verdicts.factualCorrectness.toLowerCase()}.`];
+    if (verdicts.messageAuthenticity !== 'Not applicable') parts.push(`The specific message is ${verdicts.messageAuthenticity.toLowerCase()}.`);
+    if (verdicts.scamRisk !== 'Not applicable') parts.push(`Scam indicators were assessed as ${verdicts.scamRisk.toLowerCase()} risk.`);
+    return parts.join(' ');
   }
-  parts.push(`Scam indicators were assessed as ${verdicts.scamRisk.toLowerCase()} risk.`);
-  return parts.join(' ');
+  return localizeAssessmentForDisplay(verdicts, language).explanation?.summary || '';
 }
 
 function keyReasons(meta: InvestigationMeta): string[] {
@@ -75,11 +81,14 @@ function keyReasons(meta: InvestigationMeta): string[] {
     ];
   }
 
-  const explanation = meta.verdictExplanation || meta.verdicts?.explanation;
+  const validation = getAssessment(meta);
+  if (!validation.ok) return [`Assessment processing failed: ${validation.error}`];
+  const verdicts = validation.assessment;
+  const explanation = verdicts.explanation;
   return [
     explanation?.factualRationale,
-    explanation?.authenticityRationale,
-    meta.verdicts && meta.verdicts.scamRisk !== 'Low' ? explanation?.scamRationale : undefined,
+    verdicts.messageAuthenticity !== 'Not applicable' ? explanation?.authenticityRationale : undefined,
+    verdicts.scamRisk !== 'Low' && verdicts.scamRisk !== 'Not applicable' ? explanation?.scamRationale : undefined,
   ]
     .filter((reason): reason is string => Boolean(reason?.trim()))
     .map(redactIdentifiers)
@@ -88,13 +97,29 @@ function keyReasons(meta: InvestigationMeta): string[] {
 }
 
 function materialUncertainty(meta: InvestigationMeta): string {
-  if (meta.verdicts?.messageAuthenticity === 'Cannot authenticate') {
+  const validation = getAssessment(meta);
+  if (!validation.ok) return `The structured assessment could not be validated: ${validation.error}`;
+  const verdicts = validation.assessment;
+  const language = meta.language || 'en';
+  if (language === 'hi') {
+    if (verdicts.messageAuthenticity === 'Cannot authenticate') return 'सार्वजनिक साक्ष्य विशिष्ट प्रेषक, लेनदेन या संचार की पुष्टि नहीं कर सकते।';
+    if (verdicts.evidenceSufficiency === 'Insufficient') return 'उपलब्ध सार्वजनिक साक्ष्य विशिष्ट दावे की पुष्टि या खंडन के लिए अपर्याप्त हैं।';
+    if (verdicts.evidenceSufficiency === 'Partial') return 'उपलब्ध साक्ष्य दावे के केवल एक हिस्से को संबोधित करते हैं, इसलिए एक महत्वपूर्ण कमी बनी हुई है।';
+    return 'यह आकलन जाँच की तारीख को उपलब्ध उद्धृत सार्वजनिक साक्ष्य तक सीमित है।';
+  }
+  if (language === 'ta') {
+    if (verdicts.messageAuthenticity === 'Cannot authenticate') return 'பொது ஆதாரங்களால் குறிப்பிட்ட அனுப்புநர், பரிவர்த்தனை அல்லது தகவலை உறுதிப்படுத்த முடியாது.';
+    if (verdicts.evidenceSufficiency === 'Insufficient') return 'குறிப்பிட்ட கூற்றை உறுதிப்படுத்தவோ மறுக்கவோ கிடைக்கும் பொது ஆதாரம் போதவில்லை.';
+    if (verdicts.evidenceSufficiency === 'Partial') return 'கிடைக்கும் ஆதாரம் கூற்றின் ஒரு பகுதியை மட்டுமே குறிப்பிடுவதால் முக்கிய இடைவெளி உள்ளது.';
+    return 'இந்த மதிப்பீடு சரிபார்த்த தேதியில் கிடைத்த மேற்கோள் காட்டப்பட்ட பொது ஆதாரங்களுக்குள் மட்டுப்படுத்தப்பட்டுள்ளது.';
+  }
+  if (verdicts.messageAuthenticity === 'Cannot authenticate') {
     return 'Public evidence cannot authenticate the specific sender, transaction, or communication.';
   }
-  if (meta.verdicts?.evidenceSufficiency === 'Insufficient') {
+  if (verdicts.evidenceSufficiency === 'Insufficient') {
     return 'The available public evidence is insufficient to confirm or disprove the specific claim.';
   }
-  if (meta.verdicts?.evidenceSufficiency === 'Partial') {
+  if (verdicts.evidenceSufficiency === 'Partial') {
     return 'The available evidence addresses only part of the claim, so a material gap remains.';
   }
   return 'This assessment is limited to the cited public evidence available on the date checked.';
@@ -109,31 +134,41 @@ function checkedDate(value: string | undefined, fallback: Date): string {
 export function buildShareBriefing(conversation: Conversation, fallbackDate = new Date()): ShareBriefingPayload | null {
   const lastAssistant = [...conversation.turns]
     .reverse()
-    .find(turn => turn.role === 'assistant' && !turn.isLive && turn.meta?.verdicts);
+    .find(turn => turn.role === 'assistant' && !turn.isLive && turn.meta && turn.meta.taskType !== 'conversational' && turn.meta.taskType !== 'follow_up');
   const meta = lastAssistant?.meta;
   if (!lastAssistant || !meta) return null;
+  // A terminal stream event is not proof that the investigation produced a
+  // valid result. Failed/malformed assessments must remain non-shareable.
+  if (!getAssessment(meta).ok) return null;
+  const language: ResponseLanguage = meta.language || lastAssistant.language || 'en';
+  const answer = answerCopy(language);
+  const labels = language === 'hi'
+    ? { title: 'UseDAM जाँच सार', reasons: 'मुख्य कारण', sources: 'सहायक स्रोत', date: 'जाँच की तारीख', uncertainty: 'महत्वपूर्ण अनिश्चितता', none: 'पूर्ण उत्तर में कोई सहायक स्रोत उद्धृत नहीं किया गया।', noReason: 'कोई अतिरिक्त साक्ष्य-आधारित कारण दर्ज नहीं हुआ।' }
+    : language === 'ta'
+      ? { title: 'UseDAM ஆய்வுச் சுருக்கம்', reasons: 'முக்கிய காரணங்கள்', sources: 'ஆதரவு ஆதாரங்கள்', date: 'சரிபார்த்த தேதி', uncertainty: 'முக்கிய நிச்சயமின்மை', none: 'முடிக்கப்பட்ட பதிலில் ஆதரவு ஆதாரம் மேற்கோள் காட்டப்படவில்லை.', noReason: 'கூடுதல் ஆதார அடிப்படையிலான காரணம் பதிவு செய்யப்படவில்லை.' }
+      : { title: 'UseDAM investigation briefing', reasons: 'Key reasons', sources: 'Supporting sources', date: 'Date checked', uncertainty: 'Material uncertainty', none: 'No supporting source was cited in the completed answer.', noReason: 'No additional evidence-backed reason was recorded.' };
 
   const sources = citedSources(meta);
   const dateChecked = checkedDate(lastAssistant.createdAt, fallbackDate);
   const reasons = keyReasons(meta);
   const sourceLines = sources.length > 0
     ? sources.map(source => `- [${source.id}] ${source.label}: ${source.url}`)
-    : ['- No supporting source was cited in the completed answer.'];
+    : [`- ${labels.none}`];
 
   const text = [
-    'UseDAM investigation briefing',
+    labels.title,
     '',
-    'Assessment',
+    answer.headings.assessment,
     assessment(meta),
     '',
-    'Key reasons',
-    ...(reasons.length > 0 ? reasons.map(reason => `- ${reason}`) : ['- No additional evidence-backed reason was recorded.']),
+    labels.reasons,
+    ...(reasons.length > 0 ? reasons.map(reason => `- ${reason}`) : [`- ${labels.noReason}`]),
     '',
-    'Supporting sources',
+    labels.sources,
     ...sourceLines,
     '',
-    `Date checked: ${dateChecked}`,
-    `Material uncertainty: ${materialUncertainty(meta)}`,
+    `${labels.date}: ${dateChecked}`,
+    `${labels.uncertainty}: ${materialUncertainty({ ...meta, language })}`,
   ].join('\n');
 
   return { text, sourceLinks: sources, dateChecked };

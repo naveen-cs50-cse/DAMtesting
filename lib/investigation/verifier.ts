@@ -1,8 +1,8 @@
-import { ClaimFinding, IndexedSource, InvestigationVerdicts, TaskType, ThreatEntities, VerdictExplanation } from './types';
+import { ClaimFinding, IndexedSource, StructuredAssessment, TaskType, ThreatEntities, VerdictExplanation } from './types';
 import { executeVerdictEngine, EvaluatedSource, VerdictEngineInput } from './verdictEngine';
 
 export interface VerificationResult {
-  verdicts: InvestigationVerdicts;
+  verdicts: StructuredAssessment;
   claims: ClaimFinding[];
   challengerAudit: string[];
   evaluatedSources?: EvaluatedSource[];

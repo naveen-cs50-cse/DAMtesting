@@ -217,7 +217,7 @@ describe('Unit Tests: Core Investigation Modules', () => {
       );
 
       assert.ok(cert.certificateId.startsWith('CERT-DAM-2026-IND-1001-'));
-      assert.equal(cert.status, 'VERIFIED_FRAUD');
+      assert.equal(cert.status, 'OFFICIALLY_CONTRADICTED');
       assert.equal(cert.sha256Fingerprint.length, 64);
       assert.ok(cert.qrPayload.includes(cert.certificateId));
       assert.ok(cert.issuingAuthority.includes('DAM Intelligence Engine'));

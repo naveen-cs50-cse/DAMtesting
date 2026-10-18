@@ -5578,6 +5578,8 @@ details[open] .timeline-chevron {
 }
 
 .primary-btn:disabled,
+.primary-btn.disabled,
+.primary-btn[aria-disabled="true"],
 .primary-button:disabled {
   opacity: 0.35;
   cursor: not-allowed;

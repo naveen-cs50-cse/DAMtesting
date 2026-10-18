@@ -1,10 +1,14 @@
-import { IndexedSource, RetrievalStats } from './types';
+import { IndexedSource, RetrievalStats, UrlAnalysisResult } from './types';
 import { REGULATORY_FIXTURES } from './knowledge';
+import { getSourceAuthority, getVerifiedPublisherType } from './knowledge';
+import { calculateSourceRecency, calculateSourceRelevance } from './verdictEngine';
+import { ingestUrlSecurely } from './urlIngestion';
 
 interface TavilySearchResult {
   url: string;
   title?: string;
   content?: string;
+  published_date?: string;
 }
 
 interface TavilySearchResponse {
@@ -31,10 +35,139 @@ export interface SourceRetrievalResult {
   stats: RetrievalStats;
 }
 
+interface RetrievalDependencies {
+  search?: (query: string, apiKey: string) => Promise<TavilySearchResult[]>;
+  extract?: (url: string, timeoutMs: number) => Promise<UrlAnalysisResult>;
+  maxPages?: number;
+  extractionTimeoutMs?: number;
+  extractionRetries?: number;
+}
+
+const SOCIAL_DOMAINS = new Set([
+  'facebook.com', 'instagram.com', 'threads.net', 'x.com', 'twitter.com',
+  'tiktok.com', 'youtube.com', 'youtu.be', 'reddit.com', 'linkedin.com',
+]);
+
+function hostname(rawUrl: string): string {
+  try {
+    return new URL(rawUrl).hostname.toLowerCase().replace(/^www\./, '');
+  } catch {
+    return 'web';
+  }
+}
+
+function isSocialDomain(domain: string): boolean {
+  return [...SOCIAL_DOMAINS].some(candidate => domain === candidate || domain.endsWith(`.${candidate}`));
+}
+
+function contentFingerprint(value: string): string {
+  return value.toLowerCase().replace(/https?:\/\/\S+/g, '').replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 320);
+}
+
+function sourceType(domain: string): IndexedSource['type'] {
+  return getVerifiedPublisherType(domain) || 'Search result';
+}
+
+function evidenceRank(prompt: string, source: IndexedSource): number {
+  const relevance = calculateSourceRelevance(prompt, source);
+  const authority = getSourceAuthority(source.domain, source.type).weight;
+  const recency = calculateSourceRecency(source.date, source.passage);
+  const directness = relevance >= 0.72 ? 1 : relevance >= 0.45 ? 0.65 : 0.25;
+  const origin = source.contentOrigin === 'fetched_page' ? 1 : 0.72;
+  const socialPenalty = isSocialDomain(source.domain) ? 0.18 : 1;
+  return (relevance * 0.42 + authority * 0.3 + directness * 0.18 + recency * 0.1) * origin * socialPenalty;
+}
+
+export function rankEvidenceForClaim(prompt: string, sources: IndexedSource[]): IndexedSource[] {
+  return [...sources].sort((left, right) => {
+    const scoreDifference = evidenceRank(prompt, right) - evidenceRank(prompt, left);
+    return scoreDifference || left.id - right.id;
+  });
+}
+
+function deduplicateReposts(prompt: string, sources: IndexedSource[]): IndexedSource[] {
+  const byUrl = new Map<string, IndexedSource>();
+  const byContent = new Map<string, IndexedSource>();
+  for (const source of rankEvidenceForClaim(prompt, sources)) {
+    const urlKey = canonicalSourceUrl(source.url);
+    const contentKey = contentFingerprint(source.passage);
+    if (byUrl.has(urlKey) || (contentKey.length >= 40 && byContent.has(contentKey))) continue;
+    byUrl.set(urlKey, source);
+    if (contentKey.length >= 40) byContent.set(contentKey, source);
+  }
+  return [...byUrl.values()];
+}
+
+function bestPassage(prompt: string, text: string): string {
+  const blocks = text.split(/(?<=[.!?])\s+|\n+/).map(part => part.trim()).filter(part => part.length >= 35);
+  if (blocks.length === 0) return text.trim().slice(0, 1200);
+  return blocks
+    .map(part => ({ part, score: calculateSourceRelevance(prompt, { title: '', passage: part, domain: '' }) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .map(item => item.part)
+    .join(' ')
+    .slice(0, 1600);
+}
+
+async function defaultSearch(query: string, apiKey: string): Promise<TavilySearchResult[]> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  try {
+    const response = await fetch('https://api.tavily.com/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ api_key: apiKey, query, search_depth: 'advanced', include_answer: false, max_results: 5 }),
+      signal: controller.signal,
+    });
+    if (!response.ok) return [];
+    const data = (await response.json()) as TavilySearchResponse;
+    return data.results || [];
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function extractWithRetry(
+  prompt: string,
+  source: IndexedSource,
+  extract: NonNullable<RetrievalDependencies['extract']>,
+  timeoutMs: number,
+  retries: number,
+): Promise<IndexedSource> {
+  let lastResult: UrlAnalysisResult | null = null;
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      lastResult = await extract(source.url, timeoutMs);
+    } catch {
+      lastResult = null;
+      if (attempt < retries) continue;
+      break;
+    }
+    if (lastResult.status === 'success' && lastResult.extractedText.trim()) {
+      const finalDomain = hostname(lastResult.finalUrl);
+      return {
+        ...source,
+        domain: finalDomain,
+        title: lastResult.title || source.title,
+        date: lastResult.publishedDate || source.date,
+        type: sourceType(finalDomain),
+        url: canonicalSourceUrl(lastResult.canonicalUrl || lastResult.finalUrl),
+        passage: bestPassage(prompt, lastResult.extractedText),
+        contentOrigin: 'fetched_page',
+        inspectionStatus: 'inspected',
+      };
+    }
+    if (lastResult.status !== 'timeout' && lastResult.status !== 'error') break;
+  }
+  return { ...source, inspectionStatus: 'unavailable' };
+}
+
 export async function searchAndReadSources(
   queries: string[],
   prompt: string,
-  tavilyKey?: string
+  tavilyKey?: string,
+  dependencies: RetrievalDependencies = {},
 ): Promise<SourceRetrievalResult> {
   let sources: IndexedSource[] = [];
   let searchResultsFound = 0;
@@ -44,66 +177,47 @@ export async function searchAndReadSources(
 
   if (apiKey && queries.length > 0) {
     try {
-      const searchResponses = await Promise.all(
-        queries.slice(0, 2).map(query => fetch('https://api.tavily.com/search', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            api_key: apiKey,
-            query,
-            search_depth: 'advanced',
-            include_answer: false,
-            max_results: 4,
-          }),
-        }))
-      );
+      const search = dependencies.search || defaultSearch;
+      const settled = await Promise.allSettled(queries.slice(0, 2).map(query => search(query, apiKey)));
+      searchCompleted = settled.some(result => result.status === 'fulfilled');
+      const rawSources = settled.flatMap(result => result.status === 'fulfilled' ? result.value : [])
+        .filter(result => Boolean(result.url))
+        .map((result, index): IndexedSource => {
+          const url = canonicalSourceUrl(result.url);
+          const domain = hostname(url);
+          return {
+            id: index + 1,
+            domain,
+            title: result.title || 'Untitled search result',
+            date: result.published_date || 'Date not provided',
+            type: sourceType(domain),
+            url,
+            passage: result.content?.trim() || '',
+            stance: 'context',
+            isFixture: false,
+            contentOrigin: result.content?.trim() ? 'search_snippet' : 'search_metadata',
+            inspectionStatus: 'not_inspected',
+            isCited: false,
+          };
+        });
+      const deduplicatedResults = deduplicateReposts(prompt, rawSources);
+      searchResultsFound = deduplicatedResults.length;
+      sources = deduplicatedResults.slice(0, 8);
 
-      const resultGroups = await Promise.all(searchResponses.map(async response => {
-        if (!response.ok) return [];
-        const data = (await response.json()) as TavilySearchResponse;
-        return data.results || [];
+      const maxPages = Math.max(0, Math.min(dependencies.maxPages ?? 3, 4));
+      const timeoutMs = Math.max(1000, Math.min(dependencies.extractionTimeoutMs ?? 5000, 8000));
+      const retries = Math.max(0, Math.min(dependencies.extractionRetries ?? 1, 1));
+      const extract = dependencies.extract || ((url: string, timeout: number) => ingestUrlSecurely(url, {
+        timeoutMs: timeout,
+        maxSizeBytes: 2 * 1024 * 1024,
+        maxRedirects: 3,
       }));
-      searchCompleted = true;
-
-      const seenUrls = new Set<string>();
-      const uniqueResults = resultGroups.flat().filter(result => {
-        const canonicalUrl = result.url ? canonicalSourceUrl(result.url) : '';
-        if (!canonicalUrl || seenUrls.has(canonicalUrl)) return false;
-        seenUrls.add(canonicalUrl);
-        result.url = canonicalUrl;
-        return true;
-      });
-      searchResultsFound = uniqueResults.length;
-
-      if (uniqueResults.length > 0) {
-        sources = uniqueResults
-          .filter(result => Boolean(result.url && result.content?.trim()))
-          .slice(0, 6)
-          .map((r, i) => {
-            let domain = 'web';
-            try {
-              domain = new URL(r.url).hostname.replace(/^www\./, '');
-            } catch {
-              domain = 'web';
-            }
-
-            return {
-              id: i + 1,
-              domain,
-              title: r.title || 'Untitled search result',
-              date: 'Date not provided',
-              // A search result URL alone is not enough to authenticate its publisher.
-              type: 'Search result',
-              url: r.url,
-              passage: r.content!.trim(),
-              stance: 'context' as const,
-              isFixture: false, // Explicitly live evidence from search
-              contentOrigin: 'search_snippet',
-              inspectionStatus: 'not_inspected',
-              isCited: false,
-            };
-          });
-      }
+      const ranked = rankEvidenceForClaim(prompt, sources);
+      const selectedUrls = new Set(ranked.slice(0, maxPages).map(source => source.url));
+      sources = await Promise.all(ranked.map(source => selectedUrls.has(source.url)
+        ? extractWithRetry(prompt, source, extract, timeoutMs, retries)
+        : Promise.resolve(source)));
+      sources = deduplicateReposts(prompt, rankEvidenceForClaim(prompt, sources));
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.warn('Tavily search warning:', msg);
@@ -261,7 +375,7 @@ export async function searchAndReadSources(
     }
   }
 
-  const normalizedSources = sources.map((source, index) => ({ ...source, id: index + 1 }));
+  const normalizedSources = rankEvidenceForClaim(prompt, sources).map((source, index) => ({ ...source, id: index + 1 }));
   return {
     sources: normalizedSources,
     stats: {
@@ -269,8 +383,8 @@ export async function searchAndReadSources(
       searchCompleted,
       searchResultsFound,
       snippetsAvailable: normalizedSources.filter(source => !source.isFixture && source.contentOrigin === 'search_snippet').length,
-      pagesInspected: 0,
-      pagesUnavailable: 0,
+      pagesInspected: normalizedSources.filter(source => !source.isFixture && source.inspectionStatus === 'inspected').length,
+      pagesUnavailable: normalizedSources.filter(source => !source.isFixture && source.inspectionStatus === 'unavailable').length,
       citedSourceIds: [],
     },
   };

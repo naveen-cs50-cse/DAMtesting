@@ -42,6 +42,12 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, convers
     () => conversation ? buildShareBriefing(conversation) : null,
     [conversation],
   );
+  const language = [...(conversation?.turns || [])].reverse().find(turn => turn.role === 'assistant' && turn.meta)?.meta?.language || 'en';
+  const copy = language === 'hi'
+    ? { title: 'जाँच सार साझा करें', sub: 'साझा करने से पहले सटीक, गोपनीयता-सुरक्षित पाठ देखें', briefing: 'पाठ सार', privacy: 'अपलोड की गई फ़ाइलें, बातचीत का इतिहास और व्यक्तिगत पहचानकर्ता डिफ़ॉल्ट रूप से शामिल नहीं हैं।', share: 'पाठ साझा करें', copied: 'कॉपी हो गया!', copy: 'पाठ कॉपी करें', unavailable: 'कॉपी उपलब्ध नहीं', incomplete: 'सार साझा करने से पहले जाँच पूरी करें।' }
+    : language === 'ta'
+      ? { title: 'ஆய்வுச் சுருக்கத்தைப் பகிரவும்', sub: 'பகிர்வதற்கு முன் துல்லியமான தனியுரிமை-பாதுகாப்பான உரையைப் பார்க்கவும்', briefing: 'உரைச் சுருக்கம்', privacy: 'பதிவேற்றிய கோப்புகள், உரையாடல் வரலாறு மற்றும் தனிப்பட்ட அடையாளங்கள் இயல்பாக விலக்கப்படுகின்றன.', share: 'உரையைப் பகிரவும்', copied: 'நகலெடுக்கப்பட்டது!', copy: 'உரையை நகலெடுக்கவும்', unavailable: 'நகலெடுக்க முடியவில்லை', incomplete: 'சுருக்கத்தைப் பகிர்வதற்கு முன் ஆய்வை முடிக்கவும்.' }
+      : { title: 'Share Investigation Briefing', sub: 'Review the exact privacy-safe text before sharing', briefing: 'Text briefing', privacy: 'Uploaded files, conversation history, and personal identifiers are excluded by default.', share: 'Share text', copied: 'Copied!', copy: 'Copy text', unavailable: 'Copy unavailable', incomplete: 'Complete the investigation before sharing a briefing.' };
 
   if (!isOpen || !conversation) return null;
 
@@ -63,7 +69,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, convers
       return;
     }
     try {
-      await navigator.share({ title: 'UseDAM investigation briefing', text: payload.text });
+      await navigator.share({ title: copy.title, text: payload.text });
       setStatus('shared');
       window.setTimeout(() => setStatus('idle'), 2200);
     } catch (error) {
@@ -73,14 +79,14 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, convers
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true" aria-label="Share Investigation Briefing">
+    <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true" aria-label={copy.title}>
       <div className="modal-panel share-modal" onClick={event => event.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-title-wrap">
             <ShareIcon className="modal-icon text-red" />
             <div>
-              <h3>Share Investigation Briefing</h3>
-              <p className="modal-sub">Review the exact privacy-safe text before sharing</p>
+              <h3>{copy.title}</h3>
+              <p className="modal-sub">{copy.sub}</p>
             </div>
           </div>
           <button className="icon-button" onClick={onClose} aria-label="Close dialog">
@@ -93,8 +99,8 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, convers
             <div className="share-option-header">
               <span className="share-icon green"><ShareIcon className="w-4 h-4" /></span>
               <div>
-                <strong>Text briefing</strong>
-                <small>Uploaded files, conversation history, and personal identifiers are excluded by default.</small>
+                <strong>{copy.briefing}</strong>
+                <small>{copy.privacy}</small>
               </div>
             </div>
 
@@ -104,7 +110,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, convers
                 <div className="share-actions-row">
                   <button type="button" className="primary-btn share-action-btn" onClick={handleNativeShare}>
                     <ShareIcon className="w-3.5 h-3.5" />
-                    <span>{status === 'shared' ? 'Shared' : status === 'copied' ? 'Copied!' : 'Share text'}</span>
+                    <span>{status === 'copied' ? copy.copied : copy.share}</span>
                   </button>
                   <button
                     type="button"
@@ -112,12 +118,12 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, convers
                     onClick={handleCopy}
                   >
                     <CopyIcon className="w-3.5 h-3.5" />
-                    <span>{status === 'copied' ? 'Copied!' : status === 'error' ? 'Copy unavailable' : 'Copy text'}</span>
+                    <span>{status === 'copied' ? copy.copied : status === 'error' ? copy.unavailable : copy.copy}</span>
                   </button>
                 </div>
               </>
             ) : (
-              <p className="modal-sub">Complete the investigation before sharing a briefing.</p>
+              <p className="modal-sub">{copy.incomplete}</p>
             )}
           </div>
         </div>

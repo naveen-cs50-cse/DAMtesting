@@ -33,9 +33,11 @@ describe('Initial answer hierarchy', () => {
       scamRisk: 'High',
       evidenceSufficiency: 'Partial',
       riskTriggers: ['Sensitive credential request'],
+      verdictStatus: 'unverified',
+      explanation,
     };
 
-    const answer = buildInitialAnswer({ verdicts, explanation, sources });
+    const answer = buildInitialAnswer({ assessment: verdicts as import('../lib/investigation/types').StructuredAssessment, sources });
     assert.equal(hasInitialAnswerHierarchy(answer), true);
     assert.ok(answer.indexOf('### Assessment') < answer.indexOf('### Main reasons'));
     assert.ok(answer.indexOf('### Main reasons') < answer.indexOf('### Next steps'));
@@ -52,9 +54,11 @@ describe('Initial answer hierarchy', () => {
       scamRisk: 'High',
       evidenceSufficiency: 'Insufficient',
       riskTriggers: ['Authority impersonation'],
+      verdictStatus: 'false',
+      explanation,
     };
 
-    const answer = buildInitialAnswer({ verdicts, explanation, sources });
+    const answer = buildInitialAnswer({ assessment: verdicts as import('../lib/investigation/types').StructuredAssessment, sources });
     const reasonsBlock = answer.split('### Main reasons')[1].split('### Next steps')[0];
     assert.ok(reasonsBlock.split('\n').filter(line => line.startsWith('- ')).length <= 3);
     assert.doesNotMatch(answer, /confidence|\b\d+%/i);

@@ -2,7 +2,7 @@ import {
   EvidenceSufficiency,
   FactualCorrectness,
   IndexedSource,
-  InvestigationVerdicts,
+  StructuredAssessment,
   MessageAuthenticity,
   ScamRisk,
   SourceImpact,
@@ -11,6 +11,7 @@ import {
   VerdictExplanation
 } from './types';
 import { getSourceAuthority } from './knowledge';
+import { requireStructuredAssessment } from './assessment';
 
 export interface EvaluatedSource extends IndexedSource {
   authorityScore: number;
@@ -45,7 +46,7 @@ export interface VerdictEngineInput {
 }
 
 export interface VerdictEngineOutput {
-  verdicts: InvestigationVerdicts;
+  verdicts: StructuredAssessment;
   evaluatedSources: EvaluatedSource[];
   explanation: VerdictExplanation;
   claims: Array<{
@@ -208,13 +209,45 @@ export function detectSourceStance(
     if (combined.includes(pat)) affirmScore += 1;
   }
 
-  // If the source was explicitly tagged with stance, validate it against textual evidence
-  if (source.stance === 'contradicts' || refuteScore > affirmScore) {
+  if (source.stance === 'contradicts') {
     const conf = Math.min(1.0, 0.6 + 0.15 * refuteScore);
     return { stance: 'contradicts', confidence: parseFloat(conf.toFixed(2)) };
   }
 
-  if (source.stance === 'supports' || affirmScore > refuteScore) {
+  if (source.stance === 'supports') {
+    const conf = Math.min(1.0, 0.6 + 0.15 * affirmScore);
+    return { stance: 'supports', confidence: parseFloat(conf.toFixed(2)) };
+  }
+
+  // Ordinary factual records often state the proposition directly without policy
+  // verbs. Compare negation as well as overlap so "did not" is not read as support
+  // for the corresponding positive claim.
+  const directRelevance = calculateSourceRelevance(claim, {
+    title: source.title,
+    passage: source.passage,
+    domain: '',
+  });
+  const claimNegated = /\b(?:no|not|never|cannot|can't|didn't|doesn't|isn't|wasn't|hasn't|haven't)\b/i.test(claim);
+  const sourceNegated = /\b(?:no|not|never|cannot|can't|didn't|doesn't|isn't|wasn't|hasn't|haven't)\b/i.test(combined);
+  const hasDeclarativeEvidence = `${source.title}. ${source.passage}`
+    .split(/(?<=[.!?])\s+/)
+    .some(sentence => !sentence.trim().endsWith('?') && calculateSourceRelevance(claim, {
+      title: '',
+      passage: sentence,
+      domain: '',
+    }) >= 0.72);
+  if (directRelevance >= 0.72 && hasDeclarativeEvidence) {
+    return claimNegated === sourceNegated
+      ? { stance: 'supports', confidence: 0.72 }
+      : { stance: 'contradicts', confidence: 0.72 };
+  }
+
+  if (refuteScore > affirmScore) {
+    const conf = Math.min(1.0, 0.6 + 0.15 * refuteScore);
+    return { stance: 'contradicts', confidence: parseFloat(conf.toFixed(2)) };
+  }
+
+  if (affirmScore > refuteScore) {
     const conf = Math.min(1.0, 0.6 + 0.15 * affirmScore);
     return { stance: 'supports', confidence: parseFloat(conf.toFixed(2)) };
   }
@@ -294,7 +327,8 @@ export function evaluateSources(
  */
 export function evaluateEvidenceSufficiency(
   evaluatedSources: EvaluatedSource[],
-  allowFixturesAsEvidence = false
+  allowFixturesAsEvidence = false,
+  prompt = '',
 ): { sufficiency: EvidenceSufficiency; rationale: string; totalInfoWeight: number } {
   // Only sources passing the relevance threshold (>= 0.25) and not quarantined fixtures count towards sufficiency
   const activeSources = evaluatedSources.filter(s => {
@@ -318,11 +352,24 @@ export function evaluateEvidenceSufficiency(
   const hasPrimaryAuthoritativeSource = activeSources.some(
     s => s.authorityScore >= 0.8 && s.relevanceScore >= 0.55
   );
+  const inspectedSources = activeSources.filter(source => source.contentOrigin === 'fetched_page');
+  const snippetOnly = activeSources.length > 0 && inspectedSources.length === 0;
+  const higherRiskOrTimeSensitive = /\b(today|current|currently|latest|now|this (?:week|month|year)|as of|price|rate|weather|election|outbreak|recall|deadline|legal advice|medical advice|investment|stock|crypto)\b/i.test(prompt);
+
+  if (snippetOnly && higherRiskOrTimeSensitive) {
+    return {
+      sufficiency: 'Partial',
+      rationale: 'Only search-result snippets were available. They provide relevant directional evidence, but page content was not successfully inspected and the claim is time-sensitive or higher-risk.',
+      totalInfoWeight: parseFloat(totalInfoWeight.toFixed(3))
+    };
+  }
 
   if (totalInfoWeight >= 1.0 || hasPrimaryAuthoritativeSource) {
     return {
       sufficiency: 'Sufficient',
-      rationale: `Found ${activeSources.length} relevant source(s), including evidence with authority appropriate to this question.`,
+      rationale: snippetOnly
+        ? `Found ${activeSources.length} directly relevant search snippet(s), including a verified publisher appropriate to this low-complexity factual claim; no result page was successfully inspected.`
+        : `Found ${activeSources.length} relevant source(s), including inspected evidence with authority appropriate to this question.`,
       totalInfoWeight: parseFloat(totalInfoWeight.toFixed(3))
     };
   }
@@ -330,7 +377,9 @@ export function evaluateEvidenceSufficiency(
   if (totalInfoWeight >= 0.45 || activeSources.length >= 1) {
     return {
       sufficiency: 'Partial',
-      rationale: `Found ${activeSources.length} relevant reference(s), but they do not fully resolve every part of the question.`,
+      rationale: snippetOnly
+        ? `Found ${activeSources.length} relevant search snippet(s), but no result page was successfully inspected and the snippets do not fully resolve the question.`
+        : `Found ${activeSources.length} relevant reference(s), but they do not fully resolve every part of the question.`,
       totalInfoWeight: parseFloat(totalInfoWeight.toFixed(3))
     };
   }
@@ -368,6 +417,7 @@ export function evaluateFactualCorrectness(
   let contradictWeight = 0;
 
   for (const src of activeSources) {
+    if (src.relevanceScore < 0.4) continue;
     const weight = src.authorityScore * src.relevanceScore * src.recencyScore * src.stanceConfidence;
     if (src.stance === 'supports') {
       supportWeight += weight;
@@ -463,7 +513,7 @@ export function evaluateMessageAuthenticity(input: VerdictEngineInput): {
  */
 export function evaluateScamRisk(
   input: VerdictEngineInput,
-  correctness: FactualCorrectness,
+  _correctness: FactualCorrectness,
   evaluatedSources: EvaluatedSource[] = []
 ): { scamRisk: ScamRisk; riskTriggers: string[]; rationale: string } {
   const { prompt, threatEntities, forensics, manipulation, statutes } = input;
@@ -603,24 +653,28 @@ export function evaluateScamRisk(
     };
   }
 
-  // Medium Risk: Suspicious elements, rumor panic, or contradicted viral hoax without direct phishing payload
+  // Medium Risk: suspicious message elements without a direct high-risk attack vector.
   if (
     hasPersonalPhone ||
     manipIndex >= 60 ||
-    riskTriggers.length >= 1 ||
-    correctness === 'Contradicted'
+    riskTriggers.length >= 1
   ) {
-    if (riskTriggers.length === 0 && correctness === 'Contradicted') {
-      riskTriggers.push('Viral Misinformation Rumor');
-    }
     return {
       scamRisk: 'Medium',
-      riskTriggers: riskTriggers.length > 0 ? riskTriggers : ['Unverified Third-Party Circular'],
-      rationale: `Medium risk: Suspicious dissemination vectors identified (${riskTriggers.join(', ') || 'viral unverified rumor'}).`
+      riskTriggers,
+      rationale: `The message contains warning signs that warrant caution: ${riskTriggers.join(', ')}.`
     };
   }
 
-  // Low Risk: Neutral research inquiry, verified official notice, or unknown claim with NO threat heuristics
+  if (!isMessageAuthenticityQuestion(input)) {
+    return {
+      scamRisk: 'Not applicable',
+      riskTriggers: [],
+      rationale: 'Scam-risk assessment is not applicable to this factual question.'
+    };
+  }
+
+  // Low Risk applies only when a submitted communication was actually assessed.
   return {
     scamRisk: 'Low',
     riskTriggers: [],
@@ -638,7 +692,7 @@ export function executeVerdictEngine(input: VerdictEngineInput): VerdictEngineOu
   const evaluatedSources = evaluateSources(input.prompt, input.sources, allowFixtures);
 
   // 2. Derive Evidence Sufficiency
-  const sufficiencyResult = evaluateEvidenceSufficiency(evaluatedSources, allowFixtures);
+  const sufficiencyResult = evaluateEvidenceSufficiency(evaluatedSources, allowFixtures, input.prompt);
 
   // 3. Derive Factual Correctness
   let correctnessResult = evaluateFactualCorrectness(
@@ -676,7 +730,7 @@ export function executeVerdictEngine(input: VerdictEngineInput): VerdictEngineOu
 
   // 7. Build overall explanation
   const explanation: VerdictExplanation = {
-    summary: `Factual support: ${correctnessResult.correctness}. Message authenticity: ${authenticityResult.authenticity}. Scam indicators: ${scamRiskResult.scamRisk} risk. Evidence: ${sufficiencyResult.sufficiency}.`,
+    summary: `Factual support: ${correctnessResult.correctness}. Message authenticity: ${authenticityResult.authenticity}. Scam indicators: ${scamRiskResult.scamRisk === 'Not applicable' ? 'Not applicable' : `${scamRiskResult.scamRisk} risk`}. Evidence: ${sufficiencyResult.sufficiency}.`,
     factualRationale: correctnessResult.rationale,
     authenticityRationale: authenticityResult.rationale,
     scamRationale: scamRiskResult.rationale,
@@ -684,7 +738,7 @@ export function executeVerdictEngine(input: VerdictEngineInput): VerdictEngineOu
     sourceImpacts
   };
 
-  const verdicts: InvestigationVerdicts = {
+  const verdicts = requireStructuredAssessment({
     factualCorrectness: correctnessResult.correctness,
     messageAuthenticity: authenticityResult.authenticity,
     scamRisk: scamRiskResult.scamRisk,
@@ -696,11 +750,11 @@ export function executeVerdictEngine(input: VerdictEngineInput): VerdictEngineOu
       : correctnessResult.correctness === 'Contradicted'
         ? 'false'
         : 'unverified'
-  };
+  });
 
   // 7. Dynamic claim findings linked to evidence
-  const supportingSources = evaluatedSources.filter(s => s.stance === 'supports' && s.relevanceScore >= 0.25);
-  const contradictingSources = evaluatedSources.filter(s => s.stance === 'contradicts' && s.relevanceScore >= 0.25);
+  const supportingSources = evaluatedSources.filter(s => s.stance === 'supports' && s.relevanceScore >= 0.4);
+  const contradictingSources = evaluatedSources.filter(s => s.stance === 'contradicts' && s.relevanceScore >= 0.4);
 
   const claims = [
     {
@@ -723,7 +777,9 @@ export function executeVerdictEngine(input: VerdictEngineInput): VerdictEngineOu
   const challengerAudit: string[] = [];
   if (verdicts.factualCorrectness === 'Unverified') {
     challengerAudit.push('Did not treat missing evidence as proof that the submitted assertion is false.');
-    challengerAudit.push('Separated the unverified sender-specific claim from independently observable scam indicators.');
+    if (verdicts.messageAuthenticity !== 'Not applicable' || verdicts.scamRisk !== 'Not applicable') {
+      challengerAudit.push('Separated the sender-specific claim from independently observable scam indicators.');
+    }
   } else if (verdicts.factualCorrectness === 'Contradicted') {
     challengerAudit.push('Compared relevant supporting and contradicting sources before assigning a contradiction.');
     challengerAudit.push('Kept contextual sources from being counted as direct refutation.');

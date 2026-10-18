@@ -17,8 +17,22 @@ import { MoveToFolderModal } from './modals/MoveToFolderModal';
 import { WhatsAppModal } from './modals/WhatsAppModal';
 import { ExtensionModal } from './modals/ExtensionModal';
 import { SettingsModal } from './modals/SettingsModal';
-import { Attachment, Conversation, Folder, IndexedSource, ChatTurn, ActivityStage, InvestigationMeta, getQueryVerdictStatus } from '@/lib/investigation/types';
+import { Attachment, Conversation, Folder, IndexedSource, ChatTurn, ActivityStage, CitationTarget, InvestigationMeta, getQueryVerdictStatus } from '@/lib/investigation/types';
 import { generateSmartTitle } from '@/lib/investigation/naming';
+import { getAssessment } from '@/lib/investigation/assessment';
+import { buildAnswerEvidenceSet, getAnswerEvidenceSet, resolveCitation } from '@/lib/investigation/evidenceIsolation';
+import { processingFailureMessage, resolveResponseLanguage } from '@/lib/investigation/localization';
+import { buildLegacyConversation, findLocalLegacyCase, parseLegacyCaseReference, type LegacyInvestigationPayload } from '@/lib/investigation/legacyCase';
+
+function normalizeInvestigationMeta(value: unknown): InvestigationMeta {
+  const candidate = value as InvestigationMeta;
+  if (candidate.taskType === 'conversational' || candidate.taskType === 'follow_up') return candidate;
+  const validation = getAssessment(candidate);
+  if (!validation.ok) {
+    return { ...candidate, assessment: null, verdicts: null, assessmentError: validation.error };
+  }
+  return { ...candidate, assessment: undefined, verdicts: validation.assessment, assessmentError: undefined };
+}
 
 export const InvestigationWorkspace: React.FC = () => {
   const [conversations, setConversations] = useState<Conversation[]>(() => {
@@ -67,6 +81,8 @@ export const InvestigationWorkspace: React.FC = () => {
   const [streamingIds, setStreamingIds] = useState<string[]>([]);
   const [evidencePanelOpen, setEvidencePanelOpen] = useState(false);
   const [highlightCitation, setHighlightCitation] = useState<number | null>(null);
+  const [evidenceSelection, setEvidenceSelection] = useState<(Omit<CitationTarget, 'evidenceId'> & { evidenceId: number | null }) | null>(null);
+  const [missingEvidenceMessage, setMissingEvidenceMessage] = useState<string | null>(null);
 
   // Modals state
   const [methodologyModalOpen, setMethodologyModalOpen] = useState(false);
@@ -111,6 +127,7 @@ export const InvestigationWorkspace: React.FC = () => {
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const userScrolledUpRef = useRef(false);
   const isAutoScrollingRef = useRef(false);
+  const legacyCaseHandledRef = useRef(false);
 
   useEffect(() => {
     activeIdRef.current = activeId;
@@ -266,20 +283,56 @@ export const InvestigationWorkspace: React.FC = () => {
     setTimeout(() => setToastMsg(null), 3000);
   };
 
+  useEffect(() => {
+    if (legacyCaseHandledRef.current) return;
+    legacyCaseHandledRef.current = true;
+    const reference = parseLegacyCaseReference(new URLSearchParams(window.location.search).get('case'));
+    if (!reference) return;
+    if (reference.kind === 'invalid') {
+      showToast('This case link is invalid or unsupported.');
+      return;
+    }
+    if (reference.kind === 'local') {
+      const localCase = findLocalLegacyCase(conversations, reference.value);
+      if (localCase) setActiveId(localCase.id);
+      else showToast('This case is unavailable on this device.');
+      return;
+    }
+
+    const deviceId = localStorage.getItem('dam-device-id');
+    fetch(`/api/v1/investigations/${encodeURIComponent(reference.value)}`, {
+      cache: 'no-store',
+      headers: deviceId ? { 'X-Client-Device-Id': deviceId, 'X-Client-Source': 'webapp' } : undefined,
+    }).then(async response => {
+      if (response.status === 403) throw new Error('unauthorized');
+      if (response.status === 404) throw new Error('unavailable');
+      if (!response.ok) throw new Error('unsupported');
+      return response.json() as Promise<LegacyInvestigationPayload>;
+    }).then(payload => {
+      const conversation = buildLegacyConversation(payload);
+      setConversations(current => current.some(item => item.id === conversation.id) ? current : [conversation, ...current]);
+      setActiveId(conversation.id);
+    }).catch(error => {
+      if (error instanceof Error && error.message === 'unauthorized') showToast('You do not have access to this investigation.');
+      else if (error instanceof Error && error.message === 'unavailable') showToast('This case is unavailable or no longer exists.');
+      else showToast('This legacy case link is not supported.');
+    });
+  }, [conversations]);
+
   const hasQuery = Boolean(activeConversation && activeConversation.turns.length > 0);
 
-  // The evidence panel reflects the latest result so its citation numbers map
-  // unambiguously to the briefing currently being summarized.
   const latestAssistantTurn = activeConversation?.turns?.filter(t => t.role === 'assistant').slice(-1)[0];
-  const caseSources: IndexedSource[] = [];
-  const seenCaseSourceUrls = new Set<string>();
-  for (const source of latestAssistantTurn?.meta?.sources || []) {
-    const dedupeKey = source.url.trim().toLowerCase().replace(/#.*$/, '').replace(/\/$/, '');
-    if (!seenCaseSourceUrls.has(dedupeKey)) {
-      seenCaseSourceUrls.add(dedupeKey);
-      caseSources.push(source);
-    }
-  }
+  const latestEvidenceSet = activeConversation
+    ? getAnswerEvidenceSet(activeConversation.id, latestAssistantTurn)
+    : null;
+  const selectedAnswerTurn = activeConversation && evidenceSelection?.investigationId === activeConversation.id
+    ? activeConversation.turns.find(turn => turn.role === 'assistant' && turn.id === evidenceSelection.answerId)
+    : undefined;
+  const activeEvidenceSet = activeConversation
+    ? (getAnswerEvidenceSet(activeConversation.id, selectedAnswerTurn) || latestEvidenceSet)
+    : null;
+  const caseSources: IndexedSource[] = activeEvidenceSet?.retrievedSources || [];
+  const latestSources: IndexedSource[] = latestEvidenceSet?.retrievedSources || [];
 
   // Aggregate all sources across ALL conversations stored on this workstation
   const globalSources: IndexedSource[] = React.useMemo(() => {
@@ -341,6 +394,7 @@ export const InvestigationWorkspace: React.FC = () => {
   const handleSendInvestigation = async (promptOverride?: string) => {
     const promptToSend = (promptOverride || input).trim();
     if (!promptToSend && attachments.length === 0) return;
+    const responseLanguage = resolveResponseLanguage(activeLang, promptToSend);
 
     const nowIso = new Date().toISOString();
     const isNewConversation = !activeConversation;
@@ -358,6 +412,7 @@ export const InvestigationWorkspace: React.FC = () => {
       content: promptToSend,
       attachments: [...attachments],
       createdAt: nowIso,
+      language: responseLanguage,
     };
 
     // Add assistant turn placeholder
@@ -370,6 +425,7 @@ export const InvestigationWorkspace: React.FC = () => {
       fullText: '',
       meta: null,
       createdAt: nowIso,
+      language: responseLanguage,
     };
 
     const initialConv: Conversation = {
@@ -458,6 +514,10 @@ export const InvestigationWorkspace: React.FC = () => {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+        if (abortControllersRef.current.get(targetId)?.turnId !== assistantTurnId) {
+          await reader.cancel();
+          break;
+        }
 
         buffer += decoder.decode(value, { stream: true });
         const events = buffer.split('\n\n');
@@ -503,17 +563,18 @@ export const InvestigationWorkspace: React.FC = () => {
               };
             }));
           } else if (eventType === 'meta') {
-            currentMeta = parsed as unknown as InvestigationMeta;
+            currentMeta = { ...normalizeInvestigationMeta(parsed), language: normalizeInvestigationMeta(parsed).language || responseLanguage };
+            const evidenceSet = buildAnswerEvidenceSet(targetId, assistantTurnId, currentMeta, accumulatedText);
             setConversations(prev => prev.map(c => {
               if (c.id !== targetId) return c;
               return {
                 ...c,
-                turns: c.turns.map(t => t.id === assistantTurnId ? { ...t, meta: currentMeta } : t)
+                turns: c.turns.map(t => t.id === assistantTurnId ? { ...t, meta: currentMeta, evidenceSet } : t)
               };
             }));
 
             // Immediately trigger ambient backlight flash upon verdict determination
-            const status = currentMeta?.verdicts?.verdictStatus || getQueryVerdictStatus(currentMeta);
+            const status = getQueryVerdictStatus(currentMeta);
             if (status && activeIdRef.current === targetId) {
               setAmbientGlow(status);
               setTimeout(() => setAmbientGlow(null), 6800);
@@ -535,6 +596,23 @@ export const InvestigationWorkspace: React.FC = () => {
               }
               return nextList;
             });
+          } else if (eventType === 'error') {
+            const failureMessage = processingFailureMessage(responseLanguage);
+            currentMeta = {
+              caseId,
+              taskType: 'verification',
+              assessment: null,
+              verdicts: null,
+              assessmentError: typeof parsed.error === 'string' ? parsed.error : 'The structured assessment was not completed.',
+              language: responseLanguage,
+            };
+            accumulatedText = failureMessage;
+            setConversations(prev => prev.map(conversation => conversation.id !== targetId ? conversation : {
+              ...conversation,
+              turns: conversation.turns.map(turn => turn.id === assistantTurnId
+                ? { ...turn, fullText: failureMessage, meta: currentMeta, isLive: false }
+                : turn),
+            }));
           }
         }
       }
@@ -544,6 +622,23 @@ export const InvestigationWorkspace: React.FC = () => {
         showToast('Investigation halted by user');
       } else {
         showToast('Investigation error: ' + errMsg);
+        if (abortControllersRef.current.get(targetId)?.turnId === assistantTurnId) {
+          const failureMessage = processingFailureMessage(responseLanguage);
+          const failureMeta: InvestigationMeta = {
+            caseId,
+            taskType: 'verification',
+            assessment: null,
+            verdicts: null,
+            assessmentError: 'The structured assessment was not completed.',
+            language: responseLanguage,
+          };
+          setConversations(prev => prev.map(conversation => conversation.id !== targetId ? conversation : {
+            ...conversation,
+            turns: conversation.turns.map(turn => turn.id === assistantTurnId
+              ? { ...turn, fullText: failureMessage, meta: failureMeta }
+              : turn),
+          }));
+        }
       }
     } finally {
       const activeRequest = abortControllersRef.current.get(targetId);
@@ -578,15 +673,31 @@ export const InvestigationWorkspace: React.FC = () => {
     }
   };
 
-  const handleCitationClick = (idx: number) => {
+  const handleCitationClick = (target: CitationTarget) => {
+    const resolution = resolveCitation(activeConversation, target);
+    setEvidenceSelection(target);
     setEvidencePanelOpen(true);
-    setHighlightCitation(idx);
+    setMissingEvidenceMessage(resolution.ok ? null : resolution.reason);
+    setHighlightCitation(resolution.ok ? target.evidenceId : null);
     setTimeout(() => setHighlightCitation(null), 3000);
+  };
+
+  const openLatestEvidence = () => {
+    if (activeConversation && latestAssistantTurn) {
+      setEvidenceSelection({
+        investigationId: activeConversation.id,
+        answerId: latestAssistantTurn.id,
+        evidenceId: null,
+      });
+    }
+    setMissingEvidenceMessage(null);
+    setHighlightCitation(null);
+    setEvidencePanelOpen(true);
   };
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
-  const activeVerdictStatus = latestAssistantTurn?.meta?.verdicts?.verdictStatus || getQueryVerdictStatus(latestAssistantTurn?.meta);
+  const activeVerdictStatus = getQueryVerdictStatus(latestAssistantTurn?.meta);
 
   // Ambient background flash when a verdict (right / false / unverified) is decided
   const [ambientGlow, setAmbientGlow] = useState<'right' | 'false' | 'unverified' | null>(null);
@@ -643,10 +754,16 @@ export const InvestigationWorkspace: React.FC = () => {
         onSelectConversation={id => {
           activeIdRef.current = id;
           setActiveId(id);
+          setEvidenceSelection(null);
+          setMissingEvidenceMessage(null);
+          setHighlightCitation(null);
         }}
         onNewConversation={() => {
           activeIdRef.current = null;
           setActiveId(null);
+          setEvidenceSelection(null);
+          setMissingEvidenceMessage(null);
+          setHighlightCitation(null);
         }}
         onRenameConversation={conv => setRenamingConversation(conv)}
         onDeleteConversation={id => {
@@ -658,9 +775,9 @@ export const InvestigationWorkspace: React.FC = () => {
           }
           showToast('Investigation deleted');
         }}
-        evidenceCount={caseSources.length}
+        evidenceCount={latestSources.length}
         hasQuery={hasQuery}
-        onOpenEvidence={() => setEvidencePanelOpen(true)}
+        onOpenEvidence={openLatestEvidence}
         onTogglePinConversation={handleTogglePin}
         onOpenCreateFolder={() => {
           setFolderToEdit(null);
@@ -693,8 +810,8 @@ export const InvestigationWorkspace: React.FC = () => {
           hasQuery={hasQuery}
           onOpenMethodology={() => setMethodologyModalOpen(true)}
           onOpenSettings={() => setSettingsModalOpen(true)}
-          onToggleEvidence={() => setEvidencePanelOpen(prev => !prev)}
-          evidenceCount={caseSources.length}
+          onToggleEvidence={() => evidencePanelOpen ? setEvidencePanelOpen(false) : openLatestEvidence()}
+          evidenceCount={latestSources.length}
           onMobileMenuToggle={() => {
             if (window.innerWidth < 768) {
               setMobileMenuOpen(prev => !prev);
@@ -705,6 +822,7 @@ export const InvestigationWorkspace: React.FC = () => {
           onOpenShare={() => setShareModalOpen(true)}
           sidebarOpen={sidebarOpen}
           verdictStatus={activeVerdictStatus}
+          language={latestAssistantTurn?.meta?.language || latestAssistantTurn?.language || 'en'}
         />
 
         <section className="workspace-fixed-layout" id="workspace">
@@ -722,10 +840,11 @@ export const InvestigationWorkspace: React.FC = () => {
                 />
               ) : (
                 <ConversationFeed
+                  investigationId={activeConversation.id}
                   turns={activeConversation.turns}
                   isStreaming={isStreaming}
                   onCitationClick={handleCitationClick}
-                  onOpenEvidence={() => setEvidencePanelOpen(true)}
+                  onOpenEvidence={openLatestEvidence}
                   onCopyBriefing={text => {
                     navigator.clipboard.writeText(text);
                     showToast('Briefing copied to clipboard');
@@ -785,9 +904,13 @@ export const InvestigationWorkspace: React.FC = () => {
       {/* Appears ONLY when a query has been asked in chat, and shows ONLY that active chat's evidence */}
       {hasQuery && (
         <FloatingEvidenceButton
-          sources={caseSources}
-          onOpenFullEvidence={() => setEvidencePanelOpen(prev => !prev)}
-          onCitationClick={handleCitationClick}
+          sources={latestSources}
+          onOpenFullEvidence={() => evidencePanelOpen ? setEvidencePanelOpen(false) : openLatestEvidence()}
+          onCitationClick={evidenceId => {
+            if (activeConversation && latestAssistantTurn) {
+              handleCitationClick({ investigationId: activeConversation.id, answerId: latestAssistantTurn.id, evidenceId });
+            }
+          }}
         />
       )}
 
@@ -795,8 +918,12 @@ export const InvestigationWorkspace: React.FC = () => {
       <EvidencePanel
         isOpen={evidencePanelOpen}
         onClose={() => setEvidencePanelOpen(false)}
-        sources={caseSources}
+        sources={missingEvidenceMessage ? [] : caseSources}
         highlightIndex={highlightCitation}
+        investigationId={activeEvidenceSet?.investigationId}
+        answerId={activeEvidenceSet?.answerId}
+        citedEvidenceIds={activeEvidenceSet?.citedEvidenceIds || []}
+        missingEvidenceMessage={missingEvidenceMessage}
       />
 
       {/* Share Briefing Modal (Phase 4) */}

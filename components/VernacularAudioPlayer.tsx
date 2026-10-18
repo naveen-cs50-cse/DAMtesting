@@ -89,7 +89,7 @@ export const VernacularAudioPlayer: React.FC<VernacularAudioPlayerProps> = ({
 
     // Optional audio preamble with verdict for immediate clarity
     let speechContent = cleaned;
-    if (verdictSummary?.scamRisk && verdictSummary.scamRisk !== 'Low') {
+    if (verdictSummary?.scamRisk && verdictSummary.scamRisk !== 'Low' && verdictSummary.scamRisk !== 'Not applicable') {
       speechContent = `Security Notice. High risk alert: ${verdictSummary.scamRisk} scam risk detected. ` + speechContent;
     }
 

@@ -91,7 +91,7 @@ export const FloatingEvidenceButton: React.FC<FloatingEvidenceButtonProps> = ({
                     <span className="fep-cite-badge">[{src.id}]</span>
                     <span className="fep-domain" title={src.domain}>{src.domain}</span>
                     <span className="fep-type-tag">
-                      {src.contentOrigin === 'fetched_page' ? src.type : 'Search snippet'}
+                      {src.contentOrigin === 'fetched_page' ? src.type : src.contentOrigin === 'search_snippet' ? 'Search snippet' : 'Search metadata'}
                     </span>
                     {src.url && (
                       <a

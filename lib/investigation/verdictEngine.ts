@@ -12,6 +12,13 @@ import {
 } from './types';
 import { getSourceAuthority } from './knowledge';
 import { requireStructuredAssessment } from './assessment';
+import {
+  expandTokensWithCrossLingualAliases,
+  getEntityAliases,
+  getRelationAliases,
+  parseIndicClaimStructure,
+  separateClaimAndInstructions,
+} from './multilingual';
 
 export interface EvaluatedSource extends IndexedSource {
   authorityScore: number;
@@ -80,7 +87,7 @@ function stemToken(token: string): string {
 function tokenize(text: string): string[] {
   return text
     .toLowerCase()
-    .replace(/[^\w\s₹$]/g, ' ')
+    .replace(/[^\p{L}\p{M}\p{N}\s₹$]/gu, ' ')
     .split(/\s+/)
     .filter(token => token.length > 1 && !STOP_WORDS.has(token));
 }
@@ -93,7 +100,8 @@ export function calculateSourceRelevance(
   claim: string,
   source: { title: string; passage: string; domain: string }
 ): number {
-  const claimTokens = tokenize(claim);
+  const cleanClaim = separateClaimAndInstructions(claim).factualClaim;
+  const claimTokens = tokenize(cleanClaim);
   if (claimTokens.length === 0) return 0.5;
 
   const sourceContent = `${source.title} ${source.passage} ${source.domain}`.toLowerCase();
@@ -104,11 +112,20 @@ export function calculateSourceRelevance(
   let matchedTokens = 0;
   for (const token of claimTokens) {
     const stem = stemToken(token);
+    const aliases = expandTokensWithCrossLingualAliases([token]);
     const hasMatch =
       sourceTokens.has(token) ||
       sourceStems.has(stem) ||
       sourceContent.includes(token) ||
       sourceContent.includes(stem) ||
+      aliases.some(alias => {
+        const aLower = alias.toLowerCase();
+        const aStem = stemToken(aLower);
+        return sourceTokens.has(aLower) ||
+          sourceStems.has(aStem) ||
+          sourceContent.includes(aLower) ||
+          rawSourceTokens.some(st => (st.length >= 4 && aLower.length >= 4 && (st.includes(aLower) || aLower.includes(st))));
+      }) ||
       rawSourceTokens.some(st => {
         if (st.length >= 4 && token.length >= 4) {
           return st.includes(token) || token.includes(st) || st.startsWith(stem) || token.startsWith(st);
@@ -124,17 +141,23 @@ export function calculateSourceRelevance(
   const lexicalOverlap = matchedTokens / claimTokens.length;
 
   // Key regulatory & numeric entity checks (e.g., "500", "rbi", "electricity", "trai", "sim", "pension", "cbi")
-  const keyEntities = claimTokens.filter(t => /\d+/.test(t) || t.length >= 4);
+  const keyEntities = claimTokens.filter(t => /\d+/.test(t) || t.length >= 3);
   let entityOverlap = 0;
   if (keyEntities.length > 0) {
     let matchedEntities = 0;
     for (const k of keyEntities) {
       const stem = stemToken(k);
+      const aliases = expandTokensWithCrossLingualAliases([k]);
       if (
         sourceTokens.has(k) ||
         sourceStems.has(stem) ||
         sourceContent.includes(k) ||
         sourceContent.includes(stem) ||
+        aliases.some(alias => {
+          const aLower = alias.toLowerCase();
+          const aStem = stemToken(aLower);
+          return sourceTokens.has(aLower) || sourceStems.has(aStem) || sourceContent.includes(aLower);
+        }) ||
         rawSourceTokens.some(st => (st.length >= 4 && (st.includes(stem) || stem.includes(st))))
       ) {
         matchedEntities++;
@@ -174,14 +197,192 @@ export function calculateSourceRecency(dateStr: string, passage: string): number
   return 0.75; // Generic or unstated publication date
 }
 
+export interface ParsedClaimStructure {
+  raw: string;
+  normalized: string;
+  isNegated: boolean;
+  isQuestion: boolean;
+  subject?: string;
+  relation?: string;
+  scope?: string;
+  qualifier?: string;
+  subjectAliases?: string[];
+  scopeAliases?: string[];
+  relationAliases?: string[];
+}
+
+export function splitIntoSentences(text: string): string[] {
+  return text
+    .replace(/\r\n/g, '\n')
+    .split(/(?<!\b[A-Za-z]\.|\b[A-Z][a-z]{1,2}\.|\b[A-Z]\.[A-Z]\.)(?<=[.!?।])\s+(?=[A-Z0-9"'\p{L}])|\n+/u)
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+}
+
+export const FUNCTIONAL_ROLES = new Set([
+  'capital',
+  'national capital',
+  'federal capital',
+  'state capital',
+  'seat of government',
+  'president',
+  'prime minister',
+  'chief executive',
+  'ceo',
+  'currency',
+  'official language',
+  'headquarters',
+  'राजधानी',
+  'राष्ट्रीय राजधानी',
+  'प्रधानमंत्री',
+  'राष्ट्रपति',
+  'मुद्रा',
+  'मुख्यालय',
+  'தலைநகரம்',
+]);
+
+function cleanEntity(str: string): string {
+  return str.replace(/^(?:the|a|an)\s+/i, '').replace(/[?!.,।]+$/g, '').trim();
+}
+
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function parseClaimStructure(text: string): ParsedClaimStructure {
+  const separated = separateClaimAndInstructions(text);
+  const trimmed = separated.factualClaim;
+  const isQuestion = separated.isQuestion || /^(?:is|are|was|were|did|does|do|can|could|has|have|had|will|would)\s+/i.test(trimmed);
+
+  let cleaned = trimmed
+    .replace(/^(?:fact[- ]check (?:whether|if)?|factcheck (?:whether|if)?|verify (?:whether|if)?|check (?:whether|if)?|is it true (?:that)?|please check (?:if|whether)?|can you check (?:if|whether)?)\s+/i, '')
+    .replace(/[?!.।]+$/g, '')
+    .trim();
+
+  // Pattern A (Question inversion): e.g. "Is Sydney the capital of Australia"
+  const qMatch = cleaned.match(/^(?:is|are|was|were)\s+([^,]+?)\s+(?:the\s+|a\s+|an\s+)?(?:(national|state|federal|official|regional|provincial)\s+)?([a-z]+(?:\s+[a-z]+)?)\s+(?:of|for|in)\s+([^,]+)$/i);
+  if (qMatch) {
+    const [, subj, qual, rel, scp] = qMatch;
+    const isNeg = /\b(?:not|never|no longer)\b/i.test(cleaned);
+    const cleanSubj = cleanEntity(subj);
+    const cleanScp = cleanEntity(scp);
+    return {
+      raw: text,
+      normalized: `${cleanSubj} is ${qual ? `${qual.trim()} ` : ''}${rel.trim()} of ${cleanScp}`,
+      isNegated: isNeg,
+      isQuestion,
+      subject: cleanSubj,
+      qualifier: qual?.trim().toLowerCase(),
+      relation: rel.trim().toLowerCase(),
+      scope: cleanScp,
+      subjectAliases: getEntityAliases(cleanSubj),
+      scopeAliases: getEntityAliases(cleanScp),
+      relationAliases: getRelationAliases(rel),
+    };
+  }
+
+  // Pattern B (Copula): e.g. "Canberra is the capital of Australia", "Sydney is not the capital of Australia"
+  const copulaMatch = cleaned.match(/^([^,]+?)\s+(?:is|are|was|were|became|remains)\s+(not\s+|never\s+)?(?:the\s+|a\s+|an\s+)?(?:(national|state|federal|official|regional|provincial)\s+)?([a-z]+(?:\s+[a-z]+)?)\s+(?:of|for|in)\s+([^,]+)$/i);
+  if (copulaMatch) {
+    const [, subj, neg, qual, rel, scp] = copulaMatch;
+    const cleanSubj = cleanEntity(subj);
+    const cleanScp = cleanEntity(scp);
+    return {
+      raw: text,
+      normalized: cleaned,
+      isNegated: Boolean(neg),
+      isQuestion,
+      subject: cleanSubj,
+      qualifier: qual?.trim().toLowerCase(),
+      relation: rel.trim().toLowerCase(),
+      scope: cleanScp,
+      subjectAliases: getEntityAliases(cleanSubj),
+      scopeAliases: getEntityAliases(cleanScp),
+      relationAliases: getRelationAliases(rel),
+    };
+  }
+
+  // Pattern C (Possessive): e.g. "Canberra is Australia's capital", "Sydney is New South Wales's capital"
+  const possMatch = cleaned.match(/^([^,]+?)\s+(?:is|are|was|were)\s+(not\s+|never\s+)?([^,]+?)'s\s+(?:(national|state|federal|official|regional|provincial)\s+)?([a-z]+(?:\s+[a-z]+)?)$/i);
+  if (possMatch) {
+    const [, subj, neg, scp, qual, rel] = possMatch;
+    const cleanSubj = cleanEntity(subj);
+    const cleanScp = cleanEntity(scp);
+    return {
+      raw: text,
+      normalized: cleaned,
+      isNegated: Boolean(neg),
+      isQuestion,
+      subject: cleanSubj,
+      scope: cleanScp,
+      qualifier: qual?.trim().toLowerCase(),
+      relation: rel.trim().toLowerCase(),
+      subjectAliases: getEntityAliases(cleanSubj),
+      scopeAliases: getEntityAliases(cleanScp),
+      relationAliases: getRelationAliases(rel),
+    };
+  }
+
+  // Pattern D (Inverted): e.g. "The capital of Australia is Canberra"
+  const invMatch = cleaned.match(/^(?:the\s+)?(?:(national|state|federal|official|regional|provincial)\s+)?([a-z]+(?:\s+[a-z]+)?)\s+(?:of|for|in)\s+([^,]+?)\s+(?:is|are|was|were)\s+(not\s+|never\s+)?([^,]+)$/i);
+  if (invMatch) {
+    const [, qual, rel, scp, neg, subj] = invMatch;
+    const cleanSubj = cleanEntity(subj);
+    const cleanScp = cleanEntity(scp);
+    return {
+      raw: text,
+      normalized: cleaned,
+      isNegated: Boolean(neg),
+      isQuestion,
+      subject: cleanSubj,
+      scope: cleanScp,
+      qualifier: qual?.trim().toLowerCase(),
+      relation: rel.trim().toLowerCase(),
+      subjectAliases: getEntityAliases(cleanSubj),
+      scopeAliases: getEntityAliases(cleanScp),
+      relationAliases: getRelationAliases(rel),
+    };
+  }
+
+  // Pattern E (Indic / Multilingual Grammar: Hindi / Tamil)
+  const indicMatch = parseIndicClaimStructure(cleaned);
+  if (indicMatch) {
+    const cleanSubj = cleanEntity(indicMatch.subject);
+    const cleanScp = cleanEntity(indicMatch.scope);
+    return {
+      raw: text,
+      normalized: cleaned,
+      isNegated: indicMatch.isNegated,
+      isQuestion,
+      subject: cleanSubj,
+      scope: cleanScp,
+      qualifier: indicMatch.qualifier?.trim().toLowerCase(),
+      relation: indicMatch.relation.trim().toLowerCase(),
+      subjectAliases: getEntityAliases(cleanSubj),
+      scopeAliases: getEntityAliases(cleanScp),
+      relationAliases: getRelationAliases(indicMatch.relation),
+    };
+  }
+
+  const isNegated = /\b(?:no|not|never|cannot|can't|didn't|doesn't|isn't|wasn't|hasn't|haven't|नहीं|न|गलत|झूठ)\b/iu.test(cleaned);
+  return {
+    raw: text,
+    normalized: cleaned,
+    isNegated,
+    isQuestion,
+  };
+}
+
 /**
  * Analyzes semantic stance of source towards the user's assertion.
+ * Evaluates entity, relation, scope, local negation, and misconception framing in context.
  */
 export function detectSourceStance(
   claim: string,
   source: { title: string; passage: string; stance?: string }
 ): { stance: 'supports' | 'contradicts' | 'context'; confidence: number } {
-  const combined = `${source.title} ${source.passage}`.toLowerCase();
+  const combined = `${source.title} ${source.passage}`;
+  const lower = combined.toLowerCase();
 
   const refutationPatterns = [
     'fake', 'hoax', 'false', 'misleading', 'fraud', 'unfounded', 'rumor', 'rumour',
@@ -201,12 +402,12 @@ export function detectSourceStance(
 
   let refuteScore = 0;
   for (const pat of refutationPatterns) {
-    if (combined.includes(pat)) refuteScore += 1;
+    if (lower.includes(pat)) refuteScore += 1;
   }
 
   let affirmScore = 0;
   for (const pat of affirmationPatterns) {
-    if (combined.includes(pat)) affirmScore += 1;
+    if (lower.includes(pat)) affirmScore += 1;
   }
 
   if (source.stance === 'contradicts') {
@@ -219,35 +420,263 @@ export function detectSourceStance(
     return { stance: 'supports', confidence: parseFloat(conf.toFixed(2)) };
   }
 
-  // Ordinary factual records often state the proposition directly without policy
-  // verbs. Compare negation as well as overlap so "did not" is not read as support
-  // for the corresponding positive claim.
-  const directRelevance = calculateSourceRelevance(claim, {
-    title: source.title,
-    passage: source.passage,
-    domain: '',
-  });
-  const claimNegated = /\b(?:no|not|never|cannot|can't|didn't|doesn't|isn't|wasn't|hasn't|haven't)\b/i.test(claim);
-  const sourceNegated = /\b(?:no|not|never|cannot|can't|didn't|doesn't|isn't|wasn't|hasn't|haven't)\b/i.test(combined);
-  const hasDeclarativeEvidence = `${source.title}. ${source.passage}`
-    .split(/(?<=[.!?])\s+/)
-    .some(sentence => !sentence.trim().endsWith('?') && calculateSourceRelevance(claim, {
-      title: '',
-      passage: sentence,
-      domain: '',
-    }) >= 0.72);
-  if (directRelevance >= 0.72 && hasDeclarativeEvidence) {
-    return claimNegated === sourceNegated
-      ? { stance: 'supports', confidence: 0.72 }
-      : { stance: 'contradicts', confidence: 0.72 };
+  const parsedClaim = parseClaimStructure(claim);
+  const sentences = splitIntoSentences(`${source.title}. ${source.passage}`);
+
+  let supportiveSentences = 0;
+  let contradictorySentences = 0;
+  let highestContradictConfidence = 0;
+  let highestSupportConfidence = 0;
+
+  for (const sentence of sentences) {
+    const sTrim = sentence.trim();
+    if (!sTrim) continue;
+
+    // A. Interrogatives: Questions repeating or inquiring about a claim do NOT endorse it
+    const isInterrogative = sTrim.endsWith('?') ||
+      /^(?:is|are|was|were|did|does|do|can|could|will|would|why|how|what|where|who)\b/i.test(sTrim) ||
+      /^(?:question|faq|inquiry)\s*:/i.test(sTrim);
+    if (isInterrogative) {
+      continue;
+    }
+
+    const sLower = sTrim.toLowerCase();
+
+    // B. Misconception / Myth / Rumor / Correction Framing
+    const misconceptionMatch = sTrim.match(/(?:common|popular|widespread|frequent)?\s*(?:misconception|myth|fallacy|mistake|error|rumor|rumour)\s*(?:is\s+that|that|is)?\s*([^.?!;]+)/i)
+      || sTrim.match(/contrary to\s*(?:popular\s+belief|widespread\s+(?:claims?|belief)|the\s+misconception)\s*[,:]?\s*([^.?!;]+)/i)
+      || sTrim.match(/(?:many|some|people|tourists|users)?\s*(?:mistakenly|wrongly|falsely|incorrectly)\s*(?:believe|think|assume|claim|state)\s*(?:that)?\s*([^.?!;]+)/i)
+      || sTrim.match(/(?:claims?|reports?)\s+(?:that|suggesting\s+that)?\s*([^.?!;]+?)\s*(?:is|are|were|have been)\s+(?:false|fake|debunked|misleading|untrue|unfounded|baseless|incorrect)/i)
+      || sTrim.match(/(?:it is (?:not true|false|incorrect) that)\s+([^.?!;]+)/i)
+      || sTrim.match(/(?:fact[- ]check|factcheck|verdict)\s*[:|-]\s*([^.?!;]+?)\s*[:|-]\s*(?:false|fake|debunked|misleading|untrue)/i);
+
+    if (misconceptionMatch) {
+      const framedMisconception = misconceptionMatch[1].toLowerCase();
+      if (parsedClaim.subject && parsedClaim.scope) {
+        const hasSubj = framedMisconception.includes(parsedClaim.subject.toLowerCase());
+        const hasScope = framedMisconception.includes(parsedClaim.scope.toLowerCase());
+        const hasRel = parsedClaim.relation ? framedMisconception.includes(parsedClaim.relation.toLowerCase()) : true;
+        if (hasSubj && (hasScope || hasRel)) {
+          contradictorySentences++;
+          highestContradictConfidence = Math.max(highestContradictConfidence, 0.92);
+          continue;
+        }
+      } else {
+        const claimTokens = tokenize(parsedClaim.normalized);
+        const matchCount = claimTokens.filter(t => framedMisconception.includes(t)).length;
+        if (matchCount / Math.max(1, claimTokens.length) >= 0.6) {
+          contradictorySentences++;
+          highestContradictConfidence = Math.max(highestContradictConfidence, 0.90);
+          continue;
+        }
+      }
+      // If a sentence describes or introduces a misconception/myth, do not allow its debunked clause
+      // to fall through into subsequent blocks as an affirmative statement of fact.
+      continue;
+    }
+
+    // C. Entity, Relationship, Scope & Functional Role Matching
+    if (parsedClaim.subject && parsedClaim.relation && parsedClaim.scope) {
+      const claimSubjLower = parsedClaim.subject.toLowerCase();
+      const claimRelLower = parsedClaim.relation.toLowerCase();
+      const claimScopeLower = parsedClaim.scope.toLowerCase();
+
+      const scopeAliases = parsedClaim.scopeAliases || getEntityAliases(parsedClaim.scope);
+      const relationAliases = parsedClaim.relationAliases || getRelationAliases(parsedClaim.relation);
+      const subjectAliases = parsedClaim.subjectAliases || getEntityAliases(parsedClaim.subject);
+
+      const mentionsScope = scopeAliases.some(alias => sLower.includes(alias.toLowerCase()));
+      const mentionsRelation = relationAliases.some(alias => sLower.includes(alias.toLowerCase()));
+
+      if (mentionsScope && mentionsRelation) {
+        // Direct affirmation check across all subject, relation, and scope aliases
+        let directAffirmed = false;
+        for (const subjAlias of subjectAliases) {
+          for (const relAlias of relationAliases) {
+            for (const scpAlias of scopeAliases) {
+              const escSubj = escapeRegex(subjAlias);
+              const escRel = escapeRegex(relAlias);
+              const escScp = escapeRegex(scpAlias);
+
+              const engAffirm = new RegExp(`\\b${escSubj}\\s+(?:is|are|was|were|became|serves as|was selected as the site of|was chosen as the site of)\\s+(?:the\\s+|a\\s+|an\\s+)?(?:national\\s+|federal\\s+)?${escRel}\\s+(?:of|for|in)\\s+(?:the\\s+)?${escScp}\\b`, 'i');
+              const engPossessive = new RegExp(`\\b${escScp}'s\\s+(?:national\\s+|federal\\s+)?${escRel}\\s+(?:is|are|was|were)\\s+${escSubj}\\b`, 'i');
+              const engInverted = new RegExp(`(?:the\\s+)?(?:national\\s+|federal\\s+)?${escRel}\\s+(?:of|for|in)\\s+(?:the\\s+)?${escScp}\\s+(?:is|are|was|were)\\s+${escSubj}\\b`, 'i');
+
+              const indicAffirm1 = new RegExp(`${escSubj}\\s+${escScp}\\s+(?:की|का|के)\\s+(?:(राष्ट्रीय|आधिकारिक)\\s+)?${escRel}\\s*(?:है|थी|था|हैं)?`, 'u');
+              const indicAffirm2 = new RegExp(`${escScp}\\s+(?:की|का|के)\\s+(?:(राष्ट्रीय|आधिकारिक)\\s+)?${escRel}\\s+${escSubj}\\s*(?:है|थी|था|हैं)?`, 'u');
+
+              if (engAffirm.test(sTrim) || engPossessive.test(sTrim) || engInverted.test(sTrim) || indicAffirm1.test(sTrim) || indicAffirm2.test(sTrim)) {
+                directAffirmed = true;
+                break;
+              }
+            }
+            if (directAffirmed) break;
+          }
+          if (directAffirmed) break;
+        }
+
+        if (directAffirmed) {
+          const localNeg = subjectAliases.some(alias => {
+            const esc = escapeRegex(alias);
+            return new RegExp(`\\b${esc}\\s+(?:is|are|was|were)\\s+(?:not|never)\\b|\\bnot\\s+${esc}\\b|\\bनहीं\\s+${esc}\\b|\\b${esc}\\s+नहीं\\b`, 'i').test(sTrim);
+          });
+
+          if (localNeg || parsedClaim.isNegated) {
+            contradictorySentences++;
+            highestContradictConfidence = Math.max(highestContradictConfidence, 0.90);
+          } else {
+            supportiveSentences++;
+            highestSupportConfidence = Math.max(highestSupportConfidence, 0.92);
+          }
+          continue;
+        }
+
+        // Functional attribute resolution: If evidence asserts [OtherEntity] is the [Role] of [Scope]
+        // (e.g. "Canberra is the capital of Australia" when checking "Sydney is the capital of Australia")
+        const funcMatch = sTrim.match(/([A-Z0-9\p{L}][A-Za-z0-9\p{L}\s,.-]+?)\s+(?:is|are|was|were|became|serves as|has been)\s+(?:the\s+|a\s+|an\s+)?(?:national\s+|federal\s+|state\s+)?([a-z\p{L}]+(?:\s+[a-z\p{L}]+)?)\s+(?:of|for|in)\s+(?:the\s+)?([A-Za-z0-9\p{L}\s.-]+?)(?:[;,.]|\s+(?:serving|which|who|where|and|but)\b|$)/iu)
+          || sTrim.match(/(?:the\s+)?(?:national\s+|federal\s+|state\s+)?([a-z\p{L}]+(?:\s+[a-z\p{L}]+)?)\s+(?:of|for|in)\s+(?:the\s+)?([A-Za-z0-9\p{L}\s.-]+?)\s+(?:is|are|was|were)\s+([A-Z0-9\p{L}][A-Za-z0-9\p{L}\s,.-]+?)(?:[;,.]|\s+(?:serving|which|who|where|and|but)\b|$)/iu)
+          || sTrim.match(/([A-Z0-9\p{L}][A-Za-z0-9\p{L}\s,.-]+?)'s\s+(?:national\s+|federal\s+|state\s+)?([a-z\p{L}]+(?:\s+[a-z\p{L}]+)?)\s+(?:is|are|was|were)\s+([A-Z0-9\p{L}][A-Za-z0-9\p{L}\s,.-]+?)(?:[;,.]|$)/iu);
+
+        let assertedSubj = '';
+        let assertedRel = '';
+        let assertedScope = '';
+
+        if (funcMatch) {
+          const matchRel1 = relationAliases.some(r => funcMatch[2].toLowerCase().includes(r.toLowerCase()));
+          const matchScope1 = scopeAliases.some(sc => funcMatch[3].toLowerCase().includes(sc.toLowerCase()));
+          const matchRel2 = relationAliases.some(r => funcMatch[2].toLowerCase().includes(r.toLowerCase()));
+          const matchScope2 = scopeAliases.some(sc => funcMatch[1].toLowerCase().includes(sc.toLowerCase()));
+
+          if (matchRel1 && matchScope1) {
+            assertedSubj = funcMatch[1].trim();
+            assertedRel = funcMatch[2].trim().toLowerCase();
+            assertedScope = funcMatch[3].trim();
+          } else if (matchRel2 && matchScope2) {
+            assertedScope = funcMatch[1].trim();
+            assertedRel = funcMatch[2].trim().toLowerCase();
+            assertedSubj = funcMatch[3].trim();
+          }
+        }
+
+        // Indic functional pattern check in Hindi: [Scope] की [Relation] [Subject] है
+        if (!assertedSubj) {
+          const indicFunc1 = sTrim.match(/([^,]+?)\s+(?:की|का|के)\s+([^\s,]+)\s+([^,]+?)\s*(?:है|था|थी|थे|हैं)?(?:[;,।.]|$)/u);
+          if (indicFunc1) {
+            const [, scp, rel, subj] = indicFunc1;
+            if (relationAliases.some(r => rel.toLowerCase().includes(r.toLowerCase())) &&
+                scopeAliases.some(sc => scp.toLowerCase().includes(sc.toLowerCase()))) {
+              assertedSubj = subj.trim();
+              assertedRel = rel.trim().toLowerCase();
+              assertedScope = scp.trim();
+            }
+          }
+        }
+
+        if (assertedSubj) {
+          const cleanAsserted = cleanEntity(assertedSubj).toLowerCase();
+          const matchesClaimSubj = subjectAliases.some(alias => {
+            const aLower = alias.toLowerCase();
+            return cleanAsserted.includes(aLower) || aLower.includes(cleanAsserted);
+          });
+
+          if (!matchesClaimSubj) {
+            if (FUNCTIONAL_ROLES.has(claimRelLower) || claimRelLower.includes('capital') || claimRelLower.includes('राजधानी') || claimRelLower.includes('தலைநகரம்')) {
+              // Confirming alternate entity for a functional single-value role refutes the claim subject
+              contradictorySentences++;
+              highestContradictConfidence = Math.max(highestContradictConfidence, 0.88);
+              continue;
+            }
+          } else {
+            // Direct match from functional pattern
+            const localNeg = subjectAliases.some(alias => {
+              const esc = escapeRegex(alias);
+              return new RegExp(`\\b${esc}\\s+(?:is|are|was|were)\\s+(?:not|never)\\b|\\bnot\\s+${esc}\\b|\\bनहीं\\s+${esc}\\b|\\b${esc}\\s+नहीं\\b`, 'i').test(sTrim);
+            });
+            if (localNeg || parsedClaim.isNegated) {
+              contradictorySentences++;
+              highestContradictConfidence = Math.max(highestContradictConfidence, 0.90);
+            } else {
+              supportiveSentences++;
+              highestSupportConfidence = Math.max(highestSupportConfidence, 0.92);
+            }
+            continue;
+          }
+        }
+
+        // Check for explicit contrastive negation: e.g. "not Sydney", "not in either of those state capitals"
+        const contrastNegation = subjectAliases.some(alias =>
+          new RegExp(`\\bnot\\s+(?:in\\s+)?(?:${escapeRegex(alias)}|either of those state capitals)\\b`, 'i').test(sTrim)
+        );
+        if (contrastNegation) {
+          contradictorySentences++;
+          highestContradictConfidence = Math.max(highestContradictConfidence, 0.92);
+          continue;
+        }
+      }
+
+      // Check for Scope Mismatch (e.g. State capital vs National capital):
+      // e.g. "Sydney is the capital of New South Wales"
+      const scopeBoundPattern = new RegExp(`\\b${escapeRegex(parsedClaim.subject)}\\s+(?:is|was)\\s+(?:the\\s+|a\\s+)?(?:state\\s+|provincial\\s+)?${escapeRegex(parsedClaim.relation)}\\s+(?:city\\s+)?(?:of|for|in)\\s+([^,.;]+)`, 'i');
+      const scopeMatch = sTrim.match(scopeBoundPattern);
+      if (scopeMatch) {
+        const statedScope = scopeMatch[1].trim().toLowerCase();
+        // If the claim was specifically about this stated scope:
+        if (scopeAliases.some(sc => statedScope.includes(sc.toLowerCase()) || sc.toLowerCase().includes(statedScope))) {
+          supportiveSentences++;
+          highestSupportConfidence = Math.max(highestSupportConfidence, 0.90);
+          continue;
+        } else {
+          continue;
+        }
+      }
+    }
+
+    // D. General local clause alignment and negation
+    const claimTokens = tokenize(parsedClaim.normalized);
+    const expandedClaimTokens = expandTokensWithCrossLingualAliases(claimTokens);
+    const sentenceTokens = tokenize(sTrim);
+    const matchedTokens = expandedClaimTokens.filter(t => sentenceTokens.includes(t));
+    const tokenOverlap = matchedTokens.length / Math.max(1, claimTokens.length);
+
+    if (tokenOverlap >= 0.72) {
+      // Check local negation strictly within this sentence
+      const localNegated = /\b(?:not|never|no longer|fake|false|untrue|debunked|misleading|refutes?|denied|नहीं|गलत|झूठ)\b/iu.test(sTrim);
+      if (localNegated) {
+        contradictorySentences++;
+        highestContradictConfidence = Math.max(highestContradictConfidence, 0.78);
+      } else {
+        supportiveSentences++;
+        highestSupportConfidence = Math.max(highestSupportConfidence, 0.75);
+      }
+    }
   }
 
-  if (refuteScore > affirmScore) {
+  // Combine sentence assessments
+  if (contradictorySentences > 0 && supportiveSentences === 0) {
+    const conf = Math.max(highestContradictConfidence, 0.75);
+    return { stance: 'contradicts', confidence: parseFloat(conf.toFixed(2)) };
+  }
+
+  if (supportiveSentences > 0 && contradictorySentences === 0) {
+    const conf = Math.max(highestSupportConfidence, 0.75);
+    return { stance: 'supports', confidence: parseFloat(conf.toFixed(2)) };
+  }
+
+  if (contradictorySentences > 0 && supportiveSentences > 0) {
+    if (highestContradictConfidence >= 0.88 && highestSupportConfidence < 0.80) {
+      return { stance: 'contradicts', confidence: parseFloat(highestContradictConfidence.toFixed(2)) };
+    }
+    if (highestSupportConfidence >= 0.88 && highestContradictConfidence < 0.80) {
+      return { stance: 'supports', confidence: parseFloat(highestSupportConfidence.toFixed(2)) };
+    }
+  }
+
+  if (refuteScore > affirmScore && refuteScore > 0) {
     const conf = Math.min(1.0, 0.6 + 0.15 * refuteScore);
     return { stance: 'contradicts', confidence: parseFloat(conf.toFixed(2)) };
   }
 
-  if (affirmScore > refuteScore) {
+  if (affirmScore > refuteScore && affirmScore > 0) {
     const conf = Math.min(1.0, 0.6 + 0.15 * affirmScore);
     return { stance: 'supports', confidence: parseFloat(conf.toFixed(2)) };
   }
@@ -438,11 +867,21 @@ export function evaluateFactualCorrectness(
 
   // Conflict / Agreement calculation
   if (supportWeight > 0 && contradictWeight > 0) {
+    const supportingSources = activeSources.filter(s => s.stance === 'supports' && s.relevanceScore >= 0.4);
+    const contradictingSources = activeSources.filter(s => s.stance === 'contradicts' && s.relevanceScore >= 0.4);
+    const maxSupportAuth = supportingSources.length > 0 ? Math.max(...supportingSources.map(s => s.authorityScore)) : 0;
+    const maxContradictAuth = contradictingSources.length > 0 ? Math.max(...contradictingSources.map(s => s.authorityScore)) : 0;
+
+    // Direct authoritative evidence should not be diluted by weak/secondary sources into Mixed:
+    const isDirectAuthorityImbalance =
+      (maxContradictAuth >= 0.85 && maxSupportAuth < 0.70) ||
+      (maxSupportAuth >= 0.85 && maxContradictAuth < 0.70);
+
     const agreementRatio = Math.abs(supportWeight - contradictWeight) / totalDirectionalWeight;
-    if (agreementRatio < 0.40) {
+    if (!isDirectAuthorityImbalance && agreementRatio < 0.40) {
       return {
         correctness: 'Mixed',
-        rationale: 'Relevant sources conflict, so neither the supporting nor contradicting account can be stated as conclusive.'
+        rationale: 'Relevant authoritative sources conflict, so neither the supporting nor contradicting account can be stated as conclusive.'
       };
     }
   }

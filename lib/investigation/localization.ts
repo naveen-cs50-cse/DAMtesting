@@ -1,4 +1,5 @@
 import type { ActivityStage, ResponseLanguage, StructuredAssessment } from './types';
+import { separateClaimAndInstructions } from './multilingual';
 
 export const RESPONSE_LANGUAGES = ['en', 'hi', 'mr', 'ta', 'bn', 'te'] as const;
 export type { ResponseLanguage } from './types';
@@ -6,6 +7,11 @@ export type { ResponseLanguage } from './types';
 export function resolveResponseLanguage(requested: string | undefined, prompt: string): ResponseLanguage {
   const normalized = requested?.toLowerCase().split('-')[0];
   if (RESPONSE_LANGUAGES.includes(normalized as ResponseLanguage)) return normalized as ResponseLanguage;
+
+  const separated = separateClaimAndInstructions(prompt);
+  if (separated.requestedLanguage) {
+    return separated.requestedLanguage;
+  }
 
   const explicit = prompt.match(/\b(?:answer|reply|respond|write|explain)\s+(?:to me\s+)?in\s+(hindi|english|marathi|tamil|bengali|bangla|telugu)\b/i)?.[1]?.toLowerCase();
   if (explicit) {
@@ -104,6 +110,35 @@ export function answerCopy(language: ResponseLanguage): LocalizedAnswerCopy {
   return { ...EN, headings: BASIC_HEADINGS[language] };
 }
 
+function localizeSufficiencyRationale(original: string, sufficiency: StructuredAssessment['evidenceSufficiency'], language: ResponseLanguage): string {
+  const copy = answerCopy(language);
+  if (language === 'hi') {
+    if (original.includes('snippet') || original.includes('snippets') || original.includes('no result page was successfully inspected')) {
+      return 'केवल खोज परिणाम स्निपेट उपलब्ध थे; कोई वेब पृष्ठ सफलतापूर्वक जाँचा नहीं जा सका और साक्ष्य अभी सीमित है।';
+    }
+    if (original.includes('too sparse') || original.includes('weakly relevant')) {
+      return 'उपलब्ध संदर्भ अत्यंत विरल या कमजोर रूप से प्रासंगिक हैं; अधिक ठोस निष्कर्ष के लिए साक्ष्य अपर्याप्त हैं।';
+    }
+    if (original.includes('only part of the claim') || original.includes('do not fully resolve every part')) {
+      return 'उपलब्ध साक्ष्य दावे के केवल एक हिस्से को संबोधित करते हैं, इसलिए महत्वपूर्ण अनिश्चितता बनी हुई है।';
+    }
+    if (original.includes('directly addresses') || original.includes('directly relevant') || original.includes('relevant source')) {
+      return 'उपलब्ध प्रासंगिक साक्ष्य इस दावे को सीधे संबोधित करते हैं।';
+    }
+  } else if (language === 'ta') {
+    if (original.includes('snippet') || original.includes('snippets') || original.includes('no result page was successfully inspected')) {
+      return 'தேடல் முடிவு துணுக்குகள் மட்டுமே கிடைத்தன; வலைப்பக்கத்தை முழுமையாக ஆய்வு செய்ய முடியவில்லை.';
+    }
+    if (original.includes('too sparse') || original.includes('weakly relevant')) {
+      return 'கிடைக்கும் குறிப்புகள் மிகக் குறைவானவை; உறுதியான முடிவுக்கு ஆதாரம் போதவில்லை.';
+    }
+    if (original.includes('only part of the claim') || original.includes('do not fully resolve every part')) {
+      return 'கிடைக்கும் ஆதாரம் கூற்றின் ஒரு பகுதியை மட்டுமே குறிப்பிடுவதால் முக்கிய இடைவெளி உள்ளது.';
+    }
+  }
+  return copy.sufficiencyReason[sufficiency];
+}
+
 export function localizeAssessmentForDisplay(assessment: StructuredAssessment, language: ResponseLanguage): StructuredAssessment {
   const copy = answerCopy(language);
   const sourceImpacts = (assessment.explanation?.sourceImpacts || []).map(impact => ({
@@ -119,11 +154,18 @@ export function localizeAssessmentForDisplay(assessment: StructuredAssessment, l
   return {
     ...assessment,
     explanation: {
-      summary: [copy.factual[assessment.factualCorrectness], copy.authenticity[assessment.messageAuthenticity], copy.scam[assessment.scamRisk], copy.sufficiency[assessment.evidenceSufficiency]].filter(Boolean).join('. '),
+      summary: [
+        copy.factual[assessment.factualCorrectness],
+        copy.authenticity[assessment.messageAuthenticity],
+        copy.scam[assessment.scamRisk],
+        copy.sufficiency[assessment.evidenceSufficiency]
+      ].filter(Boolean).map(s => s.trim().replace(/[.।\s]+$/, '')).join(language === 'hi' ? '। ' : '. ') + (language === 'hi' ? '।' : '.'),
       factualRationale: copy.factualReason[assessment.factualCorrectness],
       authenticityRationale: copy.authenticityReason[assessment.messageAuthenticity],
       scamRationale: copy.scamReason[assessment.scamRisk],
-      sufficiencyRationale: copy.sufficiencyReason[assessment.evidenceSufficiency],
+      sufficiencyRationale: assessment.explanation?.sufficiencyRationale
+        ? localizeSufficiencyRationale(assessment.explanation.sufficiencyRationale, assessment.evidenceSufficiency, language)
+        : copy.sufficiencyReason[assessment.evidenceSufficiency],
       sourceImpacts,
     },
   };

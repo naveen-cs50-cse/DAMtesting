@@ -142,6 +142,9 @@ export interface UrlAnalysisResult {
   };
   claims: string[];
   errorDetails?: string;
+  isUsable?: boolean;
+  qualityScore?: number;
+  extractionLimitation?: string;
 }
 
 export interface Attachment {
@@ -205,6 +208,8 @@ export interface IndexedSource {
   contentOrigin?: 'search_metadata' | 'search_snippet' | 'fetched_page';
   inspectionStatus?: 'not_inspected' | 'inspected' | 'unavailable';
   isCited?: boolean;
+  extractionLimitation?: string;
+  qualityScore?: number;
 }
 
 export interface RetrievalStats {
@@ -215,6 +220,10 @@ export interface RetrievalStats {
   pagesInspected: number;
   pagesUnavailable: number;
   citedSourceIds: number[];
+  pagesAttempted?: number;
+  pagesSuccessful?: number;
+  pagesUsable?: number;
+  pagesFailed?: number;
 }
 
 export interface InvestigationVerdicts {

@@ -22,7 +22,8 @@ import { generateSmartTitle } from '@/lib/investigation/naming';
 import { getAssessment } from '@/lib/investigation/assessment';
 import { buildAnswerEvidenceSet, getAnswerEvidenceSet, resolveCitation } from '@/lib/investigation/evidenceIsolation';
 import { processingFailureMessage, resolveResponseLanguage } from '@/lib/investigation/localization';
-import { buildLegacyConversation, findLocalLegacyCase, parseLegacyCaseReference, type LegacyInvestigationPayload } from '@/lib/investigation/legacyCase';
+import { ShieldIcon } from './icons';
+import { buildLegacyConversation, findLocalLegacyCase, parseLegacyCaseReference, getLegacyLinkNotice, type LegacyInvestigationPayload, type LegacyCaseErrorType } from '@/lib/investigation/legacyCase';
 
 function normalizeInvestigationMeta(value: unknown): InvestigationMeta {
   const candidate = value as InvestigationMeta;
@@ -96,6 +97,13 @@ export const InvestigationWorkspace: React.FC = () => {
   const [renamingConversation, setRenamingConversation] = useState<Conversation | null>(null);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [legacyCaseNotice, setLegacyCaseNotice] = useState<{
+    type: LegacyCaseErrorType;
+    caseRef: string;
+    title: string;
+    description: string;
+  } | null>(null);
+  const [isResolvingLegacyCase, setIsResolvingLegacyCase] = useState(false);
 
   const handleExportHistory = () => {
     if (conversations.length === 0) {
@@ -283,40 +291,93 @@ export const InvestigationWorkspace: React.FC = () => {
     setTimeout(() => setToastMsg(null), 3000);
   };
 
+  const handleStartNewInvestigation = () => {
+    if (typeof window !== 'undefined' && window.location.search.includes('case=')) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('case');
+      window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+    }
+    setLegacyCaseNotice(null);
+    setIsResolvingLegacyCase(false);
+    activeIdRef.current = null;
+    setActiveId(null);
+    setEvidenceSelection(null);
+    setMissingEvidenceMessage(null);
+    setHighlightCitation(null);
+  };
+
   useEffect(() => {
     if (legacyCaseHandledRef.current) return;
     legacyCaseHandledRef.current = true;
-    const reference = parseLegacyCaseReference(new URLSearchParams(window.location.search).get('case'));
+
+    const urlParams = new URLSearchParams(window.location.search);
+    if (!urlParams.has('case')) return;
+
+    const rawCase = urlParams.get('case');
+    const reference = parseLegacyCaseReference(rawCase);
     if (!reference) return;
+
     if (reference.kind === 'invalid') {
-      showToast('This case link is invalid or unsupported.');
-      return;
-    }
-    if (reference.kind === 'local') {
-      const localCase = findLocalLegacyCase(conversations, reference.value);
-      if (localCase) setActiveId(localCase.id);
-      else showToast('This case is unavailable on this device.');
+      const notice = getLegacyLinkNotice(reference.reason, reference.value);
+      setLegacyCaseNotice({
+        type: reference.reason,
+        caseRef: reference.value,
+        title: notice.title,
+        description: notice.description,
+      });
       return;
     }
 
-    const deviceId = localStorage.getItem('dam-device-id');
+    // 1. First check local workstation storage
+    const localCase = findLocalLegacyCase(conversations, reference.value);
+    if (localCase) {
+      activeIdRef.current = localCase.id;
+      setActiveId(localCase.id);
+      setLegacyCaseNotice(null);
+      return;
+    }
+
+    // 2. Query authorized API path for existing investigations
+    setIsResolvingLegacyCase(true);
+    const deviceId = typeof localStorage !== 'undefined' ? localStorage.getItem('dam-device-id') : null;
     fetch(`/api/v1/investigations/${encodeURIComponent(reference.value)}`, {
       cache: 'no-store',
       headers: deviceId ? { 'X-Client-Device-Id': deviceId, 'X-Client-Source': 'webapp' } : undefined,
-    }).then(async response => {
-      if (response.status === 403) throw new Error('unauthorized');
-      if (response.status === 404) throw new Error('unavailable');
-      if (!response.ok) throw new Error('unsupported');
-      return response.json() as Promise<LegacyInvestigationPayload>;
-    }).then(payload => {
-      const conversation = buildLegacyConversation(payload);
-      setConversations(current => current.some(item => item.id === conversation.id) ? current : [conversation, ...current]);
-      setActiveId(conversation.id);
-    }).catch(error => {
-      if (error instanceof Error && error.message === 'unauthorized') showToast('You do not have access to this investigation.');
-      else if (error instanceof Error && error.message === 'unavailable') showToast('This case is unavailable or no longer exists.');
-      else showToast('This legacy case link is not supported.');
-    });
+    })
+      .then(async response => {
+        if (response.status === 403 || response.status === 404) {
+          // Both 403 (unauthorized access to private investigation) and 404 (not found)
+          // present as unavailable to avoid exposing whether another user's private investigation exists.
+          throw new Error('unavailable');
+        }
+        if (!response.ok) {
+          throw new Error('unsupported');
+        }
+        return response.json() as Promise<LegacyInvestigationPayload>;
+      })
+      .then(payload => {
+        const conversation = buildLegacyConversation(payload);
+        setConversations(current =>
+          current.some(item => item.id === conversation.id) ? current : [conversation, ...current]
+        );
+        activeIdRef.current = conversation.id;
+        setActiveId(conversation.id);
+        setLegacyCaseNotice(null);
+      })
+      .catch(error => {
+        const errorType: LegacyCaseErrorType =
+          error instanceof Error && error.message === 'unavailable' ? 'unavailable' : 'unsupported';
+        const notice = getLegacyLinkNotice(errorType, reference.value);
+        setLegacyCaseNotice({
+          type: errorType,
+          caseRef: reference.value,
+          title: notice.title,
+          description: notice.description,
+        });
+      })
+      .finally(() => {
+        setIsResolvingLegacyCase(false);
+      });
   }, [conversations]);
 
   const hasQuery = Boolean(activeConversation && activeConversation.turns.length > 0);
@@ -383,8 +444,7 @@ export const InvestigationWorkspace: React.FC = () => {
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        activeIdRef.current = null;
-        setActiveId(null);
+        handleStartNewInvestigation();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -394,6 +454,13 @@ export const InvestigationWorkspace: React.FC = () => {
   const handleSendInvestigation = async (promptOverride?: string) => {
     const promptToSend = (promptOverride || input).trim();
     if (!promptToSend && attachments.length === 0) return;
+    if (typeof window !== 'undefined' && window.location.search.includes('case=')) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('case');
+      window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+    }
+    setLegacyCaseNotice(null);
+    setIsResolvingLegacyCase(false);
     const responseLanguage = resolveResponseLanguage(activeLang, promptToSend);
 
     const nowIso = new Date().toISOString();
@@ -752,19 +819,20 @@ export const InvestigationWorkspace: React.FC = () => {
         folders={folders}
         activeId={activeId}
         onSelectConversation={id => {
+          if (typeof window !== 'undefined' && window.location.search.includes('case=')) {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('case');
+            window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+          }
+          setLegacyCaseNotice(null);
+          setIsResolvingLegacyCase(false);
           activeIdRef.current = id;
           setActiveId(id);
           setEvidenceSelection(null);
           setMissingEvidenceMessage(null);
           setHighlightCitation(null);
         }}
-        onNewConversation={() => {
-          activeIdRef.current = null;
-          setActiveId(null);
-          setEvidenceSelection(null);
-          setMissingEvidenceMessage(null);
-          setHighlightCitation(null);
-        }}
+        onNewConversation={handleStartNewInvestigation}
         onRenameConversation={conv => setRenamingConversation(conv)}
         onDeleteConversation={id => {
           const filtered = conversations.filter(c => c.id !== id);
@@ -804,10 +872,10 @@ export const InvestigationWorkspace: React.FC = () => {
 
       <main className="main-area" id="mainArea">
         <Topbar
-          title={activeConversation ? activeConversation.title : 'New investigation'}
+          title={legacyCaseNotice ? legacyCaseNotice.title : activeConversation ? activeConversation.title : 'New investigation'}
           caseId={activeConversation?.caseId}
           isLive={isStreaming}
-          hasQuery={hasQuery}
+          hasQuery={hasQuery && !legacyCaseNotice}
           onOpenMethodology={() => setMethodologyModalOpen(true)}
           onOpenSettings={() => setSettingsModalOpen(true)}
           onToggleEvidence={() => evidencePanelOpen ? setEvidencePanelOpen(false) : openLatestEvidence()}
@@ -834,9 +902,51 @@ export const InvestigationWorkspace: React.FC = () => {
             onScroll={handleScroll}
           >
             <div className="workspace-content-inner">
-              {!activeConversation ? (
+              {isResolvingLegacyCase ? (
+                <div className="legacy-case-notice-card" id="legacyCaseLoading">
+                  <div className="legacy-case-spinner-ring" />
+                  <strong className="legacy-case-loading-title">Resolving investigation...</strong>
+                  <p className="legacy-case-loading-sub">
+                    Accessing authorized investigation records for this case reference.
+                  </p>
+                </div>
+              ) : legacyCaseNotice ? (
+                <div className="legacy-case-notice-card" id="legacyCaseNotice">
+                  <div className="legacy-case-icon-badge" data-notice-type={legacyCaseNotice.type}>
+                    <ShieldIcon className="w-8 h-8" />
+                  </div>
+                  <div className="legacy-case-badge-pill" data-notice-type={legacyCaseNotice.type}>
+                    {legacyCaseNotice.type.toUpperCase()}
+                  </div>
+                  <h2 className="legacy-case-title">{legacyCaseNotice.title}</h2>
+                  <p className="legacy-case-desc">{legacyCaseNotice.description}</p>
+                  {legacyCaseNotice.caseRef && (
+                    <div className="legacy-case-ref-row">
+                      <span className="legacy-case-ref-label">Reference ID:</span>
+                      <code className="legacy-case-code">
+                        {legacyCaseNotice.caseRef.length > 50
+                          ? `${legacyCaseNotice.caseRef.slice(0, 50)}…`
+                          : legacyCaseNotice.caseRef}
+                      </code>
+                    </div>
+                  )}
+                  <div className="legacy-case-actions">
+                    <button
+                      type="button"
+                      className="legacy-case-btn"
+                      onClick={handleStartNewInvestigation}
+                      id="startNewInvestigationBtn"
+                    >
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M12 5v14M5 12h14" />
+                      </svg>
+                      <span>Start new investigation</span>
+                    </button>
+                  </div>
+                </div>
+              ) : !activeConversation ? (
                 <LandingBlock
-                  onSelectPrompt={p => { setInput(p); handleSendInvestigation(p); }}
+                  onSelectPrompt={p => { handleStartNewInvestigation(); setInput(p); handleSendInvestigation(p); }}
                 />
               ) : (
                 <ConversationFeed

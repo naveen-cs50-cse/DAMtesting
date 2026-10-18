@@ -2,7 +2,7 @@ import { IndexedSource, RetrievalStats, UrlAnalysisResult } from './types';
 import { REGULATORY_FIXTURES } from './knowledge';
 import { getSourceAuthority, getVerifiedPublisherType } from './knowledge';
 import { calculateSourceRecency, calculateSourceRelevance } from './verdictEngine';
-import { ingestUrlSecurely } from './urlIngestion';
+import { ingestUrlSecurely, cleanArticleText, evaluateExtractionQuality } from './urlIngestion';
 
 interface TavilySearchResult {
   url: string;
@@ -98,17 +98,47 @@ function deduplicateReposts(prompt: string, sources: IndexedSource[]): IndexedSo
   return [...byUrl.values()];
 }
 
-function bestPassage(prompt: string, text: string): string {
-  const blocks = text.split(/(?<=[.!?])\s+|\n+/).map(part => part.trim()).filter(part => part.length >= 35);
-  if (blocks.length === 0) return text.trim().slice(0, 1200);
-  return blocks
-    .map(part => ({ part, score: calculateSourceRelevance(prompt, { title: '', passage: part, domain: '' }) }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 3)
-    .map(item => item.part)
-    .join(' ')
-    .slice(0, 1600);
+export function selectReadablePassage(prompt: string, text: string): string {
+  const clean = cleanArticleText(text);
+  if (!clean) return '';
+
+  const blocks = clean
+    .split(/(?<!\b[A-Za-z]\.|\b[A-Z][a-z]{1,2}\.|\b[A-Z]\.[A-Z]\.)(?<=[.!?\u0964])\s+|\n+/)
+    .map(part => part.trim())
+    .filter(part => part.length >= 25);
+
+  if (blocks.length === 0) return clean.slice(0, 500).trim();
+
+  const scoredBlocks = blocks.map((block, index) => ({
+    block,
+    index,
+    relevance: calculateSourceRelevance(prompt, { title: '', passage: block, domain: '' }),
+  }));
+
+  const topCandidates = [...scoredBlocks]
+    .sort((a, b) => b.relevance - a.relevance)
+    .slice(0, 3);
+
+  // Preserve natural document sequence of candidate blocks
+  topCandidates.sort((a, b) => a.index - b.index);
+
+  const combined = topCandidates.map(c => c.block).join(' ').trim();
+  if (combined.length <= 600) {
+    return combined;
+  }
+
+  const truncated = combined.slice(0, 600);
+  const lastBoundary = Math.max(
+    truncated.lastIndexOf('. '),
+    truncated.lastIndexOf('। '),
+    truncated.lastIndexOf('? '),
+    truncated.lastIndexOf('! '),
+    truncated.lastIndexOf(' ')
+  );
+  return (lastBoundary > 250 ? truncated.slice(0, lastBoundary + 1) : truncated).trim();
 }
+
+export const bestPassage = selectReadablePassage;
 
 async function defaultSearch(query: string, apiKey: string): Promise<TavilySearchResult[]> {
   const controller = new AbortController();
@@ -128,13 +158,20 @@ async function defaultSearch(query: string, apiKey: string): Promise<TavilySearc
   }
 }
 
+interface ExtractionOutcome {
+  source: IndexedSource;
+  attempted: boolean;
+  successful: boolean;
+  usable: boolean;
+}
+
 async function extractWithRetry(
   prompt: string,
   source: IndexedSource,
   extract: NonNullable<RetrievalDependencies['extract']>,
   timeoutMs: number,
   retries: number,
-): Promise<IndexedSource> {
+): Promise<ExtractionOutcome> {
   let lastResult: UrlAnalysisResult | null = null;
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     try {
@@ -144,23 +181,61 @@ async function extractWithRetry(
       if (attempt < retries) continue;
       break;
     }
-    if (lastResult.status === 'success' && lastResult.extractedText.trim()) {
-      const finalDomain = hostname(lastResult.finalUrl);
+    if (lastResult.status === 'success') {
+      const quality = evaluateExtractionQuality(lastResult.extractedText, lastResult.title);
+      if (quality.isUsable) {
+        const finalDomain = hostname(lastResult.finalUrl);
+        const passage = selectReadablePassage(prompt, quality.cleanText);
+        if (passage && passage.length >= 20) {
+          return {
+            source: {
+              ...source,
+              domain: finalDomain,
+              title: lastResult.title || source.title,
+              date: lastResult.publishedDate || source.date,
+              type: sourceType(finalDomain),
+              url: canonicalSourceUrl(lastResult.canonicalUrl || lastResult.finalUrl),
+              passage,
+              contentOrigin: 'fetched_page',
+              inspectionStatus: 'inspected',
+              qualityScore: quality.qualityScore,
+            },
+            attempted: true,
+            successful: true,
+            usable: true,
+          };
+        }
+      }
+
+      // Fetch succeeded (HTTP 200), but extracted page is unusable or boilerplate
+      const limitation = quality.reason || 'Extracted page content was unusable or boilerplate';
       return {
-        ...source,
-        domain: finalDomain,
-        title: lastResult.title || source.title,
-        date: lastResult.publishedDate || source.date,
-        type: sourceType(finalDomain),
-        url: canonicalSourceUrl(lastResult.canonicalUrl || lastResult.finalUrl),
-        passage: bestPassage(prompt, lastResult.extractedText),
-        contentOrigin: 'fetched_page',
-        inspectionStatus: 'inspected',
+        source: {
+          ...source,
+          contentOrigin: source.passage ? 'search_snippet' : 'search_metadata',
+          inspectionStatus: 'unavailable',
+          extractionLimitation: `Extracted page unusable (${limitation}); retained search snippet.`,
+        },
+        attempted: true,
+        successful: true,
+        usable: false,
       };
     }
     if (lastResult.status !== 'timeout' && lastResult.status !== 'error') break;
   }
-  return { ...source, inspectionStatus: 'unavailable' };
+
+  // Fetch failed (timeout, network error, blocked)
+  return {
+    source: {
+      ...source,
+      contentOrigin: source.passage ? 'search_snippet' : 'search_metadata',
+      inspectionStatus: 'unavailable',
+      extractionLimitation: lastResult?.errorDetails || 'Connection or fetch failure',
+    },
+    attempted: true,
+    successful: false,
+    usable: false,
+  };
 }
 
 export async function searchAndReadSources(
@@ -172,6 +247,10 @@ export async function searchAndReadSources(
   let sources: IndexedSource[] = [];
   let searchResultsFound = 0;
   let searchCompleted = false;
+  let pagesAttempted = 0;
+  let pagesSuccessful = 0;
+  let pagesUsable = 0;
+  let pagesFailed = 0;
   const lower = prompt.toLowerCase();
   const apiKey = tavilyKey || process.env.TAVILY_API_KEY;
 
@@ -185,6 +264,7 @@ export async function searchAndReadSources(
         .map((result, index): IndexedSource => {
           const url = canonicalSourceUrl(result.url);
           const domain = hostname(url);
+          const cleanedSnippet = cleanArticleText(result.content?.trim() || '');
           return {
             id: index + 1,
             domain,
@@ -192,10 +272,10 @@ export async function searchAndReadSources(
             date: result.published_date || 'Date not provided',
             type: sourceType(domain),
             url,
-            passage: result.content?.trim() || '',
+            passage: cleanedSnippet,
             stance: 'context',
             isFixture: false,
-            contentOrigin: result.content?.trim() ? 'search_snippet' : 'search_metadata',
+            contentOrigin: cleanedSnippet ? 'search_snippet' : 'search_metadata',
             inspectionStatus: 'not_inspected',
             isCited: false,
           };
@@ -214,10 +294,18 @@ export async function searchAndReadSources(
       }));
       const ranked = rankEvidenceForClaim(prompt, sources);
       const selectedUrls = new Set(ranked.slice(0, maxPages).map(source => source.url));
-      sources = await Promise.all(ranked.map(source => selectedUrls.has(source.url)
+
+      const extractionResults = await Promise.all(ranked.map(source => selectedUrls.has(source.url)
         ? extractWithRetry(prompt, source, extract, timeoutMs, retries)
-        : Promise.resolve(source)));
+        : Promise.resolve({ source, attempted: false, successful: false, usable: false })));
+
+      sources = extractionResults.map(r => r.source);
       sources = deduplicateReposts(prompt, rankEvidenceForClaim(prompt, sources));
+
+      pagesAttempted = extractionResults.filter(r => r.attempted).length;
+      pagesSuccessful = extractionResults.filter(r => r.attempted && r.successful).length;
+      pagesUsable = extractionResults.filter(r => r.attempted && r.usable).length;
+      pagesFailed = extractionResults.filter(r => r.attempted && !r.usable).length;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.warn('Tavily search warning:', msg);
@@ -376,6 +464,9 @@ export async function searchAndReadSources(
   }
 
   const normalizedSources = rankEvidenceForClaim(prompt, sources).map((source, index) => ({ ...source, id: index + 1 }));
+  const inspectedCount = normalizedSources.filter(source => !source.isFixture && source.inspectionStatus === 'inspected').length;
+  const unavailableCount = normalizedSources.filter(source => !source.isFixture && source.inspectionStatus === 'unavailable').length;
+
   return {
     sources: normalizedSources,
     stats: {
@@ -383,8 +474,12 @@ export async function searchAndReadSources(
       searchCompleted,
       searchResultsFound,
       snippetsAvailable: normalizedSources.filter(source => !source.isFixture && source.contentOrigin === 'search_snippet').length,
-      pagesInspected: normalizedSources.filter(source => !source.isFixture && source.inspectionStatus === 'inspected').length,
-      pagesUnavailable: normalizedSources.filter(source => !source.isFixture && source.inspectionStatus === 'unavailable').length,
+      pagesInspected: inspectedCount,
+      pagesUnavailable: unavailableCount,
+      pagesAttempted: pagesAttempted > 0 ? pagesAttempted : inspectedCount + unavailableCount,
+      pagesSuccessful: pagesSuccessful > 0 ? pagesSuccessful : inspectedCount,
+      pagesUsable: pagesUsable > 0 ? pagesUsable : inspectedCount,
+      pagesFailed: pagesFailed > 0 ? pagesFailed : unavailableCount,
       citedSourceIds: [],
     },
   };

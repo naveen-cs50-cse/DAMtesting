@@ -322,4 +322,272 @@ describe('Evidence-Driven Verdict Engine', () => {
       assert.ok(impact.explanation.includes('Primary authority'));
     });
   });
+
+  describe('8. Contextual Evidence Interpretation & Stance Classification (Regression)', () => {
+    it('should determine Supported for Canberra as Australia’s capital with supporting passage', () => {
+      const claim = 'Canberra is the capital of Australia';
+      const sources: IndexedSource[] = [
+        {
+          id: 1,
+          domain: 'nca.gov.au',
+          title: 'National Capital Authority - Canberra',
+          date: '2026',
+          type: 'Government',
+          url: 'https://www.nca.gov.au/planning/canberra-plan',
+          passage: 'Canberra is the capital of Australia. The site for the national capital was selected as a compromise between Sydney and Melbourne, not in either of those state capitals.',
+          stance: 'context' // dynamic classification
+        }
+      ];
+
+      const result = executeVerdictEngine({
+        prompt: claim,
+        taskType: 'verification',
+        sources
+      });
+
+      assert.equal(result.evaluatedSources[0].stance, 'supports');
+      assert.equal(result.verdicts.factualCorrectness, 'Supported');
+      assert.equal(result.verdicts.verdictStatus, 'right');
+      assert.ok(result.explanation.factualRationale.includes('supports the assertion'));
+    });
+
+    it('should determine Contradicted for Sydney as Australia’s capital when evidence explains Canberra is the capital and Sydney is state capital', () => {
+      const claim = 'Sydney is the capital of Australia';
+      const sources: IndexedSource[] = [
+        {
+          id: 1,
+          domain: 'australia.gov.au',
+          title: "About Australia's Government and Capital",
+          date: '2026',
+          type: 'Government',
+          url: 'https://www.australia.gov.au/about-government/capital',
+          passage: 'Canberra is the capital city of Australia, serving as the seat of government since 1927.',
+          stance: 'context' // dynamic classification
+        },
+        {
+          id: 2,
+          domain: 'cityofsydney.nsw.gov.au',
+          title: 'City of Sydney Overview',
+          date: '2026',
+          type: 'Government',
+          url: 'https://www.cityofsydney.nsw.gov.au/about-sydney',
+          passage: "Sydney is the capital of New South Wales, and Australia's most populous city.",
+          stance: 'context' // dynamic classification
+        }
+      ];
+
+      const result = executeVerdictEngine({
+        prompt: claim,
+        taskType: 'verification',
+        sources
+      });
+
+      // Source 1 asserts Canberra is Australia's capital -> refutes Sydney being national capital
+      assert.equal(result.evaluatedSources[0].stance, 'contradicts');
+      // Source 2 asserts Sydney is capital of NSW -> state scope, NOT supporting Australia's national capital
+      assert.equal(result.evaluatedSources[1].stance, 'context');
+      // Decisively Contradicted, NOT Mixed!
+      assert.equal(result.verdicts.factualCorrectness, 'Contradicted');
+      assert.equal(result.verdicts.verdictStatus, 'false');
+      assert.ok(result.explanation.factualRationale.includes('directly contradicts'));
+    });
+
+    it('should determine Supported for Sydney as New South Wales’s capital with supporting passage', () => {
+      const claim = 'Sydney is the capital of New South Wales';
+      const sources: IndexedSource[] = [
+        {
+          id: 1,
+          domain: 'nsw.gov.au',
+          title: 'About New South Wales',
+          date: '2026',
+          type: 'Government',
+          url: 'https://www.nsw.gov.au/about-nsw',
+          passage: 'Sydney is the capital city of the state of New South Wales, Australia.',
+          stance: 'context' // dynamic classification
+        }
+      ];
+
+      const result = executeVerdictEngine({
+        prompt: claim,
+        taskType: 'verification',
+        sources
+      });
+
+      assert.equal(result.evaluatedSources[0].stance, 'supports');
+      assert.equal(result.verdicts.factualCorrectness, 'Supported');
+      assert.equal(result.verdicts.verdictStatus, 'right');
+    });
+
+    it('should NOT treat a question repeating a false claim as automatic support', () => {
+      const claim = 'Sydney is the capital of Australia';
+      const sources: IndexedSource[] = [
+        {
+          id: 1,
+          domain: 'travel-faq.example.org',
+          title: 'Frequently Asked Questions: Australia',
+          date: '2026',
+          type: 'News',
+          url: 'https://travel-faq.example.org/australia',
+          passage: "Is Sydney the capital of Australia? Many tourists ask this question about Australia's most famous city.",
+          stance: 'context' // dynamic classification
+        }
+      ];
+
+      const result = executeVerdictEngine({
+        prompt: claim,
+        taskType: 'verification',
+        sources
+      });
+
+      // A question must not be interpreted as an endorsement or declarative support
+      assert.equal(result.evaluatedSources[0].stance, 'context');
+      assert.notEqual(result.verdicts.factualCorrectness, 'Supported');
+      assert.equal(result.verdicts.factualCorrectness, 'Unverified');
+      assert.equal(result.verdicts.verdictStatus, 'unverified');
+    });
+
+    it('should correctly interpret a passage correcting a misconception', () => {
+      const misconceptionPassage = 'A common misconception is that Sydney is the capital of Australia. In fact, Canberra is the capital of Australia.';
+
+      // Evaluation A: against the false misconception (Sydney)
+      const resultSydney = executeVerdictEngine({
+        prompt: 'Sydney is the capital of Australia',
+        taskType: 'verification',
+        sources: [
+          {
+            id: 1,
+            domain: 'australia.gov.au',
+            title: 'Common Geographical Misconceptions',
+            date: '2026',
+            type: 'Government',
+            url: 'https://australia.gov.au/about-australia/misconceptions',
+            passage: misconceptionPassage,
+            stance: 'context'
+          }
+        ]
+      });
+      assert.equal(resultSydney.evaluatedSources[0].stance, 'contradicts');
+      assert.equal(resultSydney.verdicts.factualCorrectness, 'Contradicted');
+      assert.equal(resultSydney.verdicts.verdictStatus, 'false');
+
+      // Evaluation B: against the true correction (Canberra)
+      const resultCanberra = executeVerdictEngine({
+        prompt: 'Canberra is the capital of Australia',
+        taskType: 'verification',
+        sources: [
+          {
+            id: 1,
+            domain: 'australia.gov.au',
+            title: 'Common Geographical Misconceptions',
+            date: '2026',
+            type: 'Government',
+            url: 'https://australia.gov.au/about-australia/misconceptions',
+            passage: misconceptionPassage,
+            stance: 'context'
+          }
+        ]
+      });
+      assert.equal(resultCanberra.evaluatedSources[0].stance, 'supports');
+      assert.equal(resultCanberra.verdicts.factualCorrectness, 'Supported');
+      assert.equal(resultCanberra.verdicts.verdictStatus, 'right');
+    });
+
+    it('should determine Mixed only when credible, authoritative evidence genuinely conflicts', () => {
+      const claim = 'Regional electricity regulatory authority rooftop solar net metering tariff reduction mandatory';
+      const sources: IndexedSource[] = [
+        {
+          id: 1,
+          domain: 'kserc.org.in',
+          title: 'State Electricity Regulatory Commission Solar Net Metering Tariff Revision Order',
+          date: 'Sep 2026',
+          type: 'Registry',
+          url: 'https://kserc.org.in/orders/solar',
+          passage: 'Commission officially approves reduced net metering tariff rates for all grid-connected rooftop solar installations.',
+          stance: 'supports'
+        },
+        {
+          id: 2,
+          domain: 'tnerc.gov.in',
+          title: 'State Commission Clarification: No Reduction in Solar Net Metering Tariffs',
+          date: 'Aug 2026',
+          type: 'Government',
+          url: 'https://tnerc.gov.in/press/solar-clarification',
+          passage: 'Commission refutes reports of tariff cuts: full net metering compensation continues without reduction under existing state consumer protection regulations.',
+          stance: 'contradicts'
+        }
+      ];
+
+      const result = executeVerdictEngine({
+        prompt: claim,
+        taskType: 'verification',
+        sources
+      });
+
+      // Both sources are high-authority regulatory bodies with opposing positions
+      assert.equal(result.verdicts.factualCorrectness, 'Mixed');
+      assert.equal(result.verdicts.verdictStatus, 'unverified');
+      assert.ok(result.explanation.factualRationale.includes('conflict'));
+    });
+
+    it('should not let weak or unverified social sources override direct authoritative evidence into Mixed', () => {
+      const claim = 'Official currency notes denomination withdrawal notice issued';
+      const sources: IndexedSource[] = [
+        {
+          id: 1,
+          domain: 'rbi.org.in',
+          title: 'RBI Official Clarification: Banknotes Continue as Valid Legal Tender',
+          date: '2026',
+          type: 'Government', // authority weight 1.0
+          url: 'https://rbi.org.in/press/clarification',
+          passage: 'The Reserve Bank of India clarifies that banknotes remain legal tender. Reports of withdrawal are completely unfounded fake rumors.',
+          stance: 'contradicts'
+        },
+        {
+          id: 2,
+          domain: 'random-social-blog.example.xyz',
+          title: 'Viral chatter',
+          date: '2026',
+          type: 'News', // low authority tier
+          url: 'https://random-social-blog.example.xyz/post/1',
+          passage: 'Viral posts claim a directive was issued for withdrawal.',
+          stance: 'supports'
+        }
+      ];
+
+      const result = executeVerdictEngine({
+        prompt: claim,
+        taskType: 'verification',
+        sources
+      });
+
+      // Direct authoritative evidence from RBI (1.0) must not be diluted into Mixed by a weak blog
+      assert.equal(result.verdicts.factualCorrectness, 'Contradicted');
+      assert.equal(result.verdicts.verdictStatus, 'false');
+    });
+
+    it('should correctly evaluate generic entity-relation claims without hardcoded rules', () => {
+      // Testing generic entity / country: e.g. Washington / USA / New York
+      const resultUSA = executeVerdictEngine({
+        prompt: 'New York is the capital of the United States',
+        taskType: 'verification',
+        sources: [
+          {
+            id: 1,
+            domain: 'loc.gov',
+            title: 'Library of Congress: United States Capital History',
+            date: '2026',
+            type: 'Government',
+            url: 'https://www.loc.gov/capitol',
+            passage: 'Washington, D.C. is the capital of the United States, serving as the permanent seat of the federal government since 1800.',
+            stance: 'context'
+          }
+        ]
+      });
+
+      assert.equal(resultUSA.evaluatedSources[0].stance, 'contradicts');
+      assert.equal(resultUSA.verdicts.factualCorrectness, 'Contradicted');
+      assert.equal(resultUSA.verdicts.verdictStatus, 'false');
+    });
+  });
 });
+

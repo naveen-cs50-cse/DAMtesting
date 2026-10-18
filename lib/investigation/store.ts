@@ -251,9 +251,17 @@ function dispatchBackgroundProcessing(
 
 /**
  * Retrieves an investigation from the store.
+ * Supports lookup by investigation ID (inv_...) or case ID (DAM-2026-...).
  */
 export function getInvestigation(id: string): InvestigationRecord | null {
-  return INVESTIGATIONS_MAP.get(id) || null;
+  const direct = INVESTIGATIONS_MAP.get(id);
+  if (direct) return direct;
+  for (const record of INVESTIGATIONS_MAP.values()) {
+    if (record.caseId === id || record.caseId.toLowerCase() === id.toLowerCase()) {
+      return record;
+    }
+  }
+  return null;
 }
 
 /**

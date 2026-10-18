@@ -1,5 +1,6 @@
 import { Attachment, TaskType } from './types';
 import { extractClaimedCompany, extractEmailDomains, isJobOfferContent } from './jobOffer';
+import { buildMultilingualQueries, separateClaimAndInstructions } from './multilingual';
 
 export interface PlanResult {
   taskType: TaskType;
@@ -169,10 +170,8 @@ export function coordinateInvestigation(
     queries.push('income tax refund phishing warning site:incometax.gov.in OR site:cybercrime.gov.in');
   } else {
     const rawSubject = prompt.trim() || extractedPieces.slice(0, 70);
-    const coreClaim = rawSubject
-      .replace(/^(fact-check whether|fact check whether|fact-check if|fact check if|fact-check|fact check|verify whether|verify if|verify|is it true that|is it true|check if|please check|explain the historical context and main demands of|explain the|explain)\s+/i, '')
-      .replace(/[?!.]/g, '')
-      .trim();
+    const separated = separateClaimAndInstructions(rawSubject);
+    const coreClaim = separated.factualClaim;
 
     const isGlobalTopic = !lower.includes('india') && !lower.includes('rbi') && !lower.includes('pib') && (
       lower.includes('paris') || lower.includes('texas') || lower.includes('united states') ||
@@ -182,7 +181,11 @@ export function coordinateInvestigation(
     );
 
     if (coreClaim) {
-      if (isGlobalTopic) {
+      const multilingual = buildMultilingualQueries(coreClaim);
+      if (multilingual.authoritativeQuery) {
+        queries.push(multilingual.nativeQuery.slice(0, 75));
+        queries.push(multilingual.authoritativeQuery.slice(0, 75));
+      } else if (isGlobalTopic) {
         queries.push(`${coreClaim.slice(0, 75)}`);
         queries.push(`${coreClaim.slice(0, 65)} fact check`);
       } else {
@@ -193,12 +196,12 @@ export function coordinateInvestigation(
   }
 
   if (queries.length === 0 && prompt.trim()) {
-    queries.push(`${prompt.trim().slice(0, 70)} official fact check`);
+    const separatedFallback = separateClaimAndInstructions(prompt.trim());
+    queries.push(`${(separatedFallback.factualClaim || prompt.trim()).slice(0, 70)} official fact check`);
   }
 
-  const cleanAssertion = prompt
-    .replace(/^(fact-check whether|fact check whether|fact-check if|fact check if|verify whether|verify if|check if)\s+/i, '')
-    .trim();
+  const separatedPrompt = separateClaimAndInstructions(prompt);
+  const cleanAssertion = separatedPrompt.factualClaim || prompt.trim();
 
   const assertions = [
     cleanAssertion.slice(0, 110) || prompt.slice(0, 110) || extractedPieces.slice(0, 110)

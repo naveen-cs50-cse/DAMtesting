@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "npx tsx --test tests/verdictEngine.test.ts tests/documentAnalysis.test.ts tests/urlIngestion.test.ts tests/investigationUnits.test.ts tests/routeIntegration.test.ts tests/investigationE2E.test.ts tests/sharedInvestigationApi.test.ts tests/citationIntegrity.test.ts tests/initialAnswer.test.ts tests/messageHighlights.test.ts tests/jobOffer.test.ts tests/shareBriefing.test.ts tests/assessmentConsistency.test.ts tests/evidenceIsolation.test.ts tests/retrievalEvaluation.test.ts tests/languageConsistency.test.ts tests/integrationDestinations.test.ts tests/legacyCase.test.ts"
+    "test": "npx tsx --test tests/verdictEngine.test.ts tests/documentAnalysis.test.ts tests/urlIngestion.test.ts tests/investigationUnits.test.ts tests/routeIntegration.test.ts tests/investigationE2E.test.ts tests/sharedInvestigationApi.test.ts tests/citationIntegrity.test.ts tests/initialAnswer.test.ts tests/messageHighlights.test.ts tests/jobOffer.test.ts tests/shareBriefing.test.ts tests/assessmentConsistency.test.ts tests/evidenceIsolation.test.ts tests/retrievalEvaluation.test.ts tests/languageConsistency.test.ts tests/integrationDestinations.test.ts tests/legacyCase.test.ts tests/evidenceExtraction.test.ts tests/retrievalSummary.test.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.83",

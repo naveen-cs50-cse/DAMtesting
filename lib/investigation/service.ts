@@ -500,10 +500,15 @@ CRITICAL DIRECTIVES:
   // Precompute entities, forensics, manipulation, and statutory context
   const primaryDocAnalysis = attachments.find(a => a.documentAnalysis)?.documentAnalysis || null;
   const primaryUrlAnalysis = attachments.find(a => a.urlAnalysis)?.urlAnalysis || null;
+  const isPrimaryUsable = primaryUrlAnalysis?.status === 'success' && (primaryUrlAnalysis.isUsable ?? true);
   const initialRetrievalStats: RetrievalStats = {
     ...retrievalResult.stats,
-    pagesInspected: retrievalResult.stats.pagesInspected + (primaryUrlAnalysis?.status === 'success' ? 1 : 0),
-    pagesUnavailable: retrievalResult.stats.pagesUnavailable + (primaryUrlAnalysis && primaryUrlAnalysis.status !== 'success' ? 1 : 0),
+    pagesInspected: retrievalResult.stats.pagesInspected + (isPrimaryUsable ? 1 : 0),
+    pagesUnavailable: retrievalResult.stats.pagesUnavailable + (primaryUrlAnalysis && !isPrimaryUsable ? 1 : 0),
+    pagesAttempted: (retrievalResult.stats.pagesAttempted ?? retrievalResult.stats.pagesInspected) + (primaryUrlAnalysis ? 1 : 0),
+    pagesSuccessful: (retrievalResult.stats.pagesSuccessful ?? retrievalResult.stats.pagesInspected) + (primaryUrlAnalysis?.status === 'success' ? 1 : 0),
+    pagesUsable: (retrievalResult.stats.pagesUsable ?? retrievalResult.stats.pagesInspected) + (isPrimaryUsable ? 1 : 0),
+    pagesFailed: (retrievalResult.stats.pagesFailed ?? retrievalResult.stats.pagesUnavailable) + (primaryUrlAnalysis && !isPrimaryUsable ? 1 : 0),
   };
 
   const extractedTextFromAttachments = attachments
@@ -637,7 +642,7 @@ CRITICAL DIRECTIVES:
   // Render every visible conclusion from the validated assessment. Free-text model
   // output is deliberately not used here because section-shape validation cannot
   // prove that a generated conclusion agrees with the structured result.
-  const answerMarkdown = buildInitialAnswer({ assessment: displayAssessment, sources: displaySources, jobOfferAnalysis, language: responseLanguage });
+  const answerMarkdown = buildInitialAnswer({ assessment: displayAssessment, sources: displaySources, jobOfferAnalysis, language: responseLanguage, prompt });
   const chunkSize = 16;
   for (let i = 0; i < answerMarkdown.length; i += chunkSize) {
     emitToken(answerMarkdown.slice(i, i + chunkSize));

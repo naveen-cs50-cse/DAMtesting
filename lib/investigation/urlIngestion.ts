@@ -320,6 +320,180 @@ export function analyzeDomainRisk(domain: string): UrlAnalysisResult['domainRisk
 }
 
 /**
+ * Counts words accurately across languages and scripts (Latin, Devanagari, Tamil, etc.).
+ */
+export function countWords(text: string): number {
+  if (!text) return 0;
+  const matches = text.match(/[\p{L}\p{M}\p{N}]+(?:['’\-][\p{L}\p{M}\p{N}]+)*/gu);
+  return matches ? matches.length : 0;
+}
+
+/**
+ * Normalizes and cleans raw article text, removing Wikipedia templates, infobox parameters,
+ * footnotes, boilerplate, and leftover markup while preserving factual sentences, negation,
+ * dates, numbers, headings, and multilingual context.
+ */
+export function cleanArticleText(rawText: string): string {
+  if (!rawText) return '';
+
+  let text = decodeHtmlEntities(rawText);
+
+  // 1. Strip raw HTML references / citation tags that may have leaked
+  text = text
+    .replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, ' ')
+    .replace(/<ref[^>]*\/>/gi, ' ')
+    .replace(/&lt;ref.*?&gt;[\s\S]*?&lt;\/ref&gt;/gi, ' ')
+    .replace(/&lt;ref.*?\/&gt;/gi, ' ')
+    .replace(/<[^>]+>/g, ' ');
+
+  // 2. Iteratively strip MediaWiki templates e.g. {{cite web ...}}, {{rcb ...}}, {{coord...}}
+  for (let pass = 0; pass < 5; pass++) {
+    const prev = text;
+    text = text.replace(/\{\{(?:[^{}]|\{\{[^{}]*\}\})*\}\}/g, ' ');
+    if (text === prev) break;
+  }
+  // Clean truncated/unbalanced template delimiters at snippet edges
+  text = text.replace(/^[^{}]*\}\}/g, ' ').replace(/\{\{[^{}]*$/g, ' ');
+
+  // 3. Remove serialized infobox & wikitable markup
+  text = text
+    .replace(/\|\s*[\w\s_.-]+=\s*[^|\n}]+/g, ' ')
+    .replace(/\{\|[^\n]*/g, ' ')
+    .replace(/\|\}/g, ' ')
+    .replace(/^\|-.*$/gm, ' ')
+    .replace(/^!.*$/gm, ' ')
+    .replace(/^\s*\|.*$/gm, ' ');
+
+  // 4. Resolve wikilinks: [[File:...]] / [[Category:...]] -> removed; [[Target|Anchor]] -> Anchor; [[Target]] -> Target
+  text = text
+    .replace(/\[\[(?:File|Image|Category|Media):[^\]]+\]\]/gi, ' ')
+    .replace(/\[\[(?:[^|\]]+\|)?([^\]]+)\]\]/g, '$1');
+
+  // 5. Clean external link markdown [http... Anchor] -> Anchor; [http...] -> ''
+  text = text
+    .replace(/\[https?:\/\/[^\s\]]+\s+([^\]]+)\]/gi, '$1')
+    .replace(/\[https?:\/\/[^\s\]]+\]/gi, ' ');
+
+  // 6. Strip footnote / reference brackets like [1], [2], [edit], [citation needed]
+  text = text
+    .replace(/\[\s*\d+\s*\]/g, ' ')
+    .replace(/\[\s*(?:edit|citation needed|सम्पादन|தொகு)\s*\]/gi, ' ');
+
+  // 7. Strip common repetitive boilerplate lines
+  const boilerplateLinePatterns = [
+    /^(?:jump to (?:navigation|content|search)|from wikipedia, the free encyclopedia|navigation menu|personal tools|toggle the table of contents)\s*$/i,
+    /^(?:retrieved from ["'].*?["']|this page was last edited on .*?)\s*$/i,
+    /^(?:accept (?:all )?cookies|manage cookies|cookie (?:preferences|policy|settings)|we use cookies.*?)\s*$/i,
+    /^(?:see also|references|external links|further reading|notes)\s*$/i,
+    /^(?:विकिपीडिया, एक मुक्त ज्ञानकोष से|सामग्री पर जाएं|खोज पर जाएं)\s*$/i,
+  ];
+
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(line => {
+    if (!line) return false;
+    for (const pat of boilerplateLinePatterns) {
+      if (pat.test(line)) return false;
+    }
+    return true;
+  });
+
+  return lines.join('\n')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n\s*\n\s*\n+/g, '\n\n')
+    .trim();
+}
+
+export interface ExtractionQuality {
+  isUsable: boolean;
+  qualityScore: number;
+  wordCount: number;
+  reason?: string;
+  cleanText: string;
+}
+
+/**
+ * Evaluates the linguistic, prose, and content quality of extracted article text.
+ * Determines if text contains usable claim-relevant article content vs. unparsed templates or boilerplate.
+ */
+export function evaluateExtractionQuality(rawText: string, _title?: string): ExtractionQuality {
+  if (!rawText || !rawText.trim()) {
+    return {
+      isUsable: false,
+      qualityScore: 0,
+      wordCount: 0,
+      reason: 'Empty extracted text',
+      cleanText: '',
+    };
+  }
+
+  const cleanText = cleanArticleText(rawText);
+  const wordCount = countWords(cleanText);
+
+  // Check minimum viable length
+  if (wordCount < 8 || cleanText.length < 35) {
+    return {
+      isUsable: false,
+      qualityScore: 0.1,
+      wordCount,
+      reason: wordCount === 0 ? 'No readable prose after removing templates and metadata' : 'Insufficient readable text',
+      cleanText,
+    };
+  }
+
+  // Symbol / markup density check
+  const letterMatches = cleanText.match(/[\p{L}\p{M}\p{N}]/gu) || [];
+  const symbolMatches = cleanText.match(/[{}\[\]|\\<>=_$%^~`]/g) || [];
+  const letterCount = letterMatches.length;
+  const symbolCount = symbolMatches.length;
+
+  if (letterCount < 20 || (symbolCount / (letterCount + 1)) > 0.35) {
+    return {
+      isUsable: false,
+      qualityScore: 0.2,
+      wordCount,
+      reason: 'High density of unresolved template or serialized metadata',
+      cleanText,
+    };
+  }
+
+  // Boilerplate / error page check
+  const lower = cleanText.toLowerCase();
+  const boilerplateMatches = [
+    /\b(?:accept (?:all )?cookies|cookie (?:preferences|settings|policy)|privacy policy|terms of (?:service|use))\b/i,
+    /\b(?:please enable javascript|javascript is (?:disabled|required))\b/i,
+    /\b(?:404 (?:not found|page not found)|page not found|access denied|forbidden|403 forbidden)\b/i,
+    /\b(?:subscribe to read|sign in to continue|membership required)\b/i,
+  ];
+
+  let boilerplateHits = 0;
+  for (const pat of boilerplateMatches) {
+    if (pat.test(lower)) boilerplateHits++;
+  }
+
+  if (boilerplateHits >= 2 && wordCount < 40) {
+    return {
+      isUsable: false,
+      qualityScore: 0.15,
+      wordCount,
+      reason: 'Page contains only boilerplate or cookie notices',
+      cleanText,
+    };
+  }
+
+  const lengthScore = Math.min(0.5, (wordCount / 150) * 0.5);
+  const purityScore = Math.min(0.3, Math.max(0, (letterCount / (cleanText.length + 1)) * 0.3));
+  const hasPunctuation = /[.!?\u0964]/.test(cleanText) ? 0.2 : 0.05;
+
+  const qualityScore = parseFloat(Math.min(1.0, lengthScore + purityScore + hasPunctuation).toFixed(2));
+
+  return {
+    isUsable: qualityScore >= 0.35,
+    qualityScore,
+    wordCount,
+    cleanText,
+  };
+}
+
+/**
  * Extracts visible clean text, title, author, date, and links from raw HTML.
  */
 export function extractHtmlContent(html: string, baseUrl: string): {
@@ -331,6 +505,9 @@ export function extractHtmlContent(html: string, baseUrl: string): {
   wordCount: number;
   outgoingLinks: string[];
   downloadLinks: string[];
+  isUsable: boolean;
+  qualityScore: number;
+  extractionLimitation?: string;
 } {
   // Title extraction: <title>, <meta property="og:title">, <meta name="twitter:title">
   let title: string | undefined;
@@ -398,9 +575,10 @@ export function extractHtmlContent(html: string, baseUrl: string): {
     } catch {}
   }
 
-  // Strip non-visible elements from HTML for clean text extraction
+  // Strip non-content, navigation, Wikipedia templates, and reference containers from HTML
   let cleanHtml = html
     .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<head[\s\S]*?<\/head>/gi, ' ')
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')
     .replace(/<style[\s\S]*?<\/style>/gi, ' ')
     .replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
@@ -408,21 +586,29 @@ export function extractHtmlContent(html: string, baseUrl: string): {
     .replace(/<nav[\s\S]*?<\/nav>/gi, ' ')
     .replace(/<header[\s\S]*?<\/header>/gi, ' ')
     .replace(/<footer[\s\S]*?<\/footer>/gi, ' ')
-    .replace(/<aside[\s\S]*?<\/aside>/gi, ' ');
+    .replace(/<aside[\s\S]*?<\/aside>/gi, ' ')
+    // Wikipedia infoboxes, navboxes, ambox, and metadata tables
+    .replace(/<table[^>]*class=["'][^"']*\b(?:infobox|vcard|navbox|ambox|mbox|tmbox|ombox|cmbox|fmbox|metadata)\b[^"']*["'][\s\S]*?<\/table>/gi, ' ')
+    // Wikipedia and generic navigation, reference, and category containers
+    .replace(/<div[^>]*class=["'][^"']*\b(?:infobox|navbox|reflist|mw-references-wrap|catlinks|hatnote|mw-jump-link|toc|mw-editsection|sidebar|noprint|portal)\b[^"']*["'][\s\S]*?<\/div>/gi, ' ')
+    .replace(/<div[^>]*id=["'](?:mw-navigation|catlinks|toc|siteNotice|mw-panel|mw-head|mw-page-base|mw-head-base)["'][\s\S]*?<\/div>/gi, ' ')
+    .replace(/<ol[^>]*class=["'][^"']*\breferences\b[^"']*["'][\s\S]*?<\/ol>/gi, ' ')
+    .replace(/<span[^>]*class=["'][^"']*\b(?:mw-editsection|mw-cite-backlink|mw-jump-link)\b[^"']*["'][\s\S]*?<\/span>/gi, ' ')
+    .replace(/<sup[^>]*class=["'][^"']*\breference\b[^"']*["'][\s\S]*?<\/sup>/gi, ' ')
+    .replace(/<button[^>]*>[\s\S]*?<\/button>/gi, ' ')
+    .replace(/<form[^>]*>[\s\S]*?<\/form>/gi, ' ')
+    .replace(/<div[^>]*class=["'][^"']*\b(?:cookie-banner|cookie-notice|cookie-consent|privacy-notice|consent-banner)\b[^"']*["'][\s\S]*?<\/div>/gi, ' ')
+    .replace(/<div[^>]*id=["'](?:cookie-banner|cookie-notice|cookie-consent|privacy-notice|consent-banner)["'][\s\S]*?<\/div>/gi, ' ');
 
   // Convert block elements to newlines
   cleanHtml = cleanHtml
     .replace(/<(?:p|div|br|li|h1|h2|h3|h4|h5|h6|tr|blockquote)[^>]*>/gi, '\n')
     .replace(/<[^>]+>/g, ' ');
 
-  // Decode entities and collapse multiple spaces/newlines
-  const visibleText = decodeHtmlEntities(cleanHtml)
-    .replace(/[ \t]+/g, ' ')
-    .replace(/\n\s*\n/g, '\n\n')
-    .trim();
-
-  const words = visibleText.split(/\s+/).filter(Boolean);
-  const wordCount = words.length;
+  // Clean remaining templates, serialized markup, and evaluate quality
+  const quality = evaluateExtractionQuality(cleanHtml, title);
+  const visibleText = quality.cleanText;
+  const wordCount = quality.wordCount;
 
   return {
     title,
@@ -432,7 +618,10 @@ export function extractHtmlContent(html: string, baseUrl: string): {
     visibleText,
     wordCount,
     outgoingLinks: outgoingLinks.slice(0, 20),
-    downloadLinks
+    downloadLinks,
+    isUsable: quality.isUsable,
+    qualityScore: quality.qualityScore,
+    extractionLimitation: quality.reason,
   };
 }
 
@@ -766,6 +955,9 @@ export async function ingestUrlSecurely(
     outgoingLinks: extracted.outgoingLinks,
     downloadLinks: extracted.downloadLinks,
     domainRisk: finalDomainRisk,
-    claims
+    claims,
+    isUsable: extracted.isUsable,
+    qualityScore: extracted.qualityScore,
+    extractionLimitation: extracted.extractionLimitation
   };
 }

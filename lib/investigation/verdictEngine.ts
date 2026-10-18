@@ -3,6 +3,7 @@ import {
   FactualCorrectness,
   IndexedSource,
   InvestigationVerdicts,
+  MessageAuthenticity,
   ScamRisk,
   SourceImpact,
   TaskType,
@@ -304,7 +305,7 @@ export function evaluateEvidenceSufficiency(
   if (activeSources.length === 0) {
     return {
       sufficiency: 'Insufficient',
-      rationale: 'No authoritative primary records or direct gazette publications matching this claim were identified.',
+      rationale: 'No relevant authoritative evidence appropriate to this question was identified.',
       totalInfoWeight: 0
     };
   }
@@ -314,14 +315,14 @@ export function evaluateEvidenceSufficiency(
     return acc + s.authorityScore * s.relevanceScore * s.recencyScore;
   }, 0);
 
-  const hasPrimaryGovRecord = activeSources.some(
-    s => s.authorityScore >= 0.9 && s.relevanceScore >= 0.55
+  const hasPrimaryAuthoritativeSource = activeSources.some(
+    s => s.authorityScore >= 0.8 && s.relevanceScore >= 0.55
   );
 
-  if (totalInfoWeight >= 1.0 || (hasPrimaryGovRecord && activeSources.length >= 1)) {
+  if (totalInfoWeight >= 1.0 || hasPrimaryAuthoritativeSource) {
     return {
       sufficiency: 'Sufficient',
-      rationale: `Cross-examined against ${activeSources.length} relevant record(s) with sufficient statutory authority (weight: ${totalInfoWeight.toFixed(2)}).`,
+      rationale: `Found ${activeSources.length} relevant source(s), including evidence with authority appropriate to this question.`,
       totalInfoWeight: parseFloat(totalInfoWeight.toFixed(3))
     };
   }
@@ -329,14 +330,14 @@ export function evaluateEvidenceSufficiency(
   if (totalInfoWeight >= 0.45 || activeSources.length >= 1) {
     return {
       sufficiency: 'Partial',
-      rationale: `Identified ${activeSources.length} partial reference(s), but lacking definitive primary gazette or multiple corroborating authorities (weight: ${totalInfoWeight.toFixed(2)}).`,
+      rationale: `Found ${activeSources.length} relevant reference(s), but they do not fully resolve every part of the question.`,
       totalInfoWeight: parseFloat(totalInfoWeight.toFixed(3))
     };
   }
 
   return {
     sufficiency: 'Insufficient',
-    rationale: `Identified references are too sparse or weakly relevant to substantiate a definitive determination (weight: ${totalInfoWeight.toFixed(2)}).`,
+      rationale: 'The available references are too sparse or weakly relevant for a definitive determination.',
     totalInfoWeight: parseFloat(totalInfoWeight.toFixed(3))
   };
 }
@@ -354,7 +355,7 @@ export function evaluateFactualCorrectness(
   if (sufficiency === 'Insufficient') {
     return {
       correctness: 'Unverified',
-      rationale: 'Evidence is inadequate to confirm or refute the assertion. The claim remains unverified pending primary regulatory publication.'
+      rationale: 'The available evidence does not confirm or refute the assertion. This uncertainty is not evidence that the assertion is false.'
     };
   }
 
@@ -391,7 +392,7 @@ export function evaluateFactualCorrectness(
     if (agreementRatio < 0.40) {
       return {
         correctness: 'Mixed',
-        rationale: `Conflicting records identified across indexed sources (support weight: ${supportWeight.toFixed(2)}, contradict weight: ${contradictWeight.toFixed(2)}).`
+        rationale: 'Relevant sources conflict, so neither the supporting nor contradicting account can be stated as conclusive.'
       };
     }
   }
@@ -399,20 +400,60 @@ export function evaluateFactualCorrectness(
   if (contradictWeight > supportWeight && contradictWeight >= 0.35) {
     return {
       correctness: 'Contradicted',
-      rationale: `Refuted by high-authority records with an aggregate contradiction weight of ${contradictWeight.toFixed(2)}.`
+      rationale: 'Relevant authoritative evidence directly contradicts the assertion.'
     };
   }
 
   if (supportWeight > contradictWeight && supportWeight >= 0.35) {
     return {
       correctness: 'Supported',
-      rationale: `Substantiated by published authoritative directives with an aggregate corroboration weight of ${supportWeight.toFixed(2)}.`
+      rationale: 'Relevant authoritative evidence supports the assertion.'
     };
   }
 
   return {
     correctness: 'Unverified',
-    rationale: 'Directional evidence weight is below statistical confidence threshold; claim remains unverified.'
+    rationale: 'The directional evidence is not strong enough to confirm or contradict the assertion.'
+  };
+}
+
+function requestsSensitiveCredentials(prompt: string): boolean {
+  return /\b(cvv|otp|one[ -]?time password|password|passcode|upi pin|card details|debit card|credit card|banking credentials|bank account details|passport|aadhaar|aadhar|pan card|social security|ssn|routing number|login credentials?)\b/i.test(prompt);
+}
+
+function isMessageAuthenticityQuestion(input: VerdictEngineInput): boolean {
+  return input.taskType === 'scam_check' || input.taskType === 'job_offer' ||
+    /\b(message|sms|email|whatsapp|sender|caller|notification|notice|refund|account suspended|account blocked)\b/i.test(input.prompt);
+}
+
+export function evaluateMessageAuthenticity(input: VerdictEngineInput): {
+  authenticity: MessageAuthenticity;
+  rationale: string;
+} {
+  if (!isMessageAuthenticityQuestion(input)) {
+    return {
+      authenticity: 'Not applicable',
+      rationale: 'This inquiry does not provide a specific sender or message to authenticate.'
+    };
+  }
+
+  const hasDirectTechnicalFailure = Boolean(
+    input.forensics?.urls?.some(url => url.status === 'critical') ||
+    input.forensics?.senders?.some(sender => !sender.isRegisteredDLT) ||
+    input.urlAnalysis?.domainRisk.riskLevel === 'High' ||
+    input.documentAnalysis?.anomalies?.some(anomaly => anomaly.type === 'unofficial_domain')
+  );
+
+  if (hasDirectTechnicalFailure) {
+    return {
+      authenticity: 'Not authenticated',
+      rationale: 'The submitted communication fails a direct sender, domain, or document authenticity check.'
+    };
+  }
+
+  return {
+    authenticity: 'Cannot authenticate',
+    rationale: 'The specific sender and transaction cannot be authenticated from the submitted text alone.'
   };
 }
 
@@ -422,11 +463,32 @@ export function evaluateFactualCorrectness(
  */
 export function evaluateScamRisk(
   input: VerdictEngineInput,
-  correctness: FactualCorrectness
+  correctness: FactualCorrectness,
+  evaluatedSources: EvaluatedSource[] = []
 ): { scamRisk: ScamRisk; riskTriggers: string[]; rationale: string } {
   const { prompt, threatEntities, forensics, manipulation, statutes } = input;
   const lower = prompt.toLowerCase();
   const riskTriggers: string[] = [];
+  const hasCredentialRequest = requestsSensitiveCredentials(prompt);
+  const hasJobPaymentRequest = input.taskType === 'job_offer' && /\b(registration fee|application fee|processing fee|training fee|security deposit|background check fee|equipment (?:fee|purchase|payment)|pay(?:ment)? (?:first|upfront|to proceed)|send (?:money|funds)|wire transfer|gift cards?|cryptocurrency|crypto payment)\b/i.test(prompt);
+  const hasPublicRecruiterDomain = input.taskType === 'job_offer' && /@[a-z0-9.-]*(?:gmail|googlemail|outlook|hotmail|yahoo|protonmail|proton|icloud)\.[a-z]{2,}/i.test(prompt);
+  const claimsAuthority = /\b(income tax|tax department|bank|rbi|government|police|cbi|trai|customs)\b/i.test(prompt);
+
+  if (hasCredentialRequest) {
+    riskTriggers.push('Sensitive Credential / Banking Detail Request');
+  }
+
+  if (hasJobPaymentRequest) {
+    riskTriggers.push('Job Offer Payment Request');
+  }
+
+  if (hasPublicRecruiterDomain) {
+    riskTriggers.push('Recruiter Uses a Public Email Domain');
+  }
+
+  if (hasCredentialRequest && claimsAuthority) {
+    riskTriggers.push('Authority Impersonation With Credential Request');
+  }
 
   // 1. Phishing & Malicious URLs / APK Downloads
   const hasCriticalUrl = Boolean(
@@ -520,6 +582,8 @@ export function evaluateScamRisk(
   // High Risk: Requires active scam attack vectors
   if (
     hasCriticalUrl ||
+    (hasCredentialRequest && claimsAuthority) ||
+    (input.taskType === 'job_offer' && hasCredentialRequest && hasJobPaymentRequest) ||
     (hasPersonalPhone && (hasDisconnectionThreat || hasDigitalArrest)) ||
     hasDigitalArrest ||
     manipIndex >= 80 ||
@@ -528,7 +592,14 @@ export function evaluateScamRisk(
     return {
       scamRisk: 'High',
       riskTriggers,
-      rationale: `High cyber threat detected with active extortion/phishing vectors: ${riskTriggers.join(', ')}.`
+      rationale: (() => {
+        const warningSources = evaluatedSources.filter(source =>
+          source.relevanceScore >= 0.25 &&
+          /\b(cvv|otp|password|bank(?:ing)? details|card details|phishing|scam)\b/i.test(`${source.title} ${source.passage}`)
+        );
+        const citations = warningSources.map(source => `[${source.id}]`).join(', ');
+        return `The message contains high-risk phishing indicators: ${riskTriggers.join(', ')}.${citations ? ` Relevant warnings are documented in ${citations}.` : ''}`;
+      })()
     };
   }
 
@@ -570,16 +641,28 @@ export function executeVerdictEngine(input: VerdictEngineInput): VerdictEngineOu
   const sufficiencyResult = evaluateEvidenceSufficiency(evaluatedSources, allowFixtures);
 
   // 3. Derive Factual Correctness
-  const correctnessResult = evaluateFactualCorrectness(
+  let correctnessResult = evaluateFactualCorrectness(
     sufficiencyResult.sufficiency,
     evaluatedSources,
     allowFixtures
   );
 
-  // 4. Derive Scam Risk
-  const scamRiskResult = evaluateScamRisk(input, correctnessResult.correctness);
+  // 4. Assess the specific message independently from its factual assertions.
+  const authenticityResult = evaluateMessageAuthenticity(input);
 
-  // 5. Build structured source impacts
+  // Requests for private credentials can be identified as suspicious without claiming
+  // that a particular sender or personal transaction has been disproved.
+  if (requestsSensitiveCredentials(input.prompt) && authenticityResult.authenticity === 'Cannot authenticate') {
+    correctnessResult = {
+      correctness: 'Unverified',
+      rationale: 'The specific refund, account, or sender claim cannot be confirmed from public evidence. This does not negate the separately supported phishing warning signs.'
+    };
+  }
+
+  // 5. Derive Scam Risk independently from factual support and authenticity.
+  const scamRiskResult = evaluateScamRisk(input, correctnessResult.correctness, evaluatedSources);
+
+  // 6. Build structured source impacts
   const sourceImpacts: SourceImpact[] = evaluatedSources.map(s => ({
     sourceId: s.id,
     domain: s.domain,
@@ -591,10 +674,11 @@ export function executeVerdictEngine(input: VerdictEngineInput): VerdictEngineOu
     explanation: s.impactExplanation
   }));
 
-  // 6. Build overall explanation
+  // 7. Build overall explanation
   const explanation: VerdictExplanation = {
-    summary: `Determination: ${correctnessResult.correctness} (Evidence: ${sufficiencyResult.sufficiency}, Threat: ${scamRiskResult.scamRisk} Risk).`,
+    summary: `Factual support: ${correctnessResult.correctness}. Message authenticity: ${authenticityResult.authenticity}. Scam indicators: ${scamRiskResult.scamRisk} risk. Evidence: ${sufficiencyResult.sufficiency}.`,
     factualRationale: correctnessResult.rationale,
+    authenticityRationale: authenticityResult.rationale,
     scamRationale: scamRiskResult.rationale,
     sufficiencyRationale: sufficiencyResult.rationale,
     sourceImpacts
@@ -602,10 +686,16 @@ export function executeVerdictEngine(input: VerdictEngineInput): VerdictEngineOu
 
   const verdicts: InvestigationVerdicts = {
     factualCorrectness: correctnessResult.correctness,
+    messageAuthenticity: authenticityResult.authenticity,
     scamRisk: scamRiskResult.scamRisk,
     evidenceSufficiency: sufficiencyResult.sufficiency,
     riskTriggers: scamRiskResult.riskTriggers,
-    explanation
+    explanation,
+    verdictStatus: correctnessResult.correctness === 'Supported'
+      ? 'right'
+      : correctnessResult.correctness === 'Contradicted'
+        ? 'false'
+        : 'unverified'
   };
 
   // 7. Dynamic claim findings linked to evidence
@@ -632,20 +722,16 @@ export function executeVerdictEngine(input: VerdictEngineInput): VerdictEngineOu
   // 8. Dynamic Challenger Audit based on verdict
   const challengerAudit: string[] = [];
   if (verdicts.factualCorrectness === 'Unverified') {
-    challengerAudit.push('Acknowledged that absence of union gazette records does not prove falsehood: checked state discom / regional portals.');
-    challengerAudit.push('Evaluated whether pending circulars or ministerial draft policies have not yet been indexed in PIB archive.');
-    challengerAudit.push('Recommended verification directly through official Right to Information (RTI) portal or official ministry press desk.');
+    challengerAudit.push('Did not treat missing evidence as proof that the submitted assertion is false.');
+    challengerAudit.push('Separated the unverified sender-specific claim from independently observable scam indicators.');
   } else if (verdicts.factualCorrectness === 'Contradicted') {
-    challengerAudit.push('Audited whether historic or superseded circulars could have legitimately caused citizen confusion.');
-    challengerAudit.push('Confirmed that no emergency state gazette notifications override union statutory protections.');
-    challengerAudit.push('Checked whether viral claims misquoted genuine regulatory policy out of context.');
+    challengerAudit.push('Compared relevant supporting and contradicting sources before assigning a contradiction.');
+    challengerAudit.push('Kept contextual sources from being counted as direct refutation.');
   } else if (verdicts.factualCorrectness === 'Supported') {
-    challengerAudit.push('Audited effective enforcement dates and grace periods specified in published gazette.');
-    challengerAudit.push('Verified whether special state-specific exceptions apply to this union directive.');
-    challengerAudit.push('Confirmed that published notices remain active and have not been stayed by judicial review.');
+    challengerAudit.push('Required relevant affirmative evidence rather than inferring support from the absence of contradiction.');
+    challengerAudit.push('Kept contextual sources from being counted as direct support.');
   } else {
-    challengerAudit.push('Assessed jurisdictional splits where central and state directives diverge.');
-    challengerAudit.push('Probed ambiguities between preliminary advisories and enacted statutory orders.');
+    challengerAudit.push('Reported the source disagreement instead of selecting one side without sufficient basis.');
   }
 
   return {

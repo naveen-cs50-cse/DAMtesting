@@ -42,7 +42,8 @@ describe('Evidence-Driven Verdict Engine', () => {
       assert.equal(result.verdicts.scamRisk, 'Low');
       assert.equal(result.explanation.sourceImpacts.length, 2);
       assert.equal(result.explanation.sourceImpacts[0].impactRole, 'primary_support');
-      assert.ok(result.explanation.factualRationale.includes('corroboration weight'));
+      assert.ok(result.explanation.factualRationale.includes('supports the assertion'));
+      assert.ok(result.explanation.summary.includes('Factual support: Supported'));
     });
   });
 
@@ -81,7 +82,8 @@ describe('Evidence-Driven Verdict Engine', () => {
       assert.equal(result.verdicts.factualCorrectness, 'Contradicted');
       assert.equal(result.verdicts.evidenceSufficiency, 'Sufficient');
       assert.equal(result.explanation.sourceImpacts[0].impactRole, 'primary_contradiction');
-      assert.ok(result.explanation.factualRationale.includes('contradiction weight'));
+      assert.ok(result.explanation.factualRationale.includes('directly contradicts'));
+      assert.ok(result.explanation.summary.includes('Factual support: Contradicted'));
     });
   });
 
@@ -119,7 +121,7 @@ describe('Evidence-Driven Verdict Engine', () => {
 
       assert.equal(result.verdicts.factualCorrectness, 'Mixed');
       assert.ok(result.verdicts.evidenceSufficiency === 'Sufficient' || result.verdicts.evidenceSufficiency === 'Partial');
-      assert.ok(result.explanation.factualRationale.includes('Conflicting records'));
+      assert.ok(result.explanation.factualRationale.includes('sources conflict'));
     });
   });
 
@@ -139,7 +141,8 @@ describe('Evidence-Driven Verdict Engine', () => {
       assert.equal(result.verdicts.evidenceSufficiency, 'Insufficient');
       assert.equal(result.verdicts.scamRisk, 'Low');
       assert.equal(result.verdicts.riskTriggers.length, 0);
-      assert.ok(result.explanation.sufficiencyRationale.includes('No authoritative primary records'));
+      assert.ok(result.explanation.sufficiencyRationale.includes('No relevant authoritative evidence'));
+      assert.ok(result.explanation.factualRationale.includes('not evidence that the assertion is false'));
     });
 
     it('should return Unverified and Insufficient when sources are off-topic or low-relevance', () => {
@@ -170,6 +173,37 @@ describe('Evidence-Driven Verdict Engine', () => {
   });
 
   describe('5. Decoupling Scam Risk from Factual Correctness', () => {
+    it('should keep sender authenticity unverified while identifying supported tax-refund phishing indicators', () => {
+      const message = "Income Tax Department approved a refund of ₹15,480. Confirm your bank account and debit card CVV to receive it.";
+      const sources: IndexedSource[] = [
+        {
+          id: 1,
+          domain: 'incometax.gov.in',
+          title: 'Income Tax Department phishing scam warning',
+          date: '2026',
+          type: 'Government',
+          url: 'https://www.incometax.gov.in/iec/foportal/help/how-to-avoid-phishing',
+          passage: 'The Income Tax Department does not ask taxpayers to provide a debit card CVV, password, or banking credentials by email or SMS.',
+          stance: 'context'
+        }
+      ];
+
+      const result = executeVerdictEngine({
+        prompt: message,
+        taskType: 'scam_check',
+        sources
+      });
+
+      assert.equal(result.verdicts.factualCorrectness, 'Unverified');
+      assert.equal(result.verdicts.messageAuthenticity, 'Cannot authenticate');
+      assert.equal(result.verdicts.scamRisk, 'High');
+      assert.notEqual(result.verdicts.evidenceSufficiency, 'Insufficient');
+      assert.ok(result.verdicts.riskTriggers.includes('Sensitive Credential / Banking Detail Request'));
+      assert.ok(result.explanation.scamRationale.includes('[1]'));
+      assert.ok(result.explanation.summary.includes('Message authenticity: Cannot authenticate'));
+      assert.ok(result.explanation.factualRationale.includes('cannot be confirmed'));
+    });
+
     it('should assign High Scam Risk to a message containing cyber threat vectors even if the factual text is genuine', () => {
       const message = 'Official Electricity Discom Notice: Dear consumer, your power will be disconnected at 9:30 PM tonight. Download the QuickPay APK immediately from http://192.168.1.5/discom.apk and contact officer at 9821456789.';
       const sources: IndexedSource[] = [];

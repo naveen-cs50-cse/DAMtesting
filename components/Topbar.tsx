@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { HelpCircleIcon, ShareIcon } from './icons';
+import { HelpCircleIcon, ShareIcon, SettingsIcon } from './icons';
 import { QueryVerdictStatus } from '@/lib/investigation/types';
 
 interface TopbarProps {
@@ -11,6 +11,7 @@ interface TopbarProps {
   isLive?: boolean;
   hasQuery?: boolean;
   onOpenMethodology: () => void;
+  onOpenSettings?: () => void;
   onToggleEvidence: () => void;
   evidenceCount: number;
   onMobileMenuToggle: () => void;
@@ -25,6 +26,7 @@ export const Topbar: React.FC<TopbarProps> = ({
   isLive = false,
   hasQuery = false,
   onOpenMethodology,
+  onOpenSettings,
   onToggleEvidence,
   evidenceCount,
   onMobileMenuToggle,
@@ -127,6 +129,17 @@ export const Topbar: React.FC<TopbarProps> = ({
         >
           <HelpCircleIcon className="w-4 h-4" />
         </button>
+
+        {onOpenSettings && (
+          <button
+            className="quiet-button icon-only-btn"
+            onClick={onOpenSettings}
+            title="Verification & System Settings"
+            aria-label="Settings"
+          >
+            <SettingsIcon className="w-4 h-4" />
+          </button>
+        )}
       </div>
     </header>
   );

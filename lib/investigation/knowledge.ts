@@ -23,7 +23,7 @@ export function getSourceAuthority(domain: string, type?: string): AuthorityEval
   const cleanDomain = domain.toLowerCase().replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
 
   // Primary Indian Government & Statutory Regulators
-  if (
+  if (type === 'Government' && (
     cleanDomain.endsWith('.gov.in') ||
     cleanDomain.endsWith('.nic.in') ||
     cleanDomain.includes('rbi.org.in') ||
@@ -36,7 +36,7 @@ export function getSourceAuthority(domain: string, type?: string): AuthorityEval
     cleanDomain.includes('epfindia.gov.in') ||
     cleanDomain.includes('uidai.gov.in') ||
     cleanDomain.includes('ceir.gov.in')
-  ) {
+  )) {
     return {
       weight: 1.0,
       tier: 'Government',
@@ -45,7 +45,7 @@ export function getSourceAuthority(domain: string, type?: string): AuthorityEval
   }
 
   // Recognized Fact-checking organizations (IFCN / Indian verified debunks)
-  if (
+  if (type === 'Fact-checker' && (
     cleanDomain.includes('boomlive') ||
     cleanDomain.includes('altnews') ||
     cleanDomain.includes('factly') ||
@@ -53,8 +53,8 @@ export function getSourceAuthority(domain: string, type?: string): AuthorityEval
     cleanDomain.includes('newsmobile') ||
     cleanDomain.includes('thip.media') ||
     cleanDomain.includes('webqoof') ||
-    (cleanDomain.includes('thequint') && type === 'Fact-checker')
-  ) {
+    cleanDomain.includes('thequint')
+  )) {
     return {
       weight: 0.85,
       tier: 'Fact-checker',
@@ -63,14 +63,7 @@ export function getSourceAuthority(domain: string, type?: string): AuthorityEval
   }
 
   // Official public registries / state discoms
-  if (
-    type === 'Registry' ||
-    cleanDomain.includes('bescom') ||
-    cleanDomain.includes('msedcl') ||
-    cleanDomain.includes('tpddl') ||
-    cleanDomain.includes('barcouncil') ||
-    cleanDomain.includes('mca.gov.in')
-  ) {
+  if (type === 'Registry') {
     return {
       weight: 0.80,
       tier: 'Registry',
@@ -79,7 +72,7 @@ export function getSourceAuthority(domain: string, type?: string): AuthorityEval
   }
 
   // Mainstream Indian news publications
-  if (
+  if (type === 'News' && (
     cleanDomain.includes('thehindu') ||
     cleanDomain.includes('indianexpress') ||
     cleanDomain.includes('timesofindia') ||
@@ -88,9 +81,8 @@ export function getSourceAuthority(domain: string, type?: string): AuthorityEval
     cleanDomain.includes('ndtv') ||
     cleanDomain.includes('business-standard') ||
     cleanDomain.includes('ptinews') ||
-    cleanDomain.includes('aniin') ||
-    type === 'News'
-  ) {
+    cleanDomain.includes('aniin')
+  )) {
     return {
       weight: 0.65,
       tier: 'News',

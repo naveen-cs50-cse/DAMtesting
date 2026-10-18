@@ -44,7 +44,8 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
   });
 
   const handleCopyPassage = (src: IndexedSource) => {
-    const text = `"[${src.id}] ${src.passage}" — ${src.title} (${src.domain}, ${src.date})\n${src.url}`;
+    const origin = src.contentOrigin === 'fetched_page' ? 'Fetched page content' : 'Search-result snippet';
+    const text = `[${src.id}] ${origin}: "${src.passage}" — ${src.title} (${src.domain}, ${src.date})\n${src.url}`;
     navigator.clipboard.writeText(text);
     setCopiedId(src.id);
     setTimeout(() => setCopiedId(null), 2000);
@@ -63,7 +64,7 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
             <EvidenceIcon className="evidence-panel-icon" />
             <div>
               <strong>Evidence</strong>
-              <small>{sources.length} indexed primary {sources.length === 1 ? 'record' : 'records'}</small>
+              <small>{sources.length} deduplicated {sources.length === 1 ? 'record' : 'records'}</small>
             </div>
           </div>
           <button
@@ -114,7 +115,7 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                 <circle cx="11" cy="11" r="8" />
                 <path d="m21 21-4.35-4.35" />
               </svg>
-              <p>No primary evidence matching &ldquo;{filterQuery}&rdquo;</p>
+              <p>No retrieved evidence matching &ldquo;{filterQuery}&rdquo;</p>
               <button
                 type="button"
                 className="secondary-button compact"
@@ -154,9 +155,10 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
 
                 <div className="evidence-card-foot">
                   <div className="evidence-card-meta">
-                    <span>{src.date}</span>
+                    <span>{src.contentOrigin === 'fetched_page' ? 'Fetched page content' : 'Search snippet'}</span>
                     <span>&bull;</span>
-                    <span>{src.type}</span>
+                    <span>{src.inspectionStatus === 'inspected' ? 'Page inspected' : src.inspectionStatus === 'unavailable' ? 'Page unavailable' : 'Page not inspected'}</span>
+                    {src.isCited && <><span>&bull;</span><span>Cited</span></>}
                   </div>
                   <button
                     type="button"

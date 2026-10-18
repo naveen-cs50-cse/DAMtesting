@@ -1,7 +1,25 @@
 export type FactualCorrectness = 'Supported' | 'Contradicted' | 'Mixed' | 'Unverified';
 export type ScamRisk = 'Low' | 'Medium' | 'High';
 export type EvidenceSufficiency = 'Sufficient' | 'Partial' | 'Insufficient';
-export type TaskType = 'verification' | 'scam_check' | 'research' | 'document_analysis' | 'conversational' | 'follow_up';
+export type MessageAuthenticity = 'Authenticated' | 'Not authenticated' | 'Cannot authenticate' | 'Not applicable';
+export type TaskType = 'verification' | 'scam_check' | 'job_offer' | 'research' | 'document_analysis' | 'conversational' | 'follow_up';
+
+export interface JobOfferCheck {
+  label: string;
+  status: 'completed' | 'not_completed';
+  finding: string;
+  sourceIds?: number[];
+}
+
+export interface JobOfferAnalysis {
+  claimedCompany?: string;
+  senderDomains: string[];
+  paymentRequest: boolean;
+  sensitiveDataRequest: boolean;
+  domainWarning?: string;
+  checks: JobOfferCheck[];
+  followUpQuestion?: string;
+}
 
 export interface ThreatEntities {
   phones?: string[];
@@ -162,6 +180,7 @@ export interface SourceImpact {
 export interface VerdictExplanation {
   summary: string;
   factualRationale: string;
+  authenticityRationale?: string;
   scamRationale: string;
   sufficiencyRationale: string;
   sourceImpacts: SourceImpact[];
@@ -172,7 +191,7 @@ export interface IndexedSource {
   domain: string;
   title: string;
   date: string;
-  type: 'Government' | 'Fact-checker' | 'News' | 'Registry';
+  type: 'Government' | 'Fact-checker' | 'News' | 'Registry' | 'Search result';
   url: string;
   passage: string;
   stance: 'supports' | 'contradicts' | 'context';
@@ -182,10 +201,24 @@ export interface IndexedSource {
   impactRole?: SourceImpact['impactRole'];
   impactExplanation?: string;
   isFixture?: boolean;
+  contentOrigin?: 'search_snippet' | 'fetched_page';
+  inspectionStatus?: 'not_inspected' | 'inspected' | 'unavailable';
+  isCited?: boolean;
+}
+
+export interface RetrievalStats {
+  searchAttempted?: boolean;
+  searchCompleted?: boolean;
+  searchResultsFound: number;
+  snippetsAvailable: number;
+  pagesInspected: number;
+  pagesUnavailable: number;
+  citedSourceIds: number[];
 }
 
 export interface InvestigationVerdicts {
   factualCorrectness: FactualCorrectness;
+  messageAuthenticity?: MessageAuthenticity;
   scamRisk: ScamRisk;
   evidenceSufficiency: EvidenceSufficiency;
   riskTriggers: string[];
@@ -193,8 +226,10 @@ export interface InvestigationVerdicts {
   verdictStatus?: QueryVerdictStatus;
 }
 
+export type ActivityStageId = 'analyze' | 'search' | 'read' | 'challenger' | 'synthesize' | 'url_ingestion' | 'advisory';
+
 export interface ActivityStage {
-  id: 'analyze' | 'search' | 'read' | 'challenger' | 'synthesize';
+  id: ActivityStageId;
   title: string;
   status: 'running' | 'completed' | 'failed';
   summary?: string;
@@ -213,19 +248,21 @@ export interface ActivityStage {
 export interface InvestigationMeta {
   caseId: string;
   taskType: TaskType;
-  verdicts: InvestigationVerdicts;
-  claims: ClaimFinding[];
-  sources: IndexedSource[];
-  challengerAudit: string[];
+  verdicts?: InvestigationVerdicts | null;
+  claims?: ClaimFinding[];
+  sources?: IndexedSource[];
+  challengerAudit?: string[];
   verdictExplanation?: VerdictExplanation;
   forensics?: import('./forensics').EntityForensics;
   incidentReport?: import('./incidentReport').IncidentReport | null;
   manipulationAudit?: import('./manipulation').ManipulationAudit;
   statutes?: import('./statutes').StatutoryAudit;
   certificate?: import('./certificate').VerificationCertificate;
-  documentAnalysis?: DocumentAnalysis;
-  urlAnalysis?: UrlAnalysisResult;
+  documentAnalysis?: DocumentAnalysis | null;
+  urlAnalysis?: UrlAnalysisResult | null;
   suggestedInquiries?: string[];
+  retrieval?: RetrievalStats;
+  jobOfferAnalysis?: JobOfferAnalysis;
 }
 
 export interface ChatTurn {

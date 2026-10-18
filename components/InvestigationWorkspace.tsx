@@ -16,6 +16,7 @@ import { FolderModal } from './modals/FolderModal';
 import { MoveToFolderModal } from './modals/MoveToFolderModal';
 import { WhatsAppModal } from './modals/WhatsAppModal';
 import { ExtensionModal } from './modals/ExtensionModal';
+import { SettingsModal } from './modals/SettingsModal';
 import { Attachment, Conversation, Folder, IndexedSource, ChatTurn, ActivityStage, InvestigationMeta, getQueryVerdictStatus } from '@/lib/investigation/types';
 import { generateSmartTitle } from '@/lib/investigation/naming';
 
@@ -63,7 +64,7 @@ export const InvestigationWorkspace: React.FC = () => {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [activeMode, setActiveMode] = useState('evidence');
   const [activeLang, setActiveLang] = useState('auto');
-  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamingIds, setStreamingIds] = useState<string[]>([]);
   const [evidencePanelOpen, setEvidencePanelOpen] = useState(false);
   const [highlightCitation, setHighlightCitation] = useState<number | null>(null);
 
@@ -77,16 +78,43 @@ export const InvestigationWorkspace: React.FC = () => {
   const [folderToEdit, setFolderToEdit] = useState<Folder | null>(null);
   const [moveToFolderConv, setMoveToFolderConv] = useState<Conversation | null>(null);
   const [renamingConversation, setRenamingConversation] = useState<Conversation | null>(null);
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  const handleExportHistory = () => {
+    if (conversations.length === 0) {
+      showToast('No investigation cases to export');
+      return;
+    }
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(conversations, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute('href', dataStr);
+    downloadAnchor.setAttribute('download', `dam-investigations-export-${new Date().toISOString().slice(0, 10)}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    showToast('Investigation history exported to JSON');
+  };
+
+  const handleClearHistory = () => {
+    saveConversations([]);
+    setActiveId(null);
+    showToast('Investigation history cleared');
+  };
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const abortControllersRef = useRef(new Map<string, { turnId: string; controller: AbortController }>());
+  const activeIdRef = useRef<string | null>(activeId);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const userScrolledUpRef = useRef(false);
   const isAutoScrollingRef = useRef(false);
+
+  useEffect(() => {
+    activeIdRef.current = activeId;
+  }, [activeId]);
 
   const handleScroll = () => {
     if (!scrollAreaRef.current) return;
@@ -145,6 +173,7 @@ export const InvestigationWorkspace: React.FC = () => {
   };
 
   const activeConversation = conversations.find(c => c.id === activeId) || null;
+  const isStreaming = activeId ? streamingIds.includes(activeId) : false;
 
   // When activeId changes, scroll down to the active conversation if not streaming
   useEffect(() => {
@@ -239,18 +268,17 @@ export const InvestigationWorkspace: React.FC = () => {
 
   const hasQuery = Boolean(activeConversation && activeConversation.turns.length > 0);
 
-  // Aggregate sources for active conversation
+  // The evidence panel reflects the latest result so its citation numbers map
+  // unambiguously to the briefing currently being summarized.
+  const latestAssistantTurn = activeConversation?.turns?.filter(t => t.role === 'assistant').slice(-1)[0];
   const caseSources: IndexedSource[] = [];
-  if (activeConversation) {
-    activeConversation.turns.forEach(t => {
-      if (t.role === 'assistant' && t.meta?.sources) {
-        t.meta.sources.forEach(src => {
-          if (!caseSources.some(existing => existing.id === src.id)) {
-            caseSources.push(src);
-          }
-        });
-      }
-    });
+  const seenCaseSourceUrls = new Set<string>();
+  for (const source of latestAssistantTurn?.meta?.sources || []) {
+    const dedupeKey = source.url.trim().toLowerCase().replace(/#.*$/, '').replace(/\/$/, '');
+    if (!seenCaseSourceUrls.has(dedupeKey)) {
+      seenCaseSourceUrls.add(dedupeKey);
+      caseSources.push(source);
+    }
   }
 
   // Aggregate all sources across ALL conversations stored on this workstation
@@ -302,6 +330,7 @@ export const InvestigationWorkspace: React.FC = () => {
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
+        activeIdRef.current = null;
         setActiveId(null);
       }
     };
@@ -314,16 +343,17 @@ export const InvestigationWorkspace: React.FC = () => {
     if (!promptToSend && attachments.length === 0) return;
 
     const nowIso = new Date().toISOString();
-    const targetId = activeConversation?.id || ('conv_' + Date.now());
+    const isNewConversation = !activeConversation;
+    const targetId = activeConversation?.id || `conv_${crypto.randomUUID()}`;
     const caseId = activeConversation?.caseId || ('DAM-2026-IND-' + Math.floor(1000 + Math.random() * 9000));
-    const title = activeConversation?.title || (promptToSend.slice(0, 52) || 'India Regulatory Investigation');
+    const title = activeConversation?.title || generateSmartTitle(promptToSend);
     const folderId = activeConversation?.folderId || null;
     const isPinned = activeConversation?.isPinned || false;
     const priorTurns = activeConversation ? [...activeConversation.turns] : [];
 
     // Add user turn
     const userTurn: ChatTurn = {
-      id: 'u_' + Date.now(),
+      id: `u_${crypto.randomUUID()}`,
       role: 'user',
       content: promptToSend,
       attachments: [...attachments],
@@ -331,7 +361,7 @@ export const InvestigationWorkspace: React.FC = () => {
     };
 
     // Add assistant turn placeholder
-    const assistantTurnId = 'a_' + (Date.now() + 1);
+    const assistantTurnId = `a_${crypto.randomUUID()}`;
     const initialAssistantTurn: ChatTurn = {
       id: assistantTurnId,
       role: 'assistant',
@@ -352,6 +382,7 @@ export const InvestigationWorkspace: React.FC = () => {
       turns: [...priorTurns, userTurn, initialAssistantTurn],
     };
 
+    activeIdRef.current = targetId;
     setActiveId(targetId);
     setConversations(prev => {
       const exists = prev.some(c => c.id === targetId);
@@ -373,7 +404,7 @@ export const InvestigationWorkspace: React.FC = () => {
     } catch {
       // Safe fallback
     }
-    setIsStreaming(true);
+    setStreamingIds(prev => prev.includes(targetId) ? prev : [...prev, targetId]);
 
     // Reset scroll state and anchor viewport to the new inquiry and thinking pane
     userScrolledUpRef.current = false;
@@ -382,7 +413,10 @@ export const InvestigationWorkspace: React.FC = () => {
     setTimeout(() => anchorToActiveTurn(true), 60);
     setTimeout(() => anchorToActiveTurn(false), 220);
 
-    abortControllerRef.current = new AbortController();
+    const previousRequest = abortControllersRef.current.get(targetId);
+    previousRequest?.controller.abort();
+    const requestController = new AbortController();
+    abortControllersRef.current.set(targetId, { turnId: assistantTurnId, controller: requestController });
 
     const currentStages: ActivityStage[] = [];
     let accumulatedText = '';
@@ -400,8 +434,9 @@ export const InvestigationWorkspace: React.FC = () => {
           'Content-Type': 'application/json',
           'Bypass-Tunnel-Reminder': 'true'
         },
-        signal: abortControllerRef.current.signal,
+        signal: requestController.signal,
         body: JSON.stringify({
+          caseId,
           prompt: promptToSend,
           attachments,
           mode: activeMode,
@@ -479,18 +514,17 @@ export const InvestigationWorkspace: React.FC = () => {
 
             // Immediately trigger ambient backlight flash upon verdict determination
             const status = currentMeta?.verdicts?.verdictStatus || getQueryVerdictStatus(currentMeta);
-            if (status) {
+            if (status && activeIdRef.current === targetId) {
               setAmbientGlow(status);
               setTimeout(() => setAmbientGlow(null), 6800);
             }
           } else if (eventType === 'done') {
-            const smartTitle = generateSmartTitle(promptToSend, currentMeta);
             setConversations(prev => {
               const nextList = prev.map(c => {
                 if (c.id !== targetId) return c;
                 return {
                   ...c,
-                  title: smartTitle,
+                  title: isNewConversation ? generateSmartTitle(promptToSend) : c.title,
                   turns: c.turns.map(t => t.id === assistantTurnId ? { ...t, isLive: false } : t)
                 };
               });
@@ -512,14 +546,17 @@ export const InvestigationWorkspace: React.FC = () => {
         showToast('Investigation error: ' + errMsg);
       }
     } finally {
-      setIsStreaming(false);
+      const activeRequest = abortControllersRef.current.get(targetId);
+      if (activeRequest?.turnId === assistantTurnId) {
+        abortControllersRef.current.delete(targetId);
+        setStreamingIds(prev => prev.filter(id => id !== targetId));
+      }
       setConversations(prev => {
         const nextList = prev.map(c => {
           if (c.id !== targetId) return c;
-          const smartTitle = generateSmartTitle(promptToSend, currentMeta);
           return {
             ...c,
-            title: smartTitle,
+            title: isNewConversation ? generateSmartTitle(promptToSend) : c.title,
             turns: c.turns.map(t => t.id === assistantTurnId ? { ...t, isLive: false } : t)
           };
         });
@@ -534,9 +571,10 @@ export const InvestigationWorkspace: React.FC = () => {
   };
 
   const handleStop = () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      setIsStreaming(false);
+    if (!activeId) return;
+    const activeRequest = abortControllersRef.current.get(activeId);
+    if (activeRequest) {
+      activeRequest.controller.abort();
     }
   };
 
@@ -548,7 +586,6 @@ export const InvestigationWorkspace: React.FC = () => {
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
-  const latestAssistantTurn = activeConversation?.turns?.filter(t => t.role === 'assistant').slice(-1)[0];
   const activeVerdictStatus = latestAssistantTurn?.meta?.verdicts?.verdictStatus || getQueryVerdictStatus(latestAssistantTurn?.meta);
 
   // Ambient background flash when a verdict (right / false / unverified) is decided
@@ -603,13 +640,22 @@ export const InvestigationWorkspace: React.FC = () => {
         conversations={conversations}
         folders={folders}
         activeId={activeId}
-        onSelectConversation={id => setActiveId(id)}
-        onNewConversation={() => setActiveId(null)}
+        onSelectConversation={id => {
+          activeIdRef.current = id;
+          setActiveId(id);
+        }}
+        onNewConversation={() => {
+          activeIdRef.current = null;
+          setActiveId(null);
+        }}
         onRenameConversation={conv => setRenamingConversation(conv)}
         onDeleteConversation={id => {
           const filtered = conversations.filter(c => c.id !== id);
           saveConversations(filtered);
-          if (activeId === id) setActiveId(null);
+          if (activeId === id) {
+            activeIdRef.current = null;
+            setActiveId(null);
+          }
           showToast('Investigation deleted');
         }}
         evidenceCount={caseSources.length}
@@ -631,8 +677,9 @@ export const InvestigationWorkspace: React.FC = () => {
         onToggleSidebar={() => setSidebarOpen(prev => !prev)}
         onOpenWhatsApp={() => setWhatsappModalOpen(true)}
         onOpenExtension={() => setExtensionModalOpen(true)}
-        onOpenSettings={() => showToast('Verification Settings: Default regulatory profile active')}
+        onOpenSettings={() => setSettingsModalOpen(true)}
         onSignOut={() => {
+          activeIdRef.current = null;
           setActiveId(null);
           showToast('Workstation session reset');
         }}
@@ -645,6 +692,7 @@ export const InvestigationWorkspace: React.FC = () => {
           isLive={isStreaming}
           hasQuery={hasQuery}
           onOpenMethodology={() => setMethodologyModalOpen(true)}
+          onOpenSettings={() => setSettingsModalOpen(true)}
           onToggleEvidence={() => setEvidencePanelOpen(prev => !prev)}
           evidenceCount={caseSources.length}
           onMobileMenuToggle={() => {
@@ -671,8 +719,6 @@ export const InvestigationWorkspace: React.FC = () => {
               {!activeConversation ? (
                 <LandingBlock
                   onSelectPrompt={p => { setInput(p); handleSendInvestigation(p); }}
-                  onOpenWhatsApp={() => setWhatsappModalOpen(true)}
-                  onOpenExtension={() => setExtensionModalOpen(true)}
                 />
               ) : (
                 <ConversationFeed
@@ -856,6 +902,21 @@ export const InvestigationWorkspace: React.FC = () => {
       <ExtensionModal
         isOpen={extensionModalOpen}
         onClose={() => setExtensionModalOpen(false)}
+      />
+
+      <SettingsModal
+        isOpen={settingsModalOpen}
+        onClose={() => setSettingsModalOpen(false)}
+        activeMode={activeMode}
+        setActiveMode={setActiveMode}
+        activeLang={activeLang}
+        setActiveLang={setActiveLang}
+        onOpenWhatsApp={() => setWhatsappModalOpen(true)}
+        onOpenExtension={() => setExtensionModalOpen(true)}
+        onClearHistory={handleClearHistory}
+        onExportHistory={handleExportHistory}
+        investigationCount={conversations.length}
+        showToast={showToast}
       />
 
       {toastMsg && (

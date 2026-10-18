@@ -9,13 +9,11 @@
 }
 
 html, body {
-  background-color: var(--dam-bg-root, #060606);
+  background-color: var(--dam-bg-root, #000000);
   background-image:
-    radial-gradient(circle at 50% 0%, rgba(240, 58, 58, 0.14), rgba(6, 6, 6, 0) 36%),
-    linear-gradient(180deg, rgba(240, 58, 58, 0.03), rgba(6, 6, 6, 0) 320px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px),
     linear-gradient(180deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
-  background-size: auto, auto, 80px 80px, 80px 80px;
+  background-size: 80px 80px, 80px 80px;
   color: var(--dam-text-primary, #ffffff);
   font-family: var(--font-ui);
   margin: 0;

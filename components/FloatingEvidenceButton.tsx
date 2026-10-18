@@ -56,7 +56,7 @@ export const FloatingEvidenceButton: React.FC<FloatingEvidenceButtonProps> = ({
         <div className="fep-header">
           <div className="fep-header-title">
             <GlobeIcon className="fep-globe-icon" />
-            <span>Primary Sources</span>
+            <span>Retrieved Sources</span>
             <span className="fep-count-pill">{count}</span>
           </div>
           <button
@@ -91,7 +91,7 @@ export const FloatingEvidenceButton: React.FC<FloatingEvidenceButtonProps> = ({
                     <span className="fep-cite-badge">[{src.id}]</span>
                     <span className="fep-domain" title={src.domain}>{src.domain}</span>
                     <span className="fep-type-tag">
-                      {src.type || 'Official'}
+                      {src.contentOrigin === 'fetched_page' ? src.type : 'Search snippet'}
                     </span>
                     {src.url && (
                       <a
@@ -120,18 +120,12 @@ export const FloatingEvidenceButton: React.FC<FloatingEvidenceButtonProps> = ({
               <div className="fep-empty-icon">
                 <GlobeIcon />
               </div>
-              <div className="fep-empty-title">No evidence cited yet</div>
+              <div className="fep-empty-title">No evidence retrieved yet</div>
               <div className="fep-empty-desc">
-                Submit an inquiry or claim to automatically search and cross-examine authentic Indian gazettes, RBI notifications, and TRAI circulars.
+                Submit an inquiry or claim to retrieve source records for evaluation.
               </div>
               <div className="fep-registries-hint">
-                <div className="fep-reg-label">DAM Indexed Primary Registries:</div>
-                <div className="fep-reg-tags">
-                  <span className="fep-reg-tag">egazette.gov.in</span>
-                  <span className="fep-reg-tag">rbi.org.in</span>
-                  <span className="fep-reg-tag">trai.gov.in</span>
-                  <span className="fep-reg-tag">pib.gov.in</span>
-                </div>
+                <div className="fep-reg-label">Only completed lookups appear in this evidence view.</div>
               </div>
             </div>
           )}
@@ -150,7 +144,7 @@ export const FloatingEvidenceButton: React.FC<FloatingEvidenceButtonProps> = ({
         className={`floating-evidence-btn ${isHovered ? 'active-hover' : ''}`}
         onClick={handleButtonClick}
         title="View Evidence & Primary Sources (Alt+E)"
-        aria-label={`Evidence Sources: ${count} indexed`}
+        aria-label={`Evidence Sources: ${count} retrieved`}
       >
         <span className="world-icon-wrapper">
           <GlobeIcon className="evidence-world-icon" />

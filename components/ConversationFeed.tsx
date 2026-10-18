@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
-import { ChatTurn, getQueryVerdictStatus } from '@/lib/investigation/types';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ChatTurn, IndexedSource, TaskType, UrlAnalysisResult, getQueryVerdictStatus } from '@/lib/investigation/types';
+import { detectMessageHighlights, segmentHighlightedText } from '@/lib/investigation/messageHighlights';
+import { isJobOfferContent, redactJobOfferPersonalData } from '@/lib/investigation/jobOffer';
 import { CheckIcon, CopyIcon, DownloadIcon, EvidenceIcon, FileIcon, GlobeIcon, RetryIcon, ShieldIcon, SpinnerIcon, StopIcon } from './icons';
 import { CertificateModal } from './CertificateModal';
 
@@ -167,11 +169,140 @@ function getFollowUpChips(turn: ChatTurn): string[] {
   ];
 }
 
+const SIGNAL_LABELS = {
+  sensitive: 'Sensitive information request',
+  urgency: 'Urgency signal',
+  payment: 'Payment demand',
+  impersonation: 'Claimed authority',
+  domain: 'Domain warning',
+} as const;
+
+const HighlightedMessageText: React.FC<{
+  text: string;
+  instanceKey: string;
+  sources: IndexedSource[];
+  urlAnalysis?: UrlAnalysisResult;
+  onCitationClick: (citeIndex: number) => void;
+}> = ({ text, instanceKey, sources, urlAnalysis, onCitationClick }) => {
+  const [activeHighlightId, setActiveHighlightId] = useState<string | null>(null);
+  const [popoverPosition, setPopoverPosition] = useState({ left: 12, top: 12, width: 280 });
+  const rootRef = useRef<HTMLSpanElement>(null);
+  const highlights = useMemo(
+    () => detectMessageHighlights(text, { sources, urlAnalysis }),
+    [sources, text, urlAnalysis],
+  );
+  const segments = useMemo(() => segmentHighlightedText(text, highlights), [highlights, text]);
+
+  useEffect(() => {
+    if (!activeHighlightId) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setActiveHighlightId(null);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setActiveHighlightId(null);
+    };
+    const handleViewportChange = () => setActiveHighlightId(null);
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('resize', handleViewportChange);
+    window.addEventListener('scroll', handleViewportChange, true);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('resize', handleViewportChange);
+      window.removeEventListener('scroll', handleViewportChange, true);
+    };
+  }, [activeHighlightId]);
+
+  const toggleHighlight = (highlightId: string, anchor: HTMLButtonElement) => {
+    if (activeHighlightId === highlightId) {
+      setActiveHighlightId(null);
+      return;
+    }
+    const anchorRect = anchor.getBoundingClientRect();
+    const width = Math.min(300, window.innerWidth - 24);
+    const left = Math.min(Math.max(12, anchorRect.left), window.innerWidth - width - 12);
+    const belowTop = anchorRect.bottom + 8;
+    const top = belowTop > window.innerHeight - 180 ? Math.max(12, anchorRect.top - 168) : belowTop;
+    setPopoverPosition({ left, top, width });
+    setActiveHighlightId(highlightId);
+  };
+
+  if (highlights.length === 0) return text;
+
+  return (
+    <span className="message-highlight-root" ref={rootRef}>
+      {segments.map((segment, index) => {
+        if (!segment.highlight) return <React.Fragment key={`text-${index}`}>{segment.text}</React.Fragment>;
+        const highlight = segment.highlight;
+        const isOpen = activeHighlightId === highlight.id;
+        const popoverId = `signal-${instanceKey}-${highlight.id}`.replace(/[^a-zA-Z0-9_-]/g, '-');
+        return (
+          <span className="message-signal-wrap" key={highlight.id}>
+            <button
+              type="button"
+              className={`message-signal-highlight signal-${highlight.category} ${isOpen ? 'active' : ''}`}
+              aria-expanded={isOpen}
+              aria-controls={popoverId}
+              aria-haspopup="dialog"
+              onClick={event => toggleHighlight(highlight.id, event.currentTarget)}
+            >
+              {segment.text}
+            </button>
+            {isOpen && (
+              <span
+                className="message-signal-popover"
+                id={popoverId}
+                role="dialog"
+                aria-label={`Why “${highlight.text}” deserves attention`}
+                style={popoverPosition}
+              >
+                <span className="message-signal-popover-head">
+                  <strong>{SIGNAL_LABELS[highlight.category]}</strong>
+                  <span className={`message-signal-status ${highlight.finding === 'verified_finding' ? 'verified' : 'general'}`}>
+                    {highlight.finding === 'verified_finding' ? 'Verified finding' : 'General warning signal'}
+                  </span>
+                </span>
+                <span className="message-signal-explanation">{highlight.explanation}</span>
+                {highlight.evidenceSourceIds.length > 0 && (
+                  <span className="message-signal-evidence">
+                    Supporting evidence:{' '}
+                    {highlight.evidenceSourceIds.map(sourceId => (
+                      <button
+                        type="button"
+                        key={sourceId}
+                        onClick={() => {
+                          setActiveHighlightId(null);
+                          onCitationClick(sourceId);
+                        }}
+                        aria-label={`Open supporting source ${sourceId}`}
+                      >
+                        [{sourceId}]
+                      </button>
+                    ))}
+                  </span>
+                )}
+              </span>
+            )}
+          </span>
+        );
+      })}
+    </span>
+  );
+};
+
 const UserTurnItem: React.FC<{
   turn: ChatTurn;
   onCopyPrompt: (text: string) => void;
-}> = ({ turn, onCopyPrompt }) => {
+  sources: IndexedSource[];
+  taskType?: TaskType;
+  onCitationClick: (citeIndex: number) => void;
+}> = ({ turn, onCopyPrompt, sources, taskType, onCitationClick }) => {
   const [copied, setCopied] = useState(false);
+  const isJobOffer = taskType === 'job_offer' || isJobOfferContent(
+    `${turn.content || ''} ${(turn.attachments || []).map(attachment => attachment.extractedText || '').join(' ')}`,
+    (turn.attachments || []).map(attachment => attachment.name),
+  );
 
   const handleCopy = () => {
     onCopyPrompt(turn.content || '');
@@ -217,17 +348,37 @@ const UserTurnItem: React.FC<{
                     </a>
                   )}
                 </span>
-                {att.extractedText && (
+                {att.extractedText && (() => {
+                  const safeText = isJobOffer ? redactJobOfferPersonalData(att.extractedText) : att.extractedText;
+                  const displayedText = safeText.length > 200 ? `${safeText.slice(0, 200)}...` : safeText;
+                  return (
                   <div className="user-ocr-transcript">
                     <span className="user-ocr-label">OCR Transcribed Text:</span>
-                    <p className="user-ocr-snippet">&ldquo;{att.extractedText.length > 200 ? `${att.extractedText.slice(0, 200)}...` : att.extractedText}&rdquo;</p>
+                    <p className="user-ocr-snippet">&ldquo;<HighlightedMessageText
+                      text={displayedText}
+                      instanceKey={`${turn.id}-attachment-${idx}`}
+                      sources={sources}
+                      urlAnalysis={att.urlAnalysis}
+                      onCitationClick={onCitationClick}
+                    />&rdquo;</p>
                   </div>
-                )}
+                  );
+                })()}
               </div>
             ))}
           </div>
         )}
-        {turn.content && <div className="user-turn-text">{turn.content}</div>}
+        {turn.content && (
+          <div className="user-turn-text">
+            <HighlightedMessageText
+              text={turn.content}
+              instanceKey={`${turn.id}-message`}
+              sources={sources}
+              urlAnalysis={turn.attachments?.find(attachment => attachment.urlAnalysis)?.urlAnalysis}
+              onCitationClick={onCitationClick}
+            />
+          </div>
+        )}
       </div>
       <div className="user-turn-actions">
         <button
@@ -351,7 +502,11 @@ const AssistantTurnView: React.FC<{
               <span className="checking-label">
                 {isLive
                   ? (stages.find(s => s.status === 'running')?.title || 'Checking background sources...')
-                  : `Checked ${stages.length || 5} sources & registries`}
+                  : meta?.retrieval
+                    ? `Found ${meta.retrieval.searchResultsFound} result${meta.retrieval.searchResultsFound === 1 ? '' : 's'} · Inspected ${meta.retrieval.pagesInspected} page${meta.retrieval.pagesInspected === 1 ? '' : 's'}${meta.retrieval.pagesUnavailable > 0 ? ` · Unavailable ${meta.retrieval.pagesUnavailable} page${meta.retrieval.pagesUnavailable === 1 ? '' : 's'}` : ''} · Cited ${meta.retrieval.citedSourceIds.length} source${meta.retrieval.citedSourceIds.length === 1 ? '' : 's'}`
+                    : hasSources
+                      ? `Retrieved ${meta!.sources!.length} source${meta!.sources!.length === 1 ? '' : 's'}`
+                      : 'No source records retrieved'}
               </span>
               <svg
                 viewBox="0 0 24 24"
@@ -371,7 +526,7 @@ const AssistantTurnView: React.FC<{
                 {stages.length === 0 ? (
                   <div className="checking-step-row">
                     <span className="step-dot">•</span>
-                    <span className="step-name">Searching PIB Fact Check and official regulatory gazettes...</span>
+                    <span className="step-name">Preparing the evidence search...</span>
                   </div>
                 ) : (
                   stages.map((s, idx) => (
@@ -492,7 +647,6 @@ const AssistantTurnView: React.FC<{
                   <div className="source-impact-flat-head">
                     <span className="source-impact-domain">[{impact.sourceId}] {impact.domain}</span>
                     <span className="source-impact-pill">{impact.stance}</span>
-                    <span className="source-impact-weight">Auth: {Math.round(impact.authorityWeight * 100)}% &bull; Rel: {Math.round(impact.relevanceScore * 100)}%</span>
                   </div>
                   <p className="source-impact-detail">{impact.explanation}</p>
                 </div>
@@ -932,13 +1086,17 @@ export const ConversationFeed: React.FC<ConversationFeedProps> = ({
   return (
     <div className="conversation" id="conversation">
 
-      {turns.map(turn => {
+      {turns.map((turn, turnIndex) => {
         if (turn.role === 'user') {
+          const relatedAssistant = turns[turnIndex + 1]?.role === 'assistant' ? turns[turnIndex + 1] : undefined;
           return (
             <UserTurnItem
               key={turn.id}
               turn={turn}
               onCopyPrompt={onCopyBriefing}
+              sources={relatedAssistant?.meta?.sources || []}
+              taskType={relatedAssistant?.meta?.taskType}
+              onCitationClick={onCitationClick}
             />
           );
         }

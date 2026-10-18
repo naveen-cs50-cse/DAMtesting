@@ -1,4 +1,4 @@
-import { IndexedSource } from './types';
+import { IndexedSource, RetrievalStats } from './types';
 import { REGULATORY_FIXTURES } from './knowledge';
 
 interface TavilySearchResult {
@@ -11,33 +11,75 @@ interface TavilySearchResponse {
   results?: TavilySearchResult[];
 }
 
+export function canonicalSourceUrl(rawUrl: string): string {
+  try {
+    const url = new URL(rawUrl);
+    url.hash = '';
+    for (const key of [...url.searchParams.keys()]) {
+      if (/^(utm_|fbclid|gclid)/i.test(key)) url.searchParams.delete(key);
+    }
+    url.hostname = url.hostname.toLowerCase();
+    url.pathname = url.pathname.replace(/\/$/, '') || '/';
+    return url.toString();
+  } catch {
+    return rawUrl.trim();
+  }
+}
+
+export interface SourceRetrievalResult {
+  sources: IndexedSource[];
+  stats: RetrievalStats;
+}
+
 export async function searchAndReadSources(
   queries: string[],
   prompt: string,
   tavilyKey?: string
-): Promise<IndexedSource[]> {
+): Promise<SourceRetrievalResult> {
   let sources: IndexedSource[] = [];
+  let searchResultsFound = 0;
+  let searchCompleted = false;
   const lower = prompt.toLowerCase();
   const apiKey = tavilyKey || process.env.TAVILY_API_KEY;
 
   if (apiKey && queries.length > 0) {
     try {
-      const tavilyRes = await fetch('https://api.tavily.com/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          api_key: apiKey,
-          query: queries[0],
-          search_depth: 'advanced',
-          include_answer: true,
-          max_results: 5,
-        }),
-      });
+      const searchResponses = await Promise.all(
+        queries.slice(0, 2).map(query => fetch('https://api.tavily.com/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            api_key: apiKey,
+            query,
+            search_depth: 'advanced',
+            include_answer: false,
+            max_results: 4,
+          }),
+        }))
+      );
 
-      if (tavilyRes.ok) {
-        const tavilyData = (await tavilyRes.json()) as TavilySearchResponse;
-        if (tavilyData.results && tavilyData.results.length > 0) {
-          sources = tavilyData.results.map((r, i) => {
+      const resultGroups = await Promise.all(searchResponses.map(async response => {
+        if (!response.ok) return [];
+        const data = (await response.json()) as TavilySearchResponse;
+        return data.results || [];
+      }));
+      searchCompleted = true;
+
+      const seenUrls = new Set<string>();
+      const uniqueResults = resultGroups.flat().filter(result => {
+        const canonicalUrl = result.url ? canonicalSourceUrl(result.url) : '';
+        if (!canonicalUrl || seenUrls.has(canonicalUrl)) return false;
+        seenUrls.add(canonicalUrl);
+        result.url = canonicalUrl;
+        return true;
+      });
+      searchResultsFound = uniqueResults.length;
+
+      if (uniqueResults.length > 0) {
+        sources = uniqueResults
+          .filter(result => Boolean(result.url && result.content?.trim()))
+          .slice(0, 6)
+          .map((r, i) => {
             let domain = 'web';
             try {
               domain = new URL(r.url).hostname.replace(/^www\./, '');
@@ -45,32 +87,22 @@ export async function searchAndReadSources(
               domain = 'web';
             }
 
-            const isGov =
-              domain.endsWith('.gov.in') ||
-              domain.endsWith('.nic.in') ||
-              domain.includes('rbi.org.in') ||
-              domain.includes('trai.gov.in') ||
-              domain.includes('cybercrime.gov.in');
-
-            const isFactCheck =
-              domain.includes('boomlive') ||
-              domain.includes('altnews') ||
-              domain.includes('factcheck') ||
-              domain.includes('thequint');
-
             return {
               id: i + 1,
               domain,
-              title: r.title || 'Official Registry Source',
-              date: 'Live Registry',
-              type: isGov ? 'Government' : isFactCheck ? 'Fact-checker' : 'News',
+              title: r.title || 'Untitled search result',
+              date: 'Date not provided',
+              // A search result URL alone is not enough to authenticate its publisher.
+              type: 'Search result',
               url: r.url,
-              passage: r.content || 'Extracted regulatory passage verifying publication date and official notice requirements.',
+              passage: r.content!.trim(),
               stance: 'context' as const,
               isFixture: false, // Explicitly live evidence from search
+              contentOrigin: 'search_snippet',
+              inspectionStatus: 'not_inspected',
+              isCited: false,
             };
           });
-        }
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -229,6 +261,18 @@ export async function searchAndReadSources(
     }
   }
 
-  return sources.map((s, idx) => ({ ...s, id: idx + 1 }));
+  const normalizedSources = sources.map((source, index) => ({ ...source, id: index + 1 }));
+  return {
+    sources: normalizedSources,
+    stats: {
+      searchAttempted: Boolean(apiKey && queries.length > 0),
+      searchCompleted,
+      searchResultsFound,
+      snippetsAvailable: normalizedSources.filter(source => !source.isFixture && source.contentOrigin === 'search_snippet').length,
+      pagesInspected: 0,
+      pagesUnavailable: 0,
+      citedSourceIds: [],
+    },
+  };
 }
 

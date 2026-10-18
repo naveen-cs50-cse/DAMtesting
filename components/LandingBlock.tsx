@@ -160,14 +160,10 @@ const HEADINGS: string[] = [
 
 interface LandingBlockProps {
   onSelectPrompt: (prompt: string) => void;
-  onOpenWhatsApp?: () => void;
-  onOpenExtension?: () => void;
 }
 
 export const LandingBlock: React.FC<LandingBlockProps> = ({ 
   onSelectPrompt,
-  onOpenWhatsApp,
-  onOpenExtension,
 }) => {
   // Deterministic initial state for SSR, rotated immediately on client mount (every refresh)
   const [heading, setHeading] = useState<string>(HEADINGS[0]);
@@ -323,33 +319,6 @@ export const LandingBlock: React.FC<LandingBlockProps> = ({
         </svg>
         Shuffle suggestions
       </button>
-
-      {/* Understated channel shortcuts for discoverability */}
-      <div className="landing-channels-bar" role="navigation" aria-label="Available verification channels">
-        <button
-          type="button"
-          className="landing-channel-shortcut"
-          onClick={onOpenWhatsApp}
-          title="Open WhatsApp verification agent instructions and invite"
-        >
-          <svg viewBox="0 0 24 24" width="13" height="13" fill="#25D366" aria-hidden="true">
-            <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2zm0 18.15c-1.5 0-2.97-.4-4.25-1.16l-.3-.18-3.13.82.84-3.05-.2-.32a8.19 8.19 0 0 1-1.25-4.37c0-4.54 3.7-8.24 8.24-8.24 2.2 0 4.27.86 5.82 2.42a8.18 8.18 0 0 1 2.41 5.83c.01 4.54-3.69 8.24-8.23 8.24zm4.52-6.16c-.25-.12-1.47-.72-1.7-.81-.23-.08-.39-.12-.56.12-.17.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-1.99-1.23-.74-.66-1.23-1.47-1.38-1.72-.14-.25-.02-.38.11-.5.11-.11.25-.29.37-.43.12-.14.17-.25.25-.41.08-.17.04-.31-.02-.43s-.56-1.34-.76-1.84c-.2-.48-.41-.42-.56-.43h-.48c-.17 0-.43.06-.66.31-.22.25-.86.84-.86 2.05s.88 2.38 1 2.55c.12.17 1.73 2.65 4.2 3.71.59.25 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.07.14-1.18-.06-.11-.22-.17-.47-.3z" />
-          </svg>
-          <span>Try DAM on WhatsApp</span>
-        </button>
-        <span className="landing-channel-dot" aria-hidden="true">&bull;</span>
-        <button
-          type="button"
-          className="landing-channel-shortcut"
-          onClick={onOpenExtension}
-          title="Open Chrome and Edge browser extension installation"
-        >
-          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#3b82f6" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M20.5 14.5A2.5 2.5 0 0 0 18 12V6a2 2 0 0 0-2-2h-6a2.5 2.5 0 0 0-5 0H3a1 1 0 0 0-1 1v4.5A2.5 2.5 0 0 0 4.5 12 2.5 2.5 0 0 0 2 14.5V19a1 1 0 0 0 1 1h4.5a2.5 2.5 0 0 0 5 0H16a2 2 0 0 0 2-2v-1.5a2.5 2.5 0 0 0 2.5-2.5z" />
-          </svg>
-          <span>Get the browser extension</span>
-        </button>
-      </div>
     </div>
   );
 };

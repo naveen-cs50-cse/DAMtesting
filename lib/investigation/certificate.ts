@@ -50,7 +50,7 @@ export function generateVerificationCertificate(
   const topFindings = [
     `Factual Determination: ${verdicts.factualCorrectness}`,
     `Threat & Scam Assessment: ${verdicts.scamRisk} Risk`,
-    `Evidence Base: Cross-examined against ${sourcesCount} indexed primary registries`
+    `Evidence Base: ${sourcesCount} source${sourcesCount === 1 ? '' : 's'} cited in this briefing`
   ];
 
   const qrPayload = `https://usedam.in/verify/${certificateId}?sha256=${sha256Fingerprint.slice(0, 16)}`;

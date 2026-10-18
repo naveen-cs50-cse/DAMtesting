@@ -8,7 +8,7 @@ import { analyzeManipulationVectors } from '../lib/investigation/manipulation';
 import { generateVerificationCertificate } from '../lib/investigation/certificate';
 import { generateSmartTitle } from '../lib/investigation/naming';
 import { verifyAndChallenge } from '../lib/investigation/verifier';
-import { IndexedSource, DocumentAnalysis, UrlAnalysisResult } from '../lib/investigation/types';
+import { IndexedSource, DocumentAnalysis, UrlAnalysisResult, InvestigationMeta } from '../lib/investigation/types';
 
 describe('Unit Tests: Core Investigation Modules', () => {
 
@@ -32,6 +32,12 @@ describe('Unit Tests: Core Investigation Modules', () => {
       const plan = coordinateInvestigation('Overview of RBI sovereign green bond policy and guidelines');
       assert.equal(plan.taskType, 'research');
       assert.ok(plan.queries.some(q => q.toLowerCase().includes('green bond')));
+    });
+
+    it('should route Indian tax-refund messages to Indian authoritative sources', () => {
+      const plan = coordinateInvestigation('Fact-check this Income Tax refund email asking for a debit card CVV');
+      assert.ok(plan.queries.some(query => query.includes('Income Tax Department phishing')));
+      assert.ok(plan.queries.every(query => !query.startsWith('IRS ')));
     });
 
     it('should classify attachments with PDFs as document_analysis', () => {
@@ -243,6 +249,21 @@ describe('Unit Tests: Core Investigation Modules', () => {
       assert.equal(generateSmartTitle('TRAI mobile number disconnected warning'), 'TRAI / DoT Mobile Number Threat');
       assert.equal(generateSmartTitle('CBI digital arrest warrant on video call'), 'Digital Arrest / CBI Extortion Call');
       assert.equal(generateSmartTitle('RBI ₹500 note demonetization currency ban'), 'RBI ₹500 Note Withdrawal Claim');
+      assert.equal(
+        generateSmartTitle('Income Tax Department approved a refund. Confirm your bank account and debit card CVV.'),
+        'Income Tax Refund Phishing Alert'
+      );
+    });
+
+    it('should bind titles to the submitted prompt instead of asynchronous metadata', () => {
+      const staleMeta = {
+        claims: [{ claim: 'RBI ₹500 Note Withdrawal Claim' }]
+      } as unknown as InvestigationMeta;
+
+      assert.equal(
+        generateSmartTitle('Verify this Income Tax refund message asking for bank account details', staleMeta),
+        'Income Tax Refund Phishing Alert'
+      );
     });
 
     it('should strip conversational prompts cleanly', () => {

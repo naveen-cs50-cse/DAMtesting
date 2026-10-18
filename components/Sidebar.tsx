@@ -355,14 +355,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* New Investigation Button */}
-      <div style={{ padding: '12px 12px 6px' }}>
+      <div style={{ padding: '8px 8px 4px' }}>
         <button 
           className="new-investigation-btn" 
           onClick={onNewConversation} 
           title={`Start a fresh investigation (${isMac ? 'Cmd+K' : 'Ctrl+K'})`}
-          style={{ width: '100%', margin: 0 }}
+          style={{ width: '100%', margin: 0, padding: '0 8px', gap: '8px' }}
         >
-          <span className="sidebar-btn-icon-slot">
+          <span className="sidebar-btn-icon-slot" style={{ width: '16px', height: '16px' }}>
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 5v14M5 12h14"/></svg>
           </span>
           <span style={{ flex: 1, textAlign: 'left', fontWeight: 500 }}>New investigation</span>
@@ -370,7 +370,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Bookmarks Access Button */}
-      <div style={{ padding: '0 12px 6px' }}>
+      <div style={{ padding: '0 8px 6px' }}>
         <button
           ref={bookmarksTriggerRef}
           type="button"
@@ -380,11 +380,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           style={{
             width: '100%',
             margin: 0,
+            padding: '0 8px',
+            gap: '8px',
             background: bookmarksOpen ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.035)',
             borderColor: bookmarksOpen ? 'rgba(255, 255, 255, 0.18)' : 'rgba(255, 255, 255, 0.08)',
           }}
         >
-          <span className="sidebar-btn-icon-slot">
+          <span className="sidebar-btn-icon-slot" style={{ width: '16px', height: '16px' }}>
             <svg viewBox="0 0 24 24" width="15" height="15" fill={bookmarksOpen || bookmarkedList.length > 0 ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.6">
               <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
             </svg>

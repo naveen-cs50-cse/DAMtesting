@@ -1,4 +1,5 @@
 import { Attachment, TaskType } from './types';
+import { extractClaimedCompany, extractEmailDomains, isJobOfferContent } from './jobOffer';
 
 export interface PlanResult {
   taskType: TaskType;
@@ -72,7 +73,10 @@ export function coordinateInvestigation(
   }
 
   let taskType: TaskType = 'verification';
-  if (lower.includes('scheme') || lower.includes('policy') || lower.includes('research') || lower.includes('cert-in') || lower.includes('overview') || lower.includes('explain')) {
+  const isJobOffer = isJobOfferContent(combinedContent, attachments.map(attachment => attachment.name));
+  if (isJobOffer) {
+    taskType = 'job_offer';
+  } else if (lower.includes('scheme') || lower.includes('policy') || lower.includes('research') || lower.includes('cert-in') || lower.includes('overview') || lower.includes('explain')) {
     taskType = 'research';
   } else if (lower.includes('dear consumer') || lower.includes('power cut') || lower.includes('apk') || lower.includes('yono') || lower.includes('urgent') || lower.includes('blocked') || lower.includes('sim') || lower.includes('cbi') || lower.includes('arrest') || lower.includes('9821') || lower.includes('suspend') || lower.includes('kyc')) {
     taskType = 'scam_check';
@@ -82,8 +86,22 @@ export function coordinateInvestigation(
 
   const queries: string[] = [];
 
+  if (isJobOffer) {
+    const claimedCompany = extractClaimedCompany(combinedContent);
+    const senderDomains = extractEmailDomains(combinedContent);
+    if (claimedCompany) {
+      queries.push(`${claimedCompany} official company careers`);
+      queries.push(`${claimedCompany} recruitment scam official warning`);
+    } else if (senderDomains.length > 0) {
+      queries.push(`${senderDomains[0]} official company careers`);
+      queries.push(`${senderDomains[0]} recruitment scam warning`);
+    } else {
+      queries.push('job offer recruitment fee scam official guidance');
+    }
+  }
+
   // Check for specific circular numbers, authorities, phones, or URLs extracted from documents
-  attachments.forEach(a => {
+  if (!isJobOffer) attachments.forEach(a => {
     if (a.documentAnalysis?.extractedIdentifiers) {
       const { circularNumbers, issuingAuthorities } = a.documentAnalysis.extractedIdentifiers;
       if (circularNumbers && circularNumbers.length > 0) {
@@ -119,17 +137,19 @@ export function coordinateInvestigation(
   ]);
   const allSenders = attachments.flatMap(a => a.threatEntities?.senderIds || []);
 
-  if (allPhones.length > 0) {
+  if (!isJobOffer && allPhones.length > 0) {
     queries.push(`${allPhones[0]} fraud scam complaint 1930 Chakshu`);
   }
-  if (allUrls.length > 0) {
+  if (!isJobOffer && allUrls.length > 0) {
     queries.push(`${allUrls[0]} phishing scam fact check`);
   }
-  if (allSenders.length > 0) {
+  if (!isJobOffer && allSenders.length > 0) {
     queries.push(`${allSenders[0]} DLT sender ID fraud alert`);
   }
 
-  if ((lower.includes('500') && (lower.includes('note') || lower.includes('banknote') || lower.includes('rbi') || lower.includes('currency'))) || lower.includes('demonetiz')) {
+  if (isJobOffer) {
+    // Queries above intentionally contain only employer/domain context, never candidate details.
+  } else if ((lower.includes('500') && (lower.includes('note') || lower.includes('banknote') || lower.includes('rbi') || lower.includes('currency'))) || lower.includes('demonetiz')) {
     queries.push('RBI 500 banknote withdrawal circular legal tender clarification');
     queries.push('PIB Fact Check RBI demonetization 500 note');
   } else if (lower.includes('electric') || lower.includes('disconnection') || lower.includes('bill')) {
@@ -141,9 +161,12 @@ export function coordinateInvestigation(
   } else if (lower.includes('digital arrest') || (lower.includes('arrest') && (lower.includes('video') || lower.includes('skype') || lower.includes('call')))) {
     queries.push('MHA I4C digital arrest video call advisory cybercrime.gov.in');
     queries.push('digital arrest scam police CBI legal procedure clarification');
-  } else if (lower.includes('irs') || lower.includes('tax refund') || (lower.includes('tax') && lower.includes('phishing'))) {
+  } else if (lower.includes('irs')) {
     queries.push('IRS tax refund email phishing scam official advisory');
     queries.push('IRS initiate contact email text refund warning');
+  } else if (lower.includes('income tax') || lower.includes('tax refund') || (lower.includes('tax') && lower.includes('phishing'))) {
+    queries.push('Income Tax Department phishing email CVV bank details official advisory India');
+    queries.push('income tax refund phishing warning site:incometax.gov.in OR site:cybercrime.gov.in');
   } else {
     const rawSubject = prompt.trim() || extractedPieces.slice(0, 70);
     const coreClaim = rawSubject
